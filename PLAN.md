@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] **Rédaction des chapitres** — **ch. 0 à 23 rédigés** : **Parties I, II et III terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`). La Partie III (Vague 2) a été rédigée en avance ; restent les **projets**.
-5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2).
+4. [~] **Rédaction des chapitres** — **ch. 0 à 29 rédigés** : **Parties I, II, III et IV terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`). Les Parties III (Vague 2) et IV (début Vague 3) ont été rédigées en avance ; restent les **projets** et la Partie V.
+5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2) ; poursuivre la **Vague 3** avec la **Partie V** (Ch. 30 → 35).
 
 ---
 
@@ -545,17 +545,17 @@ Un chapitre est « terminé » quand :
 
 ### Chapitres
 
-| Partie                  | Chapitres              | État      |
-| ----------------------- | ---------------------- | --------- |
-| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅     | **2/2**   |
-| I — Fondamentaux        | Ch. 2-13 ✅            | **12/12** |
-| II — Mécanismes avancés | Ch. 14-18 ✅           | **5/5**   |
-| III — Concurrence       | Ch. 19-23 ✅           | **5/5**   |
-| IV — Runtime & mémoire  | Ch. 24 → 29            | ⬜ 0/6    |
-| V — Internals           | Ch. 30 → 35            | ⬜ 0/6    |
-| VI — Performance        | Ch. 36 → 40            | ⬜ 0/5    |
-| VII — Projets           | Projets 1 → 7          | ⬜ 0/7    |
-| Annexes                 | A → G                  | ⬜ 0/7    |
+| Partie                  | Chapitres          | État      |
+| ----------------------- | ------------------ | --------- |
+| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅ | **2/2**   |
+| I — Fondamentaux        | Ch. 2-13 ✅        | **12/12** |
+| II — Mécanismes avancés | Ch. 14-18 ✅       | **5/5**   |
+| III — Concurrence       | Ch. 19-23 ✅       | **5/5**   |
+| IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
+| V — Internals           | Ch. 30 → 35        | ⬜ 0/6    |
+| VI — Performance        | Ch. 36 → 40        | ⬜ 0/5    |
+| VII — Projets           | Projets 1 → 7      | ⬜ 0/7    |
+| Annexes                 | A → G              | ⬜ 0/7    |
 
 ### Infrastructure
 
@@ -600,7 +600,16 @@ Un chapitre est « terminé » quand :
   `WithCancelCause`/`Cause`, `WithTimeout`, valeur de contexte à clé de type non exporté),
   `code/ch23-patterns-concurrence/` (`source`/`stage` pipeline en flux, `workerPool` parallélisme borné,
   `Group` errgroup maison en stdlib, `rateLimited` via `time.Ticker`, tests `testing/synctest` à horloge
-  virtuelle).
+  virtuelle), `code/ch24-runtime-bootstrap/` (ordre d'init dépendances→`init()`, `CurrentRuntime` via
+  `runtime.Version`/`NumCPU`/`GOMAXPROCS`, démonstration `GODEBUG=inittrace`), `code/ch25-modele-memoire/`
+  (publication sûre `PublishViaChannel`, `sync.Once` contre le double-checked locking, `atomic.Pointer`,
+  tests `-race` verts), `code/ch26-allocation-escape/` (`sumLocalArray`/`sumSmallSlice` 0 alloc sur pile vs
+  `NewPoint`/`LeakSlice` échappés, `concatPrealloc` vs `concatNoPrealloc`, assertions `testing.AllocsPerRun`
+  + benchmarks `-benchmem`), `code/ch27-garbage-collector/` (cache à références faibles `weak.Pointer`,
+  `runtime.AddCleanup`, `WithGCPercent`/`CurrentMemoryLimit` via `debug`), `code/ch28-ordonnanceur-gmp/`
+  (`parallelSum` fan-out, `WithGOMAXPROCS`, `busyWork`+`runtime.Gosched`, démo 205 ms→32 ms),
+  `code/ch29-observabilite-runtime/` (`ReadSnapshot` via `runtime/metrics` dont `/sched/*` 1.26,
+  `ReadBuildInfo`, compteur+jauge `expvar`, comparaison `ReadMemStats`).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -631,7 +640,7 @@ Un chapitre est « terminé » quand :
   piège `defer` en boucle (Close repoussés en fin de fonction), **open-coded defer** ~3,24 ns ≈ appel
   direct vs `defer` en boucle ~16,6 ns/defer (0 alloc) ; `panic`/`recover` — `recover` rattrape dans
   un `defer` (y compris paniques runtime), **re-panique même valeur** → `panic: … [recovered,
-  repanicked]` (1.25) vs valeur différente → `[recovered]` + chaîne, **panique de goroutine fatale**
+repanicked]` (1.25) vs valeur différente → `[recovered]` + chaîne, **panique de goroutine fatale**
   (non rattrapable depuis `main`) ; itérateurs (1.23) — `iter.Seq`/`Seq2`, **range-over-func**, arrêt
   anticipé (`break` propage `yield`=false), composition **paresseuse** `Map`/`Filter`/`Take`
   (`[0 4 16]`) sur source **infinie**, `iter.Pull` (`Zip`, goroutine + `stop()` obligatoire),
@@ -640,7 +649,7 @@ Un chapitre est « terminé » quand :
   (`StackInuse`, 100 k goroutines = +205 Mo), `runtime.NumGoroutine` 1 → 100001, **profil
   `goroutineleak`** gated `GOEXPERIMENT=goroutineleakprofile` (nil sinon, pointe la ligne `<-ch`
   exacte), métriques **1.26** `/sched/goroutines-created` + ventilation `/sched/goroutines/{running,
-  runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on closed channel` /
+runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on closed channel` /
   `close of closed channel` / `close of nil channel`, réception post-`close` draine puis zéro/`false`,
   bench canal non bufferisé **185 ns** vs bufferisé **43 ns** ; `sync` — **`WaitGroup.Go`** (1.25) +
   analyzer **`go vet waitgroup`** (« Add called from inside new goroutine »), `OnceValue` exécuté
@@ -648,12 +657,31 @@ Un chapitre est « terminé » quand :
   lecture 120 ns** (0 alloc) ; `context` — `WithCancelCause`/`Cause` (`Err()`=Canceled mais
   `Cause()`=erreur métier), `WithTimeout` → `DeadlineExceeded`, clé de contexte à type non exporté ;
   **`testing/synctest`** (GA 1.25) — `synctest.Test`/`Wait`, horloge **virtuelle exacte** (5 × 100 ms =
-  500 ms en 0 s réel), tout `go test`/`-race`/`vet` propres sur ch19-23.
+  500 ms en 0 s réel), tout `go test`/`-race`/`vet` propres sur ch19-23 ; runtime & mémoire (Partie IV) —
+  **bootstrap** `_rt0_<arch>_<os>` → `rt0_go` (`g0`/`m0`) → `schedinit` → `runtime.main` → `main.main`,
+  ordre d'init **dépendances→`init()`** observé (`base` avant `derived`, vars avant `init()`),
+  **`GODEBUG=inittrace=1`** format `init <pkg> @t ms, clock ms clock, N bytes, M allocs` (avec `init main`) ;
+  **modèle mémoire** — publication par canal/`sync.Once`/`atomic.Pointer` **`-race` verte**, double-checked
+  locking buggé, atomics séquentiellement cohérents depuis 1.19 ; **escape analysis** `-gcflags=-m`
+  (`moved to heap`, `make([]int, 8) does not escape` = backing **sur pile** 1.25/1.26, `escapes to heap` sur
+  interface), `testing.AllocsPerRun` = 0/0/1/1 alloc (`sumLocalArray`/`sumSmallSlice`/`NewPoint`/`LeakSlice`),
+  préallocation **9→1 alloc, 25152→8192 B, 2690→1116 ns** ; **GC** — `weak.Make`/`weak.Pointer[T].Value()`
+  (nil après GC) + `runtime.AddCleanup` (cleanup exécuté, distinct des finalizers), `GODEBUG=gctrace=1`
+  format complet (`avant->après->vivant MB`, `goal`, 2 STW + marquage concurrent), `checkfinalizers=1` (1.25,
+  `queue: N finalizers + M cleanups`), **Green Tea GC par défaut 1.26** (`GOEXPERIMENT=nogreenteagc` accepté),
+  `debug.SetGCPercent`/`SetMemoryLimit(-1)`=MaxInt64 ; **ordonnanceur** — `GODEBUG=schedtrace=N` format
+  (`gomaxprocs`/`idleprocs`/`threads`/`runqueue` globale + `[ LRQ par P ]`), `threads`>`GOMAXPROCS` sur
+  syscall, `runtime.SetDefaultGOMAXPROCS()` (1.25) présent, démo CPU 205 ms (P=1) → 32 ms (P=8) ;
+  **observabilité** — `runtime/metrics` **112 descripteurs**, `NumGoroutine`=1 (user) vs
+  `/sched/goroutines`=6-7 (toutes, système comprises), `/sched/goroutines-created` cumulatif + ventilation
+  `running`/`runnable`/`waiting` (1.26), `ReadBuildInfo`=`go1.26.4`, `expvar` (`/debug/vars`) publié/lu.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Parties I, II et III terminées (Ch. 0 à 23)** — la Partie III
-(concurrence, Vague 2) a été rédigée en avance. Restent les **projets** : démarrer le **Projet 1
-(Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes, lecture stdin/fichiers, worker borné,
-cross-compilation, tests), puis le **Projet 2 (API REST)** (Vague 1) et le **Projet 3 (pipeline
-concurrent / worker pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Ensuite, **Vague 3 —
-Internals** (Parties IV et V, Ch. 24 → 35).
+**Prochaine action concrète** : **Parties I, II, III et IV terminées (Ch. 0 à 29)** — les Parties III
+(concurrence, Vague 2) et IV (runtime & mémoire, début Vague 3) ont été rédigées en avance. Deux pistes :
+soit poursuivre la **Vague 3 — Internals** avec la **Partie V** (Ch. 30 → 35 : slices, strings, maps,
+interfaces, `reflect`, `unsafe`/cgo en profondeur), soit rattraper les **projets** restés en suspens —
+**Projet 1 (Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes, lecture stdin/fichiers, worker borné,
+cross-compilation, tests), **Projet 2 (API REST)** (Vague 1) et **Projet 3 (pipeline concurrent / worker
+pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Tout le module `code/` (ch01 → ch29) reste vert
+(`go build`/`vet`/`test ./...`, `gofmt -l` vide, `-race` propre sur la concurrence et le runtime).

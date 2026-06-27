@@ -13,7 +13,7 @@
 La devise de la concurrence en Go : **« Ne communiquez pas en partageant la mémoire ; partagez la
 mémoire en communiquant. »** Un **canal** (`chan`) est un tuyau **typé** et **sûr** par lequel une
 goroutine **envoie** une valeur qu'une autre **reçoit**. Le canal **synchronise** au passage : la
-réception ne peut pas voir une valeur avant qu'elle soit envoyée (une arête *happens-before*,
+réception ne peut pas voir une valeur avant qu'elle soit envoyée (une arête _happens-before_,
 [Ch. 25](25-modele-memoire.md)).
 
 Là où le [Ch. 19](19-goroutines.md) lançait des goroutines, ce chapitre les fait **dialoguer**.
@@ -267,4 +267,4 @@ go test -race ./ch20-channels-select/...
 - [Ch. 21 — Synchronisation](21-synchronisation.md) : quand les canaux ne suffisent pas (état partagé).
 - [Ch. 22 — `context`](22-context.md) : l'annulation propagée, bâtie sur `select`/`Done()`.
 - [Ch. 23 — Patterns de concurrence](23-patterns-concurrence.md) : pipelines, worker pools, fan-out.
-- [Ch. 25 — Modèle mémoire](25-modele-memoire.md) : les garanties *happens-before* d'un canal.
+- [Ch. 25 — Modèle mémoire](25-modele-memoire.md) : les garanties _happens-before_ d'un canal.

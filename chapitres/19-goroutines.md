@@ -70,13 +70,13 @@ code était le bug de concurrence n°1.
 Une goroutine **n'est pas** un thread du système. Le runtime **multiplexe** des milliers de
 goroutines sur une poignée de threads OS (le modèle **G-M-P**, [Ch. 28](28-ordonnanceur-gmp.md)).
 
-| Critère              | Goroutine                          | Thread OS                       |
-| -------------------- | ---------------------------------- | ------------------------------- |
-| Création             | `go f()` — quelques ns             | appel système — quelques µs     |
-| Pile initiale        | **~2 Ko**, **agrandie à la demande** | 1–8 **Mo**, fixe              |
-| Ordonnancement       | par le **runtime Go** (coopératif + préemptif) | par le **noyau**    |
-| Nombre réaliste      | **centaines de milliers**          | quelques milliers               |
-| Changement de contexte | très bon marché (en espace user) | coûteux (passage noyau)        |
+| Critère                | Goroutine                                      | Thread OS                   |
+| ---------------------- | ---------------------------------------------- | --------------------------- |
+| Création               | `go f()` — quelques ns                         | appel système — quelques µs |
+| Pile initiale          | **~2 Ko**, **agrandie à la demande**           | 1–8 **Mo**, fixe            |
+| Ordonnancement         | par le **runtime Go** (coopératif + préemptif) | par le **noyau**            |
+| Nombre réaliste        | **centaines de milliers**                      | quelques milliers           |
+| Changement de contexte | très bon marché (en espace user)               | coûteux (passage noyau)     |
 
 Mesuré sur go1.26.4 (arm64), lancer **100 000** goroutines bloquées :
 
@@ -92,9 +92,9 @@ automatiquement ([Ch. 26](26-allocation-escape.md)). C'est ce qui rend leur mult
 
 Deux notions **distinctes**, souvent confondues :
 
-- **Concurrence** : *structurer* un programme en tâches indépendantes qui **progressent** sur des
+- **Concurrence** : _structurer_ un programme en tâches indépendantes qui **progressent** sur des
   périodes qui se chevauchent. C'est un modèle de **conception**.
-- **Parallélisme** : *exécuter* littéralement plusieurs calculs **au même instant**, sur plusieurs
+- **Parallélisme** : _exécuter_ littéralement plusieurs calculs **au même instant**, sur plusieurs
   cœurs. C'est un fait d'**exécution**.
 
 ```
@@ -180,7 +180,8 @@ goroutineleak profile: total 1
 #  main.leak.func1+0x23  .../main.go:14   (<-ch)
 ```
 
-  Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29](29-observabilite-runtime.md).
+Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29](29-observabilite-runtime.md).
+
 - **1.26** — nouvelles métriques d'ordonnanceur dans `runtime/metrics` :
   `/sched/goroutines-created`, et la ventilation `/sched/goroutines/{running,runnable,waiting}`,
   `/sched/threads/total`.

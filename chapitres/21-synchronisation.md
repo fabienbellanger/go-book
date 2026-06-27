@@ -235,5 +235,5 @@ go test -bench=. -benchmem -cpu=8 ./ch21-synchronisation/...
 
 - [Ch. 22 — `context`](22-context.md) : annulation et délais propagés.
 - [Ch. 23 — Patterns de concurrence](23-patterns-concurrence.md) : _data races_ et `go test -race`.
-- [Ch. 25 — Modèle mémoire](25-modele-memoire.md) : les garanties *happens-before* de `sync`/`atomic`.
+- [Ch. 25 — Modèle mémoire](25-modele-memoire.md) : les garanties _happens-before_ de `sync`/`atomic`.
 - [Ch. 26 — Allocation & escape](26-allocation-escape.md) : faux partage, lignes de cache, `sync.Pool`.

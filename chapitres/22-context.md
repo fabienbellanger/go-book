@@ -42,12 +42,12 @@ du [Ch. 19](19-goroutines.md), mais **unifié** et **propagé**.
 On part d'une **racine** (`context.Background()` dans `main`/les tests) et on **dérive** des contextes
 enfants. Annuler un parent annule **tous** ses descendants.
 
-| Fonction                         | Annulé quand…                                  |
-| -------------------------------- | ---------------------------------------------- |
-| `WithCancel(parent)`             | on appelle `cancel()`                          |
-| `WithTimeout(parent, d)`         | `cancel()` **ou** après la durée `d`           |
-| `WithDeadline(parent, t)`        | `cancel()` **ou** à l'instant `t`              |
-| `WithCancelCause(parent)`        | `cancel(err)` — enregistre une **cause**       |
+| Fonction                  | Annulé quand…                            |
+| ------------------------- | ---------------------------------------- |
+| `WithCancel(parent)`      | on appelle `cancel()`                    |
+| `WithTimeout(parent, d)`  | `cancel()` **ou** après la durée `d`     |
+| `WithDeadline(parent, t)` | `cancel()` **ou** à l'instant `t`        |
+| `WithCancelCause(parent)` | `cancel(err)` — enregistre une **cause** |
 
 ```go
 ctx, cancel := context.WithTimeout(parent, 2*time.Second)
