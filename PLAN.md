@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 4 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`). Suite : ch. 5 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 6 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`). Suite : ch. 7 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie                  | Chapitres            | État    |
 | ----------------------- | -------------------- | ------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-4 ✅, Ch. 5 → 13 | 🚧 3/12 |
+| I — Fondamentaux        | Ch. 2-6 ✅, Ch. 7 → 13 | 🚧 5/12 |
 | II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
@@ -565,11 +565,13 @@ Un chapitre est « terminé » quand :
 - ✅ Exemples compilables et testés : `code/ch01-hello/` (`greet`), `code/ch02-structure/`
   (multi-packages `main` + `greeting`), `code/ch03-basics/` (zero values, conversions,
   `iota`/`ByteSize`, conversion sûre, `new(expr)`), `code/ch04-controlflow/` (FizzBuzz,
-  `classify`, `break` étiqueté).
+  `classify`, `break` étiqueté), `code/ch05-functions/` (retours multiples, variadiques,
+  fonctions-valeurs, valeur vs pointeur, functional options), `code/ch06-slices/`
+  (`reverseInts`, `filter`, `chunk` + 3-index anti-aliasing).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 5 — Fonctions** (+ exemple
-`code/ch05-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 7 — Maps & strings (usage)** (+ exemple
+`code/ch07-...`), puis enchaîner la Partie I.
