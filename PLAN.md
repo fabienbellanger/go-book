@@ -207,7 +207,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 - **Objectif** : abstraction par le comportement.
 - **Contenu** : déclaration, **satisfaction implicite** ; `any` (`interface{}`) ; type assertions & `comma-ok` ; **type switch** ; interfaces idiomatiques (`Stringer`, `io.Reader`/`Writer`, `error`) ; petites interfaces & acceptation large/retour concret.
 - **Schéma** : valeur d'interface = (type, valeur) — teaser de `iface`/`eface`.
-- **🔁 Internals** : itab, dispatch → ch. 35.
+- **🔁 Internals** : itab, dispatch → ch. 33.
 - **⚠️ Pièges** : interface nil vs pointeur nil contenu.
 
 #### Ch. 10 — Gestion des erreurs
@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 8 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`). Suite : ch. 9 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 9 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`). Suite : ch. 10 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie                  | Chapitres            | État    |
 | ----------------------- | -------------------- | ------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-8 ✅, Ch. 9 → 13 | 🚧 7/12 |
+| I — Fondamentaux        | Ch. 2-9 ✅, Ch. 10 → 13 | 🚧 8/12 |
 | II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
@@ -570,15 +570,19 @@ Un chapitre est « terminé » quand :
   (`reverseInts`, `filter`, `chunk` + 3-index anti-aliasing), `code/ch07-maps-strings/`
   (`wordCount`, `uniqueSorted` via set + `slices.Sorted(maps.Keys)`, `reverseString` &
   `truncate` rune-aware), `code/ch08-structs/` (`Point`/`Rectangle` récepteur valeur,
-  `Account`/`AuditedAccount` récepteur pointeur + embedding/override, `Padded`/`Packed` padding).
+  `Account`/`AuditedAccount` récepteur pointeur + embedding/override, `Padded`/`Packed` padding),
+  `code/ch09-interfaces/` (`Shape`/`Circle`/`Rect` satisfaction implicite + Stringer, `classify`
+  type switch, `ValidationError`/`error`, piège interface-nil).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
   **randomisée** + `slices.Sorted(maps.Keys)`, `clear` laisse la map non-nil, octets vs runes
   UTF-8 (`"café"` = 5 octets / 4 runes, `🚀` = 4 octets) ; récepteur valeur vs pointeur
   (auto-adressage), embedding **sans dispatch dynamique**, padding `Padded`=24/`Packed`=16
-  octets (64 bits), `==` interdit sur struct à champ slice (erreur compile), `structs.HostLayout`.
+  octets (64 bits), `==` interdit sur struct à champ slice (erreur compile), `structs.HostLayout` ;
+  satisfaction implicite, `type switch`, `any` ≡ `interface{}`, **piège interface-nil** (pointeur
+  nil typé → interface non-nil), method set récepteur pointeur (`T` valeur ne satisfait pas).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 9 — Interfaces (fondamentaux)**
-(+ exemple `code/ch09-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 10 — Gestion des erreurs**
+(+ exemple `code/ch10-...`), puis enchaîner la Partie I.
