@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie | Chapitres | État |
 | ------ | --------- | ---- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅ | **2/2** |
-| I — Fondamentaux        | Ch. 2 → 13         | ⬜ 0/12 |
+| I — Fondamentaux        | Ch. 2 ✅, Ch. 3 → 13 | 🚧 1/12 |
 | II — Mécanismes avancés | Ch. 14 → 18        | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23        | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29        | ⬜ 0/6  |
@@ -562,8 +562,9 @@ Un chapitre est « terminé » quand :
 - ✅ Squelette du dépôt, `README.md`, `SOMMAIRE.md`, `.gitignore`.
 - ✅ Module `code/` (`example.com/gobook`, `go 1.26`) — `go test ./...` & `go vet ./...` propres.
 - ✅ Gabarit de chapitre (`chapitres/_gabarit.md`).
-- ✅ Exemple compilable et testé : `code/ch01-hello/` (`greet` + test table-driven).
+- ✅ Exemples compilables et testés : `code/ch01-hello/` (`greet`) et `code/ch02-structure/`
+  (multi-packages `main` + `greeting`, ordre d'initialisation).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 2 — Structure d'un programme** (+ exemple
-`code/ch02-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 3 — Variables, constantes & types de base**
+(+ exemple `code/ch03-...`), puis enchaîner la Partie I.
