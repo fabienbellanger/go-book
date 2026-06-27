@@ -193,7 +193,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 - **Objectif** : tables associatives et texte.
 - **Contenu** : `map` (`make`, littéraux, `comma-ok`, `delete`, itération **non ordonnée**) ; strings immuables, `byte` vs `rune`, UTF-8, `range` sur string, conversions `[]byte`/`[]rune` ; packages `strings`, `strconv`, `unicode/utf8`, `strings.Builder`.
 - **Schéma** : encodage UTF-8 d'une chaîne multi-octets (indices byte vs rune).
-- **🔁 Internals** : maps → ch. 34, strings → ch. 33.
+- **🔁 Internals** : maps → ch. 32, strings → ch. 31.
 
 #### Ch. 8 — Structs, méthodes & composition
 
@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 6 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`). Suite : ch. 7 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 7 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`). Suite : ch. 8 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie                  | Chapitres            | État    |
 | ----------------------- | -------------------- | ------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-6 ✅, Ch. 7 → 13 | 🚧 5/12 |
+| I — Fondamentaux        | Ch. 2-7 ✅, Ch. 8 → 13 | 🚧 6/12 |
 | II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
@@ -567,11 +567,15 @@ Un chapitre est « terminé » quand :
   `iota`/`ByteSize`, conversion sûre, `new(expr)`), `code/ch04-controlflow/` (FizzBuzz,
   `classify`, `break` étiqueté), `code/ch05-functions/` (retours multiples, variadiques,
   fonctions-valeurs, valeur vs pointeur, functional options), `code/ch06-slices/`
-  (`reverseInts`, `filter`, `chunk` + 3-index anti-aliasing).
+  (`reverseInts`, `filter`, `chunk` + 3-index anti-aliasing), `code/ch07-maps-strings/`
+  (`wordCount`, `uniqueSorted` via set + `slices.Sorted(maps.Keys)`, `reverseString` &
+  `truncate` rune-aware).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
-  `for range N` et **portée par itération** de la variable de boucle (1.22).
+  `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
+  **randomisée** + `slices.Sorted(maps.Keys)`, `clear` laisse la map non-nil, octets vs runes
+  UTF-8 (`"café"` = 5 octets / 4 runes, `🚀` = 4 octets).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 7 — Maps & strings (usage)** (+ exemple
-`code/ch07-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 8 — Structs, méthodes & composition**
+(+ exemple `code/ch08-...`), puis enchaîner la Partie I.
