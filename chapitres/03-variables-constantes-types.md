@@ -49,12 +49,12 @@ var (
 Toute variable déclarée sans valeur reçoit la **valeur nulle** (_zero value_) de son
 type. Il n'existe pas de mémoire « indéterminée » comme en C.
 
-| Type                          | Zero value      |
-| ----------------------------- | --------------- |
-| Numériques (`int`, `float64`) | `0`             |
-| `bool`                        | `false`         |
-| `string`                      | `""` (vide)     |
-| Pointeurs, slices, maps, …    | `nil`           |
+| Type                          | Zero value  |
+| ----------------------------- | ----------- |
+| Numériques (`int`, `float64`) | `0`         |
+| `bool`                        | `false`     |
+| `string`                      | `""` (vide) |
+| Pointeurs, slices, maps, …    | `nil`       |
 
 ```go
 var (
@@ -74,15 +74,15 @@ fmt.Printf("i=%d f=%g b=%t s=%q\n", i, f, b, s)
 
 ### Entiers
 
-| Type                                | Taille      | Signé | Intervalle                          |
-| ----------------------------------- | ----------- | ----- | ----------------------------------- |
-| `int8`                              | 8 bits      | oui   | −128 … 127                          |
-| `int16`                             | 16 bits     | oui   | −32 768 … 32 767                    |
-| `int32`                             | 32 bits     | oui   | ≈ ±2,1 × 10⁹                        |
-| `int64`                             | 64 bits     | oui   | ≈ ±9,2 × 10¹⁸                       |
-| `uint8` … `uint64`                  | 8 … 64 bits | non   | 0 … 2ⁿ−1                            |
-| `int` / `uint`                      | **32 ou 64 bits** | — | dépend de la plateforme (64 sur les machines modernes) |
-| `uintptr`                           | taille d'un pointeur | non | pour l'arithmétique d'adresses (rare, voir Ch. 35) |
+| Type               | Taille               | Signé | Intervalle                                             |
+| ------------------ | -------------------- | ----- | ------------------------------------------------------ |
+| `int8`             | 8 bits               | oui   | −128 … 127                                             |
+| `int16`            | 16 bits              | oui   | −32 768 … 32 767                                       |
+| `int32`            | 32 bits              | oui   | ≈ ±2,1 × 10⁹                                           |
+| `int64`            | 64 bits              | oui   | ≈ ±9,2 × 10¹⁸                                          |
+| `uint8` … `uint64` | 8 … 64 bits          | non   | 0 … 2ⁿ−1                                               |
+| `int` / `uint`     | **32 ou 64 bits**    | —     | dépend de la plateforme (64 sur les machines modernes) |
+| `uintptr`          | taille d'un pointeur | non   | pour l'arithmétique d'adresses (rare, voir Ch. 35)     |
 
 - **`byte`** est un **alias** de `uint8` (octet brut).
 - **`rune`** est un **alias** de `int32` (un **point de code Unicode**, voir Ch. 7).
@@ -229,17 +229,17 @@ fmt.Println(x)     // 1 : l'externe n'a pas changé
 
 Quelques fonctions sont **intégrées au langage** (pas besoin d'import) :
 
-| Built-in                  | Rôle                                          | Détail   |
-| ------------------------- | --------------------------------------------- | -------- |
-| `len(x)`                  | longueur (string, slice, map, chan, array)    | Ch. 6/7  |
-| `cap(x)`                  | capacité (slice, chan, array)                 | Ch. 6    |
-| `make(T, …)`              | crée slice/map/chan **initialisés**           | Ch. 6/7  |
-| `new(T)` / `new(expr)`    | pointeur vers une valeur (zero value ou expr) | ci-dessous |
-| `append(s, …)`            | ajoute à un slice                             | Ch. 6    |
-| `copy(dst, src)`          | copie entre slices                            | Ch. 6    |
-| `delete(m, k)`            | supprime une clé de map                       | Ch. 7    |
-| `min(…)` / `max(…)`       | minimum / maximum (**🆕 1.21**)               | ici      |
-| `clear(x)`                | vide une map ou met un slice à zéro (**🆕 1.21**) | ici   |
+| Built-in               | Rôle                                              | Détail     |
+| ---------------------- | ------------------------------------------------- | ---------- |
+| `len(x)`               | longueur (string, slice, map, chan, array)        | Ch. 6/7    |
+| `cap(x)`               | capacité (slice, chan, array)                     | Ch. 6      |
+| `make(T, …)`           | crée slice/map/chan **initialisés**               | Ch. 6/7    |
+| `new(T)` / `new(expr)` | pointeur vers une valeur (zero value ou expr)     | ci-dessous |
+| `append(s, …)`         | ajoute à un slice                                 | Ch. 6      |
+| `copy(dst, src)`       | copie entre slices                                | Ch. 6      |
+| `delete(m, k)`         | supprime une clé de map                           | Ch. 7      |
+| `min(…)` / `max(…)`    | minimum / maximum (**🆕 1.21**)                   | ici        |
+| `clear(x)`             | vide une map ou met un slice à zéro (**🆕 1.21**) | ici        |
 
 ## 🆕 Nouveautés
 
