@@ -1,0 +1,27 @@
+# Binaires compilés
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/code/**/bin/
+/projets/**/bin/
+
+# Sorties de test, couverture et profils
+*.test
+*.out
+*.prof
+*.pprof
+coverage.*
+*.trace
+
+# Artefacts d'outils Go
+/code/**/__debug_bin*
+go.work
+go.work.sum
+
+# Système / éditeurs
+.DS_Store
+.idea/
+.vscode/
+*.swp
