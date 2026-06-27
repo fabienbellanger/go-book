@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 14 rédigés** : **Partie I terminée**, **Partie II entamée** (Ch. 14) (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`). Suite : ch. 15 → 18.
-5. [ ] Continuer la Vague 1 (Partie II, ch. 15 → 18), puis Projets 1 et 2.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 18 rédigés** : **Parties I et II terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`). Suite : Projets 1 et 2.
+5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** pour clore la Vague 1.
 
 ---
 
@@ -549,7 +549,7 @@ Un chapitre est « terminé » quand :
 | ----------------------- | ---------------------- | --------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅     | **2/2**   |
 | I — Fondamentaux        | Ch. 2-13 ✅            | **12/12** |
-| II — Mécanismes avancés | Ch. 14 ✅, Ch. 15 → 18 | 🚧 1/5    |
+| II — Mécanismes avancés | Ch. 14-18 ✅           | **5/5**   |
 | III — Concurrence       | Ch. 19 → 23            | ⬜ 0/5    |
 | IV — Runtime & mémoire  | Ch. 24 → 29            | ⬜ 0/6    |
 | V — Internals           | Ch. 30 → 35            | ⬜ 0/6    |
@@ -581,7 +581,15 @@ Un chapitre est « terminé » quand :
   sous-tests + `t.Helper`/`Example`, `SaveLines` via `t.TempDir`, `t.Cleanup` LIFO, `T.Attr`/
   `T.Output`/`T.ArtifactDir`, `BenchmarkSlugify` + `FuzzSlugify`), `code/ch14-switch/`
   (`grade` tagless, `dayKind` cas multiples, `capabilities` via `fallthrough`, `describe` type
-  switch multi-types, `levelFromString`/`levelFromMap`/`levelFromInt` + benchmark switch vs map).
+  switch multi-types, `levelFromString`/`levelFromMap`/`levelFromInt` + benchmark switch vs map),
+  `code/ch15-closures/` (`counter` à état, `makeAdders` portée par itération 1.22, décorateur
+  `logged`, `memoize`, middleware `chain`/`tagged`/`upper`, functional options `Server`/`Option`),
+  `code/ch16-defer/` (`lifoOrder`, `evalContrast` argument vs closure, `doubleViaDefer` retour nommé,
+  `processScoped` vs `processDeferInLoop`, `trace`, `withLock` + benchmarks open-coded vs en boucle),
+  `code/ch17-panic-recover/` (`safeCall` recover→erreur, `divide` panique runtime, `mustPositive`
+  pattern Must, `validate` recover sélectif + re-panic, `recoverMiddleware` frontière HTTP),
+  `code/ch18-iterators/` (`Count`/`Naturals`, combinateurs `Map`/`Filter`/`Take`/`Enumerate`, `Zip`
+  via `iter.Pull`, `slices.Values`/`Sorted` + benchmark itérateur vs slice matérialisée).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -605,9 +613,22 @@ Un chapitre est « terminé » quand :
   multi-types reste de type interface, erreurs compile (`duplicate case`, `fallthrough` hors
   place / dernier cas / type switch), **jump table** pour un switch entier dense ≥ 8 cas
   (asm vérifié : `CMP $7, R0` + `JMP (R27)`), `switch` chaînes ~4-5× plus rapide qu'une `map`
-  (0 alloc).
+  (0 alloc) ; closures — **capture par référence** (`counter` → 1 2 3), **portée par itération**
+  1.22 vérifiée (`[0 1 2]` en `range` ET 3-clauses sous go 1.26, `[3 3 3]` sous go 1.21), variable
+  capturée **`moved to heap`** (escape) ; `defer` — **LIFO** (`2 1 0`), **arguments évalués à
+  l'enregistrement** vs closure lue à l'exécution, retour **nommé** modifié par un defer (`42`),
+  piège `defer` en boucle (Close repoussés en fin de fonction), **open-coded defer** ~3,24 ns ≈ appel
+  direct vs `defer` en boucle ~16,6 ns/defer (0 alloc) ; `panic`/`recover` — `recover` rattrape dans
+  un `defer` (y compris paniques runtime), **re-panique même valeur** → `panic: … [recovered,
+  repanicked]` (1.25) vs valeur différente → `[recovered]` + chaîne, **panique de goroutine fatale**
+  (non rattrapable depuis `main`) ; itérateurs (1.23) — `iter.Seq`/`Seq2`, **range-over-func**, arrêt
+  anticipé (`break` propage `yield`=false), composition **paresseuse** `Map`/`Filter`/`Take`
+  (`[0 4 16]`) sur source **infinie**, `iter.Pull` (`Zip`, goroutine + `stop()` obligatoire),
+  `slices.Values`/`Sorted`/`Collect` + `maps.Keys`, itérateur **0 alloc / ~2,0 µs** vs slice échappée
+  **8192 B / 1 alloc / ~2,9 µs**.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Partie II entamée (1/5)**. Rédiger le **Ch. 15 — Fonctions
-anonymes & closures** (+ exemple `code/ch15-...`) — capture par référence, portée par itération
-1.22 (avant/après), patterns décorateur/middleware/mémoïsation.
+**Prochaine action concrète** : **Parties I et II terminées (Ch. 0 à 18)**. Vague 1 : il reste les
+**Projets 1 (Outil CLI)** et **2 (API REST)**. Démarrer le **Projet 1** dans `projets/1-cli/`
+(`flag`/sous-commandes, lecture stdin/fichiers, worker borné, cross-compilation, tests). Ensuite,
+attaquer la **Vague 2 — Concurrence** (Partie III, Ch. 19 → 23) + Projet 3.
