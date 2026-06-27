@@ -14,7 +14,7 @@ Supprimer ce commentaire et les encarts non pertinents dans le chapitre final.
 
 > **Objectif** — En une à deux phrases : ce que le lecteur saura faire/comprendre à la fin.
 
-> **Prérequis** — Chapitres ou notions à connaître (liens internes). *(facultatif)*
+> **Prérequis** — Chapitres ou notions à connaître (liens internes). _(facultatif)_
 
 ---
 
@@ -54,7 +54,7 @@ func main() {
 
 ## 🆕 Go 1.2x
 
-Ce qui a changé récemment et touche ce chapitre. *(supprimer si rien)*
+Ce qui a changé récemment et touche ce chapitre. _(supprimer si rien)_
 
 ## ⚠️ Pièges
 

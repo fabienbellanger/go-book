@@ -35,11 +35,11 @@ package greeting   // tous les .go de ce dossier déclarent « package greeting 
 
 Deux familles de packages :
 
-| | `package main` | bibliothèque (tout autre nom) |
-| --- | --- | --- |
-| Rôle | produit un **exécutable** | code **réutilisable**, importé ailleurs |
-| Doit contenir | une fonction **`main()`** | (pas de `main`) |
-| Résultat de `go build` | un binaire | rien à exécuter directement |
+|                        | `package main`            | bibliothèque (tout autre nom)           |
+| ---------------------- | ------------------------- | --------------------------------------- |
+| Rôle                   | produit un **exécutable** | code **réutilisable**, importé ailleurs |
+| Doit contenir          | une fonction **`main()`** | (pas de `main`)                         |
+| Résultat de `go build` | un binaire                | rien à exécuter directement             |
 
 ```go
 package main
@@ -80,12 +80,12 @@ import (
 )
 ```
 
-| Forme | Syntaxe | Usage |
-| ----- | ------- | ----- |
-| Normale | `import "fmt"` | accès via `fmt.Println` |
-| Alias | `import f "fmt"` | accès via `f.Println` (résoudre une collision) |
-| Blank | `import _ "image/png"` | n'importe que pour exécuter l'`init()` du package |
-| Dot | `import . "fmt"` | `Println` sans préfixe — ⚠️ nuit à la lisibilité, à proscrire |
+| Forme   | Syntaxe                | Usage                                                         |
+| ------- | ---------------------- | ------------------------------------------------------------- |
+| Normale | `import "fmt"`         | accès via `fmt.Println`                                       |
+| Alias   | `import f "fmt"`       | accès via `f.Println` (résoudre une collision)                |
+| Blank   | `import _ "image/png"` | n'importe que pour exécuter l'`init()` du package             |
+| Dot     | `import . "fmt"`       | `Println` sans préfixe — ⚠️ nuit à la lisibilité, à proscrire |
 
 > ⚠️ Un import **inutilisé** est une **erreur de compilation** (pas un simple avertissement).
 > C'est volontaire : le code reste propre. `goimports` retire automatiquement les imports

@@ -14,16 +14,16 @@ La table des matières complète et cliquable est dans **[SOMMAIRE.md](SOMMAIRE.
 
 Le livre est organisé en 8 parties :
 
-| Partie | Thème | Chapitres |
-| ------ | ----- | --------- |
-| 0   | Introduction & mise en route                 | 0–1   |
-| I   | Fondamentaux du langage                      | 2–13  |
-| II  | Mécanismes avancés du langage                | 14–18 |
-| III | Concurrence                                  | 19–23 |
-| IV  | Runtime & modèle mémoire                     | 24–29 |
-| V   | Internals des structures de données & types  | 30–35 |
-| VI  | Performance, profiling & outils              | 36–40 |
-| VII | Projets pratiques                            | 7 projets |
+| Partie | Thème                                       | Chapitres |
+| ------ | ------------------------------------------- | --------- |
+| 0      | Introduction & mise en route                | 0–1       |
+| I      | Fondamentaux du langage                     | 2–13      |
+| II     | Mécanismes avancés du langage               | 14–18     |
+| III    | Concurrence                                 | 19–23     |
+| IV     | Runtime & modèle mémoire                    | 24–29     |
+| V      | Internals des structures de données & types | 30–35     |
+| VI     | Performance, profiling & outils             | 36–40     |
+| VII    | Projets pratiques                           | 7 projets |
 
 ## 🧭 Parcours de lecture
 
@@ -65,7 +65,7 @@ go vet ./...    # analyse statique propre
 - **Langue** : français ; identifiants de code en anglais, **commentaires en français**.
 - **Schémas** : ASCII pur, pour un alignement garanti partout.
 - **Émojis repères** : 🆕 nouveauté · ⚠️ piège · 💡 astuce · 🔁 renvoi · ⚡ perf · 🧪 test · 📌 synthèse.
-- Un nouveau chapitre part de **[chapitres/_gabarit.md](chapitres/_gabarit.md)**.
+- Un nouveau chapitre part de **[chapitres/\_gabarit.md](chapitres/_gabarit.md)**.
 
 ## 📚 Sources de référence
 

@@ -45,13 +45,13 @@ Affichez-les avec `go env` :
 go env GOROOT GOPATH GOBIN GOTOOLCHAIN
 ```
 
-| Variable        | Rôle |
-| --------------- | ---- |
-| `GOROOT`        | où Go est **installé** (réglé automatiquement, ne pas y toucher en général). |
-| `GOPATH`        | dossier des binaires et du cache (`~/go` par défaut). *Héritage* de l'ère pré-modules : on n'y met plus son code source. |
-| `GOBIN`         | où `go install` dépose les exécutables (`$GOPATH/bin` par défaut). À ajouter au `PATH`. |
-| `GOTOOLCHAIN`   | gère le **téléchargement automatique** de la bonne version de Go selon `go.mod` (voir ci-dessous). |
-| `GOOS` / `GOARCH` | système et architecture **cibles** de la compilation (cross-compilation). |
+| Variable          | Rôle                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GOROOT`          | où Go est **installé** (réglé automatiquement, ne pas y toucher en général).                                             |
+| `GOPATH`          | dossier des binaires et du cache (`~/go` par défaut). _Héritage_ de l'ère pré-modules : on n'y met plus son code source. |
+| `GOBIN`           | où `go install` dépose les exécutables (`$GOPATH/bin` par défaut). À ajouter au `PATH`.                                  |
+| `GOTOOLCHAIN`     | gère le **téléchargement automatique** de la bonne version de Go selon `go.mod` (voir ci-dessous).                       |
+| `GOOS` / `GOARCH` | système et architecture **cibles** de la compilation (cross-compilation).                                                |
 
 > 💡 Depuis les **modules** (Go 1.11+), `GOPATH` n'est plus l'endroit où l'on range son
 > code. Vos projets vivent **où vous voulez**, du moment qu'ils contiennent un `go.mod`.
@@ -68,18 +68,18 @@ pas chez toi » dû à une version différente.
 
 Tout passe par le sous-commandes de `go` :
 
-| Commande     | Rôle |
-| ------------ | ---- |
+| Commande     | Rôle                                                                  |
+| ------------ | --------------------------------------------------------------------- |
 | `go run`     | compile **et exécute** (idéal pour itérer, ne laisse pas de binaire). |
-| `go build`   | compile en **binaire** (sans l'exécuter). |
-| `go test`    | lance les **tests** et benchmarks. |
-| `go vet`     | **analyse statique** : détecte les erreurs probables. |
-| `go fmt`     | **formate** le code selon le style canonique (`gofmt`). |
-| `go doc`     | affiche la **documentation** d'un package ou symbole. |
-| `go fix`     | **modernise** le code (réécritures automatiques). |
-| `go env`     | affiche/règle la **configuration**. |
-| `go mod`     | gère le **module** et ses dépendances (voir Ch. 12). |
-| `go install` | compile et **installe** un exécutable dans `GOBIN`. |
+| `go build`   | compile en **binaire** (sans l'exécuter).                             |
+| `go test`    | lance les **tests** et benchmarks.                                    |
+| `go vet`     | **analyse statique** : détecte les erreurs probables.                 |
+| `go fmt`     | **formate** le code selon le style canonique (`gofmt`).               |
+| `go doc`     | affiche la **documentation** d'un package ou symbole.                 |
+| `go fix`     | **modernise** le code (réécritures automatiques).                     |
+| `go env`     | affiche/règle la **configuration**.                                   |
+| `go mod`     | gère le **module** et ses dépendances (voir Ch. 12).                  |
+| `go install` | compile et **installe** un exécutable dans `GOBIN`.                   |
 
 ## Premier programme
 
@@ -173,7 +173,7 @@ Listez toutes les cibles possibles avec `go tool dist list`.
 
 - **🆕 Go 1.25** : directive **`ignore`** dans `go.mod` (exclut des dossiers du module) ;
   **`go doc -http`** lance un serveur local pour parcourir la doc dans le navigateur.
-- **🆕 Go 1.26** : **`go fix`** intègre des *modernizers* — il réécrit automatiquement le
+- **🆕 Go 1.26** : **`go fix`** intègre des _modernizers_ — il réécrit automatiquement le
   code vers des formes plus modernes (ex. boucles `for range N`, usage de `min`/`max`,
   `any` au lieu de `interface{}`). Lancez-le avec `go fix ./...`.
 
