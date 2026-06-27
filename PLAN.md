@@ -221,7 +221,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 #### Ch. 11 — Généricité : types paramétrés
 
 - **Objectif** : polymorphisme à la compilation, sans surcoût d'interface.
-- **Contenu** : paramètres de type, contraintes, `comparable`, `~` (underlying), inférence ; fonctions et types génériques ; packages `slices`, `maps`, `cmp` ; **quand NE PAS** utiliser les génériques ; instanciation (renvoi ch. 41 pour la stratégie GC-shape/monomorphisation).
+- **Contenu** : paramètres de type, contraintes, `comparable`, `~` (underlying), inférence ; fonctions et types génériques ; packages `slices`, `maps`, `cmp` ; **quand NE PAS** utiliser les génériques ; instanciation (renvoi ch. 39 pour la stratégie GC-shape/monomorphisation).
 - **🆕 1.21** : `slices`/`maps`/`cmp`. **🆕 1.24** : alias de type génériques. **🆕 1.26** : contraintes auto-référentielles (`type Adder[A Adder[A]] interface{ Add(A) A }`).
 - **⚡ Perf** : génériques vs interfaces vs duplication.
 
@@ -234,7 +234,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 #### Ch. 13 — Tests & outillage de base
 
 - **Objectif** : la culture du test, intégrée au langage.
-- **Contenu** : `testing`, `go test` ; tests **table-driven** ; `t.Run`/sous-tests ; helpers `t.Helper()` ; `Example` comme doc exécutable ; `t.TempDir`, `t.Cleanup` ; couverture (`-cover`, `-coverprofile`) ; `go vet` & analyzers ; teaser benchmarks/fuzzing (détail ch. 38).
+- **Contenu** : `testing`, `go test` ; tests **table-driven** ; `t.Run`/sous-tests ; helpers `t.Helper()` ; `Example` comme doc exécutable ; `t.TempDir`, `t.Cleanup` ; couverture (`-cover`, `-coverprofile`) ; `go vet` & analyzers ; teaser benchmarks/fuzzing (détail ch. 36).
 - **🆕 1.25** : `T.Attr`/`T.Output`, analyzers `waitgroup`/`hostport`. **🆕 1.26** : `T.ArtifactDir` + `-artifacts`.
 - **🧪** : premier test table-driven complet.
 
@@ -245,7 +245,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 #### Ch. 14 — `switch` & sélection de cas (en profondeur)
 
 - **Objectif** : exploiter toute la puissance de `switch`.
-- **Contenu** : switch d'expression, sans condition (= `if/else if`), `fallthrough`, cas multiples, **type switch** avancé, switch sur `init; cond` ; ce que le compilateur génère (jump table vs comparaisons en cascade) ; `select` annoncé (ch. 21).
+- **Contenu** : switch d'expression, sans condition (= `if/else if`), `fallthrough`, cas multiples, **type switch** avancé, switch sur `init; cond` ; ce que le compilateur génère (jump table vs comparaisons en cascade) ; `select` annoncé (ch. 20).
 - **⚡ Perf** : binary search / jump table selon densité des cas.
 
 #### Ch. 15 — Fonctions anonymes & closures
@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 10 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`). Suite : ch. 11 → 13.
-5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 14 rédigés** : **Partie I terminée**, **Partie II entamée** (Ch. 14) (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`). Suite : ch. 15 → 18.
+5. [ ] Continuer la Vague 1 (Partie II, ch. 15 → 18), puis Projets 1 et 2.
 
 ---
 
@@ -545,17 +545,17 @@ Un chapitre est « terminé » quand :
 
 ### Chapitres
 
-| Partie                  | Chapitres            | État    |
-| ----------------------- | -------------------- | ------- |
-| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-10 ✅, Ch. 11 → 13 | 🚧 9/12 |
-| II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
-| III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
-| IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
-| V — Internals           | Ch. 30 → 35          | ⬜ 0/6  |
-| VI — Performance        | Ch. 36 → 40          | ⬜ 0/5  |
-| VII — Projets           | Projets 1 → 7        | ⬜ 0/7  |
-| Annexes                 | A → G                | ⬜ 0/7  |
+| Partie                  | Chapitres              | État      |
+| ----------------------- | ---------------------- | --------- |
+| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅     | **2/2**   |
+| I — Fondamentaux        | Ch. 2-13 ✅            | **12/12** |
+| II — Mécanismes avancés | Ch. 14 ✅, Ch. 15 → 18 | 🚧 1/5    |
+| III — Concurrence       | Ch. 19 → 23            | ⬜ 0/5    |
+| IV — Runtime & mémoire  | Ch. 24 → 29            | ⬜ 0/6    |
+| V — Internals           | Ch. 30 → 35            | ⬜ 0/6    |
+| VI — Performance        | Ch. 36 → 40            | ⬜ 0/5    |
+| VII — Projets           | Projets 1 → 7          | ⬜ 0/7    |
+| Annexes                 | A → G                  | ⬜ 0/7    |
 
 ### Infrastructure
 
@@ -573,7 +573,15 @@ Un chapitre est « terminé » quand :
   `Account`/`AuditedAccount` récepteur pointeur + embedding/override, `Padded`/`Packed` padding),
   `code/ch09-interfaces/` (`Shape`/`Circle`/`Rect` satisfaction implicite + Stringer, `classify`
   type switch, `ValidationError`/`error`, piège interface-nil), `code/ch10-errors/`
-  (`ErrEmptyKey` sentinelle, `ParseError`+Unwrap, `parseConfig` via `errors.Join`, `errors.AsType`).
+  (`ErrEmptyKey` sentinelle, `ParseError`+Unwrap, `parseConfig` via `errors.Join`, `errors.AsType`),
+  `code/ch11-generics/` (`Number`/`~` + `Sum`/`Max`/`Map`/`Filter`/`Index`, `Stack[T]`, alias
+  générique `Set[T]` (1.24), contrainte auto-référentielle `Adder[A Adder[A]]` (1.26),
+  benchmark générique vs interface), `code/ch12-packages/` (package `internal/money`,
+  `fmt.Stringer`, test « boîte noire » + `Example`), `code/ch13-tests/` (`Slugify` table-driven +
+  sous-tests + `t.Helper`/`Example`, `SaveLines` via `t.TempDir`, `t.Cleanup` LIFO, `T.Attr`/
+  `T.Output`/`T.ArtifactDir`, `BenchmarkSlugify` + `FuzzSlugify`), `code/ch14-switch/`
+  (`grade` tagless, `dayKind` cas multiples, `capabilities` via `fallthrough`, `describe` type
+  switch multi-types, `levelFromString`/`levelFromMap`/`levelFromInt` + benchmark switch vs map).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -584,8 +592,22 @@ Un chapitre est « terminé » quand :
   satisfaction implicite, `type switch`, `any` ≡ `interface{}`, **piège interface-nil** (pointeur
   nil typé → interface non-nil), method set récepteur pointeur (`T` valeur ne satisfait pas) ;
   `errors.AsType[E]` (1.26, `func AsType[E error](err error) (E, bool)`), `errors.Join`/`Is`/`As`
-  à travers la chaîne `%w`, `fmt.Errorf` sans `%w` = 1 alloc (comme `errors.New`) vs 2 avec `%w`.
+  à travers la chaîne `%w`, `fmt.Errorf` sans `%w` = 1 alloc (comme `errors.New`) vs 2 avec `%w` ;
+  génériques — contrainte `~` (capte les types définis), `comparable`, type générique,
+  **alias de type générique** `type Set[T comparable] = ...` (1.24), **contrainte
+  auto-référentielle** `type Adder[A Adder[A]] interface{ Add(A) A }` (1.26), `cmp.Or`/`cmp.Compare`/
+  `slices.SortFunc`, générique ~4-6× plus rapide qu'une interface (dispatch évité, 0 alloc) ;
+  modules — barrière **`internal/`** (« use of internal package not allowed »), directives `tool`
+  (1.24) et `ignore` (1.25), `go doc -http` (1.25) ; tests — `// Output:` d'`Example` vérifié,
+  `t.Cleanup` **LIFO** observé, `T.Attr`/`T.Output` (1.25) et **`T.ArtifactDir`** (1.26, non vide
+  sans `-artifacts`) + flag `-artifacts`, `FuzzSlugify` (340 k exécutions, invariants tenus) ;
+  `switch` — `fallthrough` en cascade (sans réévaluer la condition), variable d'un `case`
+  multi-types reste de type interface, erreurs compile (`duplicate case`, `fallthrough` hors
+  place / dernier cas / type switch), **jump table** pour un switch entier dense ≥ 8 cas
+  (asm vérifié : `CMP $7, R0` + `JMP (R27)`), `switch` chaînes ~4-5× plus rapide qu'une `map`
+  (0 alloc).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 11 — Généricité : types paramétrés**
-(+ exemple `code/ch11-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : **Partie II entamée (1/5)**. Rédiger le **Ch. 15 — Fonctions
+anonymes & closures** (+ exemple `code/ch15-...`) — capture par référence, portée par itération
+1.22 (avant/après), patterns décorateur/middleware/mémoïsation.
