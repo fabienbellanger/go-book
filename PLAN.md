@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 et 1 rédigés** (+ exemple `code/ch01-hello/`). Suite : ch. 2 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 3 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`). Suite : ch. 4 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -545,26 +545,29 @@ Un chapitre est « terminé » quand :
 
 ### Chapitres
 
-| Partie | Chapitres | État |
-| ------ | --------- | ---- |
-| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅ | **2/2** |
-| I — Fondamentaux        | Ch. 2 ✅, Ch. 3 → 13 | 🚧 1/12 |
-| II — Mécanismes avancés | Ch. 14 → 18        | ⬜ 0/5  |
-| III — Concurrence       | Ch. 19 → 23        | ⬜ 0/5  |
-| IV — Runtime & mémoire  | Ch. 24 → 29        | ⬜ 0/6  |
-| V — Internals           | Ch. 30 → 35        | ⬜ 0/6  |
-| VI — Performance        | Ch. 36 → 40        | ⬜ 0/5  |
-| VII — Projets           | Projets 1 → 7      | ⬜ 0/7  |
-| Annexes                 | A → G              | ⬜ 0/7  |
+| Partie                  | Chapitres            | État    |
+| ----------------------- | -------------------- | ------- |
+| 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
+| I — Fondamentaux        | Ch. 2-3 ✅, Ch. 4 → 13 | 🚧 2/12 |
+| II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
+| III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
+| IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
+| V — Internals           | Ch. 30 → 35          | ⬜ 0/6  |
+| VI — Performance        | Ch. 36 → 40          | ⬜ 0/5  |
+| VII — Projets           | Projets 1 → 7        | ⬜ 0/7  |
+| Annexes                 | A → G                | ⬜ 0/7  |
 
 ### Infrastructure
 
 - ✅ Squelette du dépôt, `README.md`, `SOMMAIRE.md`, `.gitignore`.
 - ✅ Module `code/` (`example.com/gobook`, `go 1.26`) — `go test ./...` & `go vet ./...` propres.
 - ✅ Gabarit de chapitre (`chapitres/_gabarit.md`).
-- ✅ Exemples compilables et testés : `code/ch01-hello/` (`greet`) et `code/ch02-structure/`
-  (multi-packages `main` + `greeting`, ordre d'initialisation).
+- ✅ Exemples compilables et testés : `code/ch01-hello/` (`greet`), `code/ch02-structure/`
+  (multi-packages `main` + `greeting`), `code/ch03-basics/` (zero values, conversions,
+  `iota`/`ByteSize`, conversion sûre, `new(expr)`).
+- ✅ Nouveautés 1.26 **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
+  `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 3 — Variables, constantes & types de base**
-(+ exemple `code/ch03-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 4 — Flux de contrôle** (+ exemple
+`code/ch04-...`), puis enchaîner la Partie I.
