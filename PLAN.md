@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] **Rédaction des chapitres** — **ch. 0 à 29 rédigés** : **Parties I, II, III et IV terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`). Les Parties III (Vague 2) et IV (début Vague 3) ont été rédigées en avance ; restent les **projets** et la Partie V.
-5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2) ; poursuivre la **Vague 3** avec la **Partie V** (Ch. 30 → 35).
+4. [~] **Rédaction des chapitres** — **ch. 0 à 35 rédigés** : **Parties I, II, III, IV et V terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`). Les Parties III (Vague 2) et IV-V (Vague 3) ont été rédigées en avance ; restent les **projets** et la Partie VI.
+5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2) ; enchaîner la **Vague 4 — Performance** avec la **Partie VI** (Ch. 36 → 40).
 
 ---
 
@@ -552,7 +552,7 @@ Un chapitre est « terminé » quand :
 | II — Mécanismes avancés | Ch. 14-18 ✅       | **5/5**   |
 | III — Concurrence       | Ch. 19-23 ✅       | **5/5**   |
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
-| V — Internals           | Ch. 30 → 35        | ⬜ 0/6    |
+| V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36 → 40        | ⬜ 0/5    |
 | VII — Projets           | Projets 1 → 7      | ⬜ 0/7    |
 | Annexes                 | A → G              | ⬜ 0/7    |
@@ -609,7 +609,20 @@ Un chapitre est « terminé » quand :
   `runtime.AddCleanup`, `WithGCPercent`/`CurrentMemoryLimit` via `debug`), `code/ch28-ordonnanceur-gmp/`
   (`parallelSum` fan-out, `WithGOMAXPROCS`, `busyWork`+`runtime.Gosched`, démo 205 ms→32 ms),
   `code/ch29-observabilite-runtime/` (`ReadSnapshot` via `runtime/metrics` dont `/sched/*` 1.26,
-  `ReadBuildInfo`, compteur+jauge `expvar`, comparaison `ReadMemStats`).
+  `ReadBuildInfo`, compteur+jauge `expvar`, comparaison `ReadMemStats`), `code/ch30-slices-profondeur/`
+  (`CapGrowth` suite des cap, `SubSliceCap` 3 indices, aliasing vs `SafeAppend`, `FilterInPlace`
+  zéro-alloc, `TrimRetention` via `slices.Clone`, bench in-place 0 alloc vs new-slice 10 allocs),
+  `code/ch31-strings-profondeur/` (`ByteVsRune`/`RuneWidths` UTF-8, `JoinCSV` via `strings.Builder`,
+  `ToUpperASCII` 2 copies, `Intern`/`CountDistinct` via `unique`, bench concat `+` 117 µs/499 allocs vs
+  Builder 3,9 µs/12 allocs), `code/ch32-maps-hachage/` (`WordCount` préalloué, `IterationOrders`
+  randomisation, `SafeCounter` map+Mutex testé `-race`, bench prealloc 20→5 allocs), `code/ch33-interfaces-profondeur/`
+  (`Shape`/`Circle`/`Rectangle` dispatch, `FailBuggy`/`FailCorrect` piège interface-nil, `BoxValue`
+  boxing 0/1 alloc, `AsCircle` via `reflect.TypeAssert`, bench dispatch interface 4562 ns vs concret 1716 ns),
+  `code/ch34-reflexion/` (`InspectFields` via `Type.Fields()` 1.26, `FillDefaults` écriture `CanSet`+tags,
+  `CallMethod` appel dynamique, `Ins()`/`Outs()` 1.26, bench reflect 355 ns/5 allocs vs direct 3,2 ns),
+  `code/ch35-unsafe-cgo/` (padding `Padded`=24/`Packed`=16, `Sizeof`/`Alignof`/`Offsetof`, `BytesToString`/
+  `StringToBytes` zéro-copie via `unsafe.String`/`Slice`/`SliceData`, `SecondElem` via `unsafe.Add`, bench
+  `string([]byte)` 21 ns/1 alloc vs `unsafe.String` 3,2 ns/0 alloc).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -674,14 +687,37 @@ runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on close
   syscall, `runtime.SetDefaultGOMAXPROCS()` (1.25) présent, démo CPU 205 ms (P=1) → 32 ms (P=8) ;
   **observabilité** — `runtime/metrics` **112 descripteurs**, `NumGoroutine`=1 (user) vs
   `/sched/goroutines`=6-7 (toutes, système comprises), `/sched/goroutines-created` cumulatif + ventilation
-  `running`/`runnable`/`waiting` (1.26), `ReadBuildInfo`=`go1.26.4`, `expvar` (`/debug/vars`) publié/lu.
+  `running`/`runnable`/`waiting` (1.26), `ReadBuildInfo`=`go1.26.4`, `expvar` (`/debug/vars`) publié/lu ;
+  internals des types (Partie V) — **slices** header **24 o** (3 mots), croissance `append` observée
+  `4 8 16 32 64 128 256 512 848 1280 1792 2560` (double < 256 puis ≈1,25× arrondi size class ; `growslice`
+  réel 0→1 en `//go:noinline`, cap 4 d'entrée = `append` inliné), `s[i:j:k]` borne `cap=k-i`, aliasing
+  (`append` écrase le parent) vs `[:n:n]`, `FilterInPlace` **0 alloc** vs new-slice **10 allocs/8184 B** ;
+  **strings** header **16 o** (2 mots), immuable, `"héllo, 日本"`=14 o/9 runes, `range` décode par rune
+  (index d'octet sauté), conversion `string([]byte)`/`[]byte(string)` qui échappe **1 alloc** vs lookup
+  map/comparaison/`range` **0 alloc** (no-copy), `strings.Builder` concat **+** 117 µs/499 allocs → **3,9 µs/12
+  allocs**, **`unique.Make`** (1.23) handles `==` pour contenus égaux, `Handle[string]`=**8 o** ; **maps**
+  **Swiss Tables** (1.24, groupes de 8 slots + mot de contrôle, recherche `h2` parallèle SWAR, ~87,5 % de
+  charge, croissance incrémentale par annuaire), itération **randomisée** (parcours différents intra/inter
+  exécution), `make(map, n)` **20→5 allocs / 45→12 µs**, `fatal error: concurrent map writes` (non
+  rattrapable) → `map`+`Mutex` ; **interfaces** `eface`/`iface` = **2 mots / 16 o**, dispatch monomorphe
+  ≈ gratuit mais **inlining perdu** (interface 4562 ns vs concret 1716 ns), **boxing** `int` 0..255 caché
+  **0 alloc** sinon **1 alloc**, **piège interface-nil** (`FailBuggy(true)==nil` → false), **`reflect.TypeAssert[T]`**
+  (1.25) sans re-boxing ; **reflect** itérateurs **1.26** `Type.Fields/Methods`, `Value.Fields/Methods`,
+  `Method.Type.Ins()`/`Outs()` (récepteur = `in[0]`), écriture via pointeur+`CanSet`, appel dynamique
+  `MethodByName`/`Call`, coût réflexion **355 ns/5 allocs vs direct 3,2 ns/0** (~110×) ; **unsafe** padding
+  `Padded`=**24** vs `Packed`=**16** (réordonner économise 8 o), `Offsetof`(0,8,16), `Alignof`
+  int64=8/int32=4/byte=1, **`unsafe.String`/`Slice`/`SliceData`/`Add`** zéro-copie (backing partagé,
+  `string([]byte)` 21 ns/1 alloc → **3,2 ns/0**), **cgo ~30 % plus rapide** (1.26, notes de version),
+  **`simd/archsimd`** (`GOEXPERIMENT=simd`, AMD64) et **`runtime/secret`** (`GOEXPERIMENT=runtimesecret`)
+  expérimentaux off par défaut (constantes `goexperiment` `SIMD`/`RuntimeSecret` = false).
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Parties I, II, III et IV terminées (Ch. 0 à 29)** — les Parties III
-(concurrence, Vague 2) et IV (runtime & mémoire, début Vague 3) ont été rédigées en avance. Deux pistes :
-soit poursuivre la **Vague 3 — Internals** avec la **Partie V** (Ch. 30 → 35 : slices, strings, maps,
-interfaces, `reflect`, `unsafe`/cgo en profondeur), soit rattraper les **projets** restés en suspens —
-**Projet 1 (Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes, lecture stdin/fichiers, worker borné,
-cross-compilation, tests), **Projet 2 (API REST)** (Vague 1) et **Projet 3 (pipeline concurrent / worker
-pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Tout le module `code/` (ch01 → ch29) reste vert
-(`go build`/`vet`/`test ./...`, `gofmt -l` vide, `-race` propre sur la concurrence et le runtime).
+**Prochaine action concrète** : **Parties I à V terminées (Ch. 0 à 35)** — les Parties III (concurrence,
+Vague 2) et IV-V (runtime, mémoire & internals, Vague 3) ont été rédigées en avance. Deux pistes : soit
+enchaîner la **Vague 4 — Performance** avec la **Partie VI** (Ch. 36 → 40 : tests/benchmarks/fuzzing,
+profiling pprof, traces & Flight Recorder, compilation/inlining/PGO, méthodologie de perf), soit rattraper
+les **projets** restés en suspens — **Projet 1 (Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes,
+lecture stdin/fichiers, worker borné, cross-compilation, tests), **Projet 2 (API REST)** (Vague 1) et
+**Projet 3 (pipeline concurrent / worker pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Tout le
+module `code/` (ch01 → ch35) reste vert (`go build`/`vet`/`test ./...`, `gofmt -l` vide, `-race` propre sur
+la concurrence, le runtime et les internals).
