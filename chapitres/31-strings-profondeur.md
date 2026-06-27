@@ -69,13 +69,13 @@ Une string est immuable, un `[]byte` est mutable : convertir doit, **en généra
 pourrait muter une string. Mais le compilateur **élide** la copie dans des cas prouvés sûrs où le résultat
 est **consommé sur place** :
 
-| Conversion                         | Copie ?      | alloc/op |
-| ---------------------------------- | ------------ | -------- |
-| `string(b)` stockée/renvoyée       | **oui**      | **1**    |
-| `[]byte(s)` stockée/renvoyée       | **oui**      | **1**    |
-| `m[string(b)]` (lookup map)        | **non**      | **0**    |
-| `string(b) == s` (comparaison)     | **non**      | **0**    |
-| `for range string(b)`, `switch`    | **non**      | **0**    |
+| Conversion                      | Copie ? | alloc/op |
+| ------------------------------- | ------- | -------- |
+| `string(b)` stockée/renvoyée    | **oui** | **1**    |
+| `[]byte(s)` stockée/renvoyée    | **oui** | **1**    |
+| `m[string(b)]` (lookup map)     | **non** | **0**    |
+| `string(b) == s` (comparaison)  | **non** | **0**    |
+| `for range string(b)`, `switch` | **non** | **0**    |
 
 ```go
 // Modifier une string OBLIGE à passer par []byte : 2 copies (aller + retour).
@@ -117,10 +117,10 @@ func JoinCSV(items []string) string {
 
 Mesuré pour 500 fragments (`-benchmem`) :
 
-| Variante         | ns/op       | B/op        | allocs/op |
-| ---------------- | ----------- | ----------- | --------- |
+| Variante         | ns/op       | B/op          | allocs/op |
+| ---------------- | ----------- | ------------- | --------- |
 | `concatPlus` (+) | **117 042** | **1 068 781** | **499**   |
-| `concatBuilder`  | **3 861**   | **12 536**  | **12**    |
+| `concatBuilder`  | **3 861**   | **12 536**    | **12**    |
 
 **30× plus rapide**, **85× moins de mémoire** : le `+` recopie ~1 Mo pour produire 4 Ko. Avec `Grow`,
 on tombe encore plus bas. 📌 `strings.Builder` (ou `bytes.Buffer`) est la **règle** dès qu'il y a une

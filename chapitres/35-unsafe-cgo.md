@@ -88,10 +88,10 @@ func BytesToString(b []byte) string {
 
 Mesuré :
 
-| Conversion                  | ns/op     | B/op  | allocs/op |
-| --------------------------- | --------- | ----- | --------- |
-| `string(b)` (sûre, copie)   | **21,07** | 80    | **1**     |
-| `unsafe.String` (zéro-copie)| **3,23**  | **0** | **0**     |
+| Conversion                   | ns/op     | B/op  | allocs/op |
+| ---------------------------- | --------- | ----- | --------- |
+| `string(b)` (sûre, copie)    | **21,07** | 80    | **1**     |
+| `unsafe.String` (zéro-copie) | **3,23**  | **0** | **0**     |
 
 **6,5× plus rapide, 0 allocation.** ⚠️ Le contrat : le `[]byte` source ne doit **plus jamais** être
 modifié (la string le suppose immuable). Une seule entorse = corruption silencieuse. À réserver aux

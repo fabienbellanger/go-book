@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] **Rédaction des chapitres** — **ch. 0 à 35 rédigés** : **Parties I, II, III, IV et V terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`). Les Parties III (Vague 2) et IV-V (Vague 3) ont été rédigées en avance ; restent les **projets** et la Partie VI.
-5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2) ; enchaîner la **Vague 4 — Performance** avec la **Partie VI** (Ch. 36 → 40).
+4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
+5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1), le **Projet 3** (pipeline concurrent, Vague 2) et les **Projets 4-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
 
 ---
 
@@ -553,7 +553,7 @@ Un chapitre est « terminé » quand :
 | III — Concurrence       | Ch. 19-23 ✅       | **5/5**   |
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
-| VI — Performance        | Ch. 36 → 40        | ⬜ 0/5    |
+| VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
 | VII — Projets           | Projets 1 → 7      | ⬜ 0/7    |
 | Annexes                 | A → G              | ⬜ 0/7    |
 
@@ -622,7 +622,19 @@ Un chapitre est « terminé » quand :
   `CallMethod` appel dynamique, `Ins()`/`Outs()` 1.26, bench reflect 355 ns/5 allocs vs direct 3,2 ns),
   `code/ch35-unsafe-cgo/` (padding `Padded`=24/`Packed`=16, `Sizeof`/`Alignof`/`Offsetof`, `BytesToString`/
   `StringToBytes` zéro-copie via `unsafe.String`/`Slice`/`SliceData`, `SecondElem` via `unsafe.Add`, bench
-  `string([]byte)` 21 ns/1 alloc vs `unsafe.String` 3,2 ns/0 alloc).
+  `string([]byte)` 21 ns/1 alloc vs `unsafe.String` 3,2 ns/0 alloc), `code/ch36-benchmarks-fuzzing/`
+  (`FormatThousands` via `strings.Builder` vs `formatNaive`, `BenchmarkBuilder`/`Naive` + sous-benchmarks
+  `b.Run` par taille, `sink` anti-DCE, `FuzzFormatThousands` invariant round-trip, bench Builder 69 ns/2 allocs
+  vs Naïve 107 ns/3 allocs, benchstat A/B réel −34,9 % p=0,000), `code/ch37-profiling-pprof/` (`HotCompute`/
+  `collatzSteps` cible CPU propre, `wordFrequencies` cible tas, `CaptureCPUProfile`/`CaptureHeapProfile` via
+  `runtime/pprof`, en-tête gzip vérifié, 6 profils par défaut, `go tool pprof -top`/`-list` flat vs cum,
+  `net/http/pprof` en prose), `code/ch38-traces-flightrecorder/` (`CaptureTrace` via `runtime/trace`,
+  `processBatch` tâches/régions/`Log`, `MonitorLatency` via **FlightRecorder** 1.25 `WriteTo` sur dépassement
+  de latence, en-tête `"go 1."` vérifié), `code/ch39-compilation-pgo/` (`add`/`AddTwice` inlining `-m`,
+  `SumRange`/`SumGather`/`SumHinted` BCE `Found IsInBounds`, `TotalArea` `//go:noinline` cible PGO,
+  `default.pgo` + `-pgo=auto` + `-d=pgodebug=2` dévirtualisation, bench BCE 504,7 ns vs 595,6 ns),
+  `code/ch40-methodologie/` (`DedupNaive` O(n²) `slices.Contains` vs `Dedup` map O(n), boucle mesure→profil→
+  correction→re-mesure, bench 2472 µs→77 µs **32×** mais +1410 % mémoire, compromis latence/mémoire selon SLO).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -709,15 +721,38 @@ runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on close
   int64=8/int32=4/byte=1, **`unsafe.String`/`Slice`/`SliceData`/`Add`** zéro-copie (backing partagé,
   `string([]byte)` 21 ns/1 alloc → **3,2 ns/0**), **cgo ~30 % plus rapide** (1.26, notes de version),
   **`simd/archsimd`** (`GOEXPERIMENT=simd`, AMD64) et **`runtime/secret`** (`GOEXPERIMENT=runtimesecret`)
-  expérimentaux off par défaut (constantes `goexperiment` `SIMD`/`RuntimeSecret` = false).
+  expérimentaux off par défaut (constantes `goexperiment` `SIMD`/`RuntimeSecret` = false) ; performance &
+  outils (Partie VI) — **benchmarks** `b.Loop() bool` (1.24), `-benchmem` (`B/op`/`allocs/op`), **anti-DCE**
+  par `sink` de package (sans lui, appel éliminé ~0,3 ns), sous-benchmarks `b.Run`, **`benchstat`** installé
+  (`golang.org/x/perf`) comparaison A/B réelle `106,9n→69,6n −34,89 % p=0,000 n=10` (exige `Benchmark` en
+  préfixe + `-count`≥10 + `p<0,05`), **fuzzing** `testing.F`/`f.Add`/`f.Fuzz` 1,4 M exéc/6 s sur 8 workers,
+  corpus cache (`$GOCACHE/fuzz`) vs crashers versionnés (`testdata/fuzz/`) ; **pprof** — **6 profils par
+  défaut** (`allocs`/`block`/`goroutine`/`heap`/`mutex`/`threadcreate`), `block`/`mutex` à armer
+  (`SetBlockProfileRate`/`SetMutexProfileFraction`), `goroutineleak` **absent** par défaut (`Lookup`=nil,
+  gated `GOEXPERIMENT=goroutineleakprofile`), `StartCPUProfile`/`WriteHeapProfile`/`Lookup`, profil =
+  protobuf **gzip** (`1f 8b`), `go tool pprof -top`/`-list` **flat** (dans la fonction) vs **cum** (avec
+  appelés), tas `alloc_space` (pression GC) vs `inuse_space` (rétention), artefact macOS `runtime.kevent`,
+  **flame graph par défaut 1.26** ; **trace** — en-tête `"go 1.26 trace…"`, `trace.Start`/`Stop`,
+  tâches `NewTask`/régions `WithRegion`/`StartRegion`/`Log`, `go test -trace`, lecture via `go tool trace`
+  (vues proc/goroutine/scheduler/blocking/MMU), **`FlightRecorder`** (1.25) `NewFlightRecorder(cfg{MinAge,
+  MaxBytes})`+`Start()`/`Stop()`/`WriteTo()`/`Enabled()` (anneau mémoire, `WriteTo` quasi instantané sur
+  évènement rare, `Enabled` false→true) ; **compilateur** — inlining `-gcflags=-m` (`can inline`/`inlining
+  call to`, budget ~80, `//go:noinline`), escape (`does not escape`/`escapes to heap`), **BCE**
+  `-d=ssa/check_bce` (`Found IsInBounds` sur index externe, rien en `range`/témoin `_=xs[3]`, bench 504,7 ns
+  vs 595,6 ns), **PGO** (GA 1.21) `default.pgo`+`-pgo=auto` (défaut) à la racine du `main`, `-d=pgodebug=1/2`
+  (`hot-callsite-thres-from-CDF`, `PGO devirtualize considering call s.Area()`), dévirtualisation statique
+  mono-type sinon profil, gains typiques 2-14 %, **`GOAMD64=v3+`** FMA (x86 ; machine arm64 → n/a),
+  **DWARF5** défaut 1.25 ; **méthodologie** — boucle mesure→hypothèse→changement→re-mesure (une hypothèse à
+  la fois), SLO d'abord, algorithme≫allocations≫micro-opt, `slices.Contains` O(n²)→map O(n) **32×** mais
+  benchstat révèle **+1410 % mémoire** (compromis selon SLO), `GOMEMLIMIT` levier p99.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Parties I à V terminées (Ch. 0 à 35)** — les Parties III (concurrence,
-Vague 2) et IV-V (runtime, mémoire & internals, Vague 3) ont été rédigées en avance. Deux pistes : soit
-enchaîner la **Vague 4 — Performance** avec la **Partie VI** (Ch. 36 → 40 : tests/benchmarks/fuzzing,
-profiling pprof, traces & Flight Recorder, compilation/inlining/PGO, méthodologie de perf), soit rattraper
-les **projets** restés en suspens — **Projet 1 (Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes,
-lecture stdin/fichiers, worker borné, cross-compilation, tests), **Projet 2 (API REST)** (Vague 1) et
-**Projet 3 (pipeline concurrent / worker pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Tout le
-module `code/` (ch01 → ch35) reste vert (`go build`/`vet`/`test ./...`, `gofmt -l` vide, `-race` propre sur
-la concurrence, le runtime et les internals).
+**Prochaine action concrète** : **Parties I à VI terminées (Ch. 0 à 40)** — toute la matière *chapitres*
+du livre est rédigée ; les Parties III (concurrence, Vague 2), IV-V (runtime, mémoire & internals, Vague 3)
+et VI (performance & outils, Vague 4) l'ont été en avance. Ne restent que les **projets** et les
+**annexes** : **Projet 1 (Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes, lecture stdin/fichiers,
+worker borné, cross-compilation, tests), **Projet 2 (API REST)** et **Projet 3 (pipeline concurrent / worker
+pool)** (Vague 1-2, réutilisent Ch. 19 → 23), **Projets 4-7** (Vague 4, qui réinvestissent directement la
+Partie VI : benchmarks/fuzzing, pprof, traces/FlightRecorder, PGO), puis la **Vague 5 — Annexes** (A → G).
+Tout le module `code/` (ch01 → ch40) reste vert (`go build`/`vet`/`test ./...` sur **40 packages**, `gofmt
+-l` vide, `-race` propre sur la concurrence, le runtime, les internals et la Partie VI).

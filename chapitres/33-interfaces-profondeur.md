@@ -12,8 +12,8 @@
 ## Introduction
 
 Le [Ch. 9](09-interfaces.md) a présenté les interfaces comme des **contrats de comportement**. Sous le
-capot, une valeur d'interface est un **couple de deux mots** : *quel type concret* et *où sont les
-données*. Ces deux mots expliquent le dispatch dynamique, le coût d'une conversion, l'allocation
+capot, une valeur d'interface est un **couple de deux mots** : _quel type concret_ et _où sont les
+données_. Ces deux mots expliquent le dispatch dynamique, le coût d'une conversion, l'allocation
 surprise d'un `int` mis dans un `any`, et le bug le plus déroutant de Go — une interface « nil » qui ne
 l'est pas. Code dans [`code/ch33-interfaces-profondeur/`](../code/ch33-interfaces-profondeur/).
 
@@ -76,10 +76,10 @@ On croit souvent que « l'appel indirect coûte cher ». En pratique, sur un CPU
 l'appel via interface **empêche l'inlining** de la méthode — et toutes les optimisations qui en
 découlent. Mesuré (1000 formes, `Area()` trivial) :
 
-| Variante                 | ns/op    | allocs/op |
-| ------------------------ | -------- | --------- |
-| dispatch via interface   | **4562** | 0         |
-| appel concret (inliné)   | **1716** | 0         |
+| Variante               | ns/op    | allocs/op |
+| ---------------------- | -------- | --------- |
+| dispatch via interface | **4562** | 0         |
+| appel concret (inliné) | **1716** | 0         |
 
 **2,7× plus rapide** en concret — non pas parce que l'appel indirect est lent, mais parce que `Area()`
 est **inliné** et la boucle optimisée. 💡 Sur un chemin chaud avec une méthode minuscule, préférez un
@@ -98,10 +98,10 @@ var sink any
 func BoxValue(v any) { sink = v }
 ```
 
-| Valeur boxée dans `any`      | alloc/op |
-| ---------------------------- | -------- |
-| `int` de 0 à 255 (en cache)  | **0**    |
-| `int` quelconque (> 255)     | **1**    |
+| Valeur boxée dans `any`     | alloc/op |
+| --------------------------- | -------- |
+| `int` de 0 à 255 (en cache) | **0**    |
+| `int` quelconque (> 255)    | **1**    |
 
 C'est pourquoi `fmt.Println(x)` (qui prend des `...any`) peut **allouer** : chaque argument est boxé.
 Sur le chemin chaud, `-gcflags=-m` révèle ces boxings (`x escapes to heap`).

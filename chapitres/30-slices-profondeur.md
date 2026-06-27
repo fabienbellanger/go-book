@@ -141,10 +141,10 @@ func FilterInPlace(src []int, keep func(int) bool) []int {
 
 Mesuré (`-benchmem`, entrée de 1000 entiers) :
 
-| Variante          | ns/op    | B/op     | allocs/op |
-| ----------------- | -------- | -------- | --------- |
-| `FilterInPlace`   | **2130** | **0**    | **0**     |
-| `filterNewSlice`  | 2907     | 8184     | **10**    |
+| Variante         | ns/op    | B/op  | allocs/op |
+| ---------------- | -------- | ----- | --------- |
+| `FilterInPlace`  | **2130** | **0** | **0**     |
+| `filterNewSlice` | 2907     | 8184  | **10**    |
 
 Réutiliser le backing : **0 allocation** contre 10. ⚠️ En contrepartie, `FilterInPlace` **détruit**
 le contenu d'origine de `src` — à n'employer que si l'appelant n'en a plus besoin.

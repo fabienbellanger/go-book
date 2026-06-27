@@ -80,8 +80,8 @@ func WordCount(words []string) map[string]int {
 
 Mesuré (`-benchmem`, 1000 insertions) :
 
-| Variante           | ns/op     | B/op   | allocs/op |
-| ------------------ | --------- | ------ | --------- |
+| Variante           | ns/op      | B/op   | allocs/op |
+| ------------------ | ---------- | ------ | --------- |
 | sans préallocation | **45 285** | 74 264 | **20**    |
 | `make(map, 1000)`  | **12 054** | 36 944 | **5**     |
 

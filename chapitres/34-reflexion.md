@@ -130,8 +130,8 @@ signature Addr : in=[main.Server ] out=[string ]
 
 La réflexion **paie l'introspection à chaque appel**. Comparé au code écrit à la main :
 
-| Variante               | ns/op     | B/op  | allocs/op |
-| ---------------------- | --------- | ----- | --------- |
+| Variante                 | ns/op     | B/op  | allocs/op |
+| ------------------------ | --------- | ----- | --------- |
 | `FillDefaults` (reflect) | **355,5** | 160   | **5**     |
 | `fillDirect` (à la main) | **3,2**   | **0** | **0**     |
 

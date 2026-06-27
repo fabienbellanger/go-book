@@ -15,6 +15,9 @@
 coverage.*
 *.trace
 
+# Profil PGO de démonstration (généré par `go run . profile` au ch. 39)
+/code/**/default.pgo
+
 # Artefacts d'outils Go
 /code/**/__debug_bin*
 go.work
