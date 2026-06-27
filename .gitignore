@@ -20,6 +20,9 @@ coverage.*
 go.work
 go.work.sum
 
+# Brouillons de vérification (modules jetables hors livre)
+/scratchpad/
+
 # Système / éditeurs
 .DS_Store
 .idea/

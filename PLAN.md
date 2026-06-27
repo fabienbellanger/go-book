@@ -534,8 +534,8 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 18 rédigés** : **Parties I et II terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`). Suite : Projets 1 et 2.
-5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** pour clore la Vague 1.
+4. [~] **Rédaction des chapitres** — **ch. 0 à 23 rédigés** : **Parties I, II et III terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`). La Partie III (Vague 2) a été rédigée en avance ; restent les **projets**.
+5. [ ] Rédiger les **Projets 1 (CLI) et 2 (API REST)** (Vague 1) puis le **Projet 3** (pipeline concurrent, Vague 2).
 
 ---
 
@@ -550,7 +550,7 @@ Un chapitre est « terminé » quand :
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅     | **2/2**   |
 | I — Fondamentaux        | Ch. 2-13 ✅            | **12/12** |
 | II — Mécanismes avancés | Ch. 14-18 ✅           | **5/5**   |
-| III — Concurrence       | Ch. 19 → 23            | ⬜ 0/5    |
+| III — Concurrence       | Ch. 19-23 ✅           | **5/5**   |
 | IV — Runtime & mémoire  | Ch. 24 → 29            | ⬜ 0/6    |
 | V — Internals           | Ch. 30 → 35            | ⬜ 0/6    |
 | VI — Performance        | Ch. 36 → 40            | ⬜ 0/5    |
@@ -589,7 +589,18 @@ Un chapitre est « terminé » quand :
   `code/ch17-panic-recover/` (`safeCall` recover→erreur, `divide` panique runtime, `mustPositive`
   pattern Must, `validate` recover sélectif + re-panic, `recoverMiddleware` frontière HTTP),
   `code/ch18-iterators/` (`Count`/`Naturals`, combinateurs `Map`/`Filter`/`Take`/`Enumerate`, `Zip`
-  via `iter.Pull`, `slices.Values`/`Sorted` + benchmark itérateur vs slice matérialisée).
+  via `iter.Pull`, `slices.Values`/`Sorted` + benchmark itérateur vs slice matérialisée),
+  `code/ch19-goroutines/` (`parallelMap` générique via `WaitGroup` + écriture par index, `tickUntilStop`
+  arrêt propre par canal fermé, `runtime.NumGoroutine`/`GOMAXPROCS`), `code/ch20-channels-select/`
+  (`gen` générateur + `range`/`close`, `fanIn` fusion, `trySend` via `select`/`default`,
+  `recvWithTimeout` via `time.After`, directions `<-chan`/`chan<-`), `code/ch21-synchronisation/`
+  (`SafeCounter` Mutex vs `AtomicCounter` atomic, `runConcurrently` via `WaitGroup.Go`, `OnceValue`,
+  `Registry` RWMutex, `Config` via `atomic.Pointer[T]`, `joinInts` via `sync.Pool` + benchmarks
+  atomic/mutex/RWMutex), `code/ch22-context/` (`sumUntilCancel` surveillant `ctx.Done()`,
+  `WithCancelCause`/`Cause`, `WithTimeout`, valeur de contexte à clé de type non exporté),
+  `code/ch23-patterns-concurrence/` (`source`/`stage` pipeline en flux, `workerPool` parallélisme borné,
+  `Group` errgroup maison en stdlib, `rateLimited` via `time.Ticker`, tests `testing/synctest` à horloge
+  virtuelle).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -625,10 +636,24 @@ Un chapitre est « terminé » quand :
   anticipé (`break` propage `yield`=false), composition **paresseuse** `Map`/`Filter`/`Take`
   (`[0 4 16]`) sur source **infinie**, `iter.Pull` (`Zip`, goroutine + `stop()` obligatoire),
   `slices.Values`/`Sorted`/`Collect` + `maps.Keys`, itérateur **0 alloc / ~2,0 µs** vs slice échappée
-  **8192 B / 1 alloc / ~2,9 µs**.
+  **8192 B / 1 alloc / ~2,9 µs** ; concurrence (Partie III) — goroutine **~2049 octets de pile**
+  (`StackInuse`, 100 k goroutines = +205 Mo), `runtime.NumGoroutine` 1 → 100001, **profil
+  `goroutineleak`** gated `GOEXPERIMENT=goroutineleakprofile` (nil sinon, pointe la ligne `<-ch`
+  exacte), métriques **1.26** `/sched/goroutines-created` + ventilation `/sched/goroutines/{running,
+  runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on closed channel` /
+  `close of closed channel` / `close of nil channel`, réception post-`close` draine puis zéro/`false`,
+  bench canal non bufferisé **185 ns** vs bufferisé **43 ns** ; `sync` — **`WaitGroup.Go`** (1.25) +
+  analyzer **`go vet waitgroup`** (« Add called from inside new goroutine »), `OnceValue` exécuté
+  **1 fois** sous 100 appels, bench **atomic 52 ns / mutex 138 ns / RWMutex lecture 64 ns / Mutex
+  lecture 120 ns** (0 alloc) ; `context` — `WithCancelCause`/`Cause` (`Err()`=Canceled mais
+  `Cause()`=erreur métier), `WithTimeout` → `DeadlineExceeded`, clé de contexte à type non exporté ;
+  **`testing/synctest`** (GA 1.25) — `synctest.Test`/`Wait`, horloge **virtuelle exacte** (5 × 100 ms =
+  500 ms en 0 s réel), tout `go test`/`-race`/`vet` propres sur ch19-23.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Parties I et II terminées (Ch. 0 à 18)**. Vague 1 : il reste les
-**Projets 1 (Outil CLI)** et **2 (API REST)**. Démarrer le **Projet 1** dans `projets/1-cli/`
-(`flag`/sous-commandes, lecture stdin/fichiers, worker borné, cross-compilation, tests). Ensuite,
-attaquer la **Vague 2 — Concurrence** (Partie III, Ch. 19 → 23) + Projet 3.
+**Prochaine action concrète** : **Parties I, II et III terminées (Ch. 0 à 23)** — la Partie III
+(concurrence, Vague 2) a été rédigée en avance. Restent les **projets** : démarrer le **Projet 1
+(Outil CLI)** dans `projets/1-cli/` (`flag`/sous-commandes, lecture stdin/fichiers, worker borné,
+cross-compilation, tests), puis le **Projet 2 (API REST)** (Vague 1) et le **Projet 3 (pipeline
+concurrent / worker pool)** (Vague 2, qui réutilise directement Ch. 19 → 23). Ensuite, **Vague 3 —
+Internals** (Parties IV et V, Ch. 24 → 35).
