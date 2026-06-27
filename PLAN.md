@@ -198,7 +198,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 #### Ch. 8 — Structs, méthodes & composition
 
 - **Objectif** : modéliser des données et leur comportement.
-- **Contenu** : `struct`, champs, tags ; littéraux & champs nommés ; méthodes ; **récepteur valeur vs pointeur** (règles de choix) ; **embedding** (composition, promotion de champs/méthodes) ; structs vides, alignement/padding (teaser ch. 37).
+- **Contenu** : `struct`, champs, tags ; littéraux & champs nommés ; méthodes ; **récepteur valeur vs pointeur** (règles de choix) ; **embedding** (composition, promotion de champs/méthodes) ; structs vides, alignement/padding (teaser ch. 35).
 - **Schéma** : layout mémoire d'un struct avec padding.
 - **⚠️ Pièges** : copie de gros structs, récepteurs mixtes.
 
@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 7 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`). Suite : ch. 8 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 8 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`). Suite : ch. 9 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie                  | Chapitres            | État    |
 | ----------------------- | -------------------- | ------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-7 ✅, Ch. 8 → 13 | 🚧 6/12 |
+| I — Fondamentaux        | Ch. 2-8 ✅, Ch. 9 → 13 | 🚧 7/12 |
 | II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
@@ -569,13 +569,16 @@ Un chapitre est « terminé » quand :
   fonctions-valeurs, valeur vs pointeur, functional options), `code/ch06-slices/`
   (`reverseInts`, `filter`, `chunk` + 3-index anti-aliasing), `code/ch07-maps-strings/`
   (`wordCount`, `uniqueSorted` via set + `slices.Sorted(maps.Keys)`, `reverseString` &
-  `truncate` rune-aware).
+  `truncate` rune-aware), `code/ch08-structs/` (`Point`/`Rectangle` récepteur valeur,
+  `Account`/`AuditedAccount` récepteur pointeur + embedding/override, `Padded`/`Packed` padding).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
   **randomisée** + `slices.Sorted(maps.Keys)`, `clear` laisse la map non-nil, octets vs runes
-  UTF-8 (`"café"` = 5 octets / 4 runes, `🚀` = 4 octets).
+  UTF-8 (`"café"` = 5 octets / 4 runes, `🚀` = 4 octets) ; récepteur valeur vs pointeur
+  (auto-adressage), embedding **sans dispatch dynamique**, padding `Padded`=24/`Packed`=16
+  octets (64 bits), `==` interdit sur struct à champ slice (erreur compile), `structs.HostLayout`.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 8 — Structs, méthodes & composition**
-(+ exemple `code/ch08-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 9 — Interfaces (fondamentaux)**
+(+ exemple `code/ch09-...`), puis enchaîner la Partie I.
