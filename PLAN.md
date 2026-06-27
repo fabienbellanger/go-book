@@ -213,7 +213,7 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 #### Ch. 10 — Gestion des erreurs
 
 - **Objectif** : le modèle d'erreur Go, idiomatique et robuste.
-- **Contenu** : type `error` ; `errors.New`, `fmt.Errorf` + `%w` (wrapping) ; chaînes d'erreurs ; `errors.Is` / `errors.As` ; erreurs sentinelles vs types d'erreur ; quand `panic` n'est pas une erreur ; `defer` (intro, détail ch. 17).
+- **Contenu** : type `error` ; `errors.New`, `fmt.Errorf` + `%w` (wrapping) ; chaînes d'erreurs ; `errors.Is` / `errors.As` ; erreurs sentinelles vs types d'erreur ; quand `panic` n'est pas une erreur ; `defer` (intro, détail ch. 16).
 - **🆕 1.26** : `errors.AsType[E]` (variante générique, typée et plus rapide que `As`).
 - **🆕 1.26** : `fmt.Errorf("x")` alloue autant que `errors.New`.
 - **📌 À retenir** : erreurs = valeurs ; on les enrichit, on ne les masque pas.
@@ -534,7 +534,7 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 9 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`). Suite : ch. 10 → 13.
+4. [~] Lancer la **rédaction de la Vague 1** — **ch. 0 à 10 rédigés** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`). Suite : ch. 11 → 13.
 5. [ ] Continuer la Vague 1 (Parties I et II), puis Projets 1 et 2.
 
 ---
@@ -548,7 +548,7 @@ Un chapitre est « terminé » quand :
 | Partie                  | Chapitres            | État    |
 | ----------------------- | -------------------- | ------- |
 | 0 — Introduction        | Ch. 0 ✅, Ch. 1 ✅   | **2/2** |
-| I — Fondamentaux        | Ch. 2-9 ✅, Ch. 10 → 13 | 🚧 8/12 |
+| I — Fondamentaux        | Ch. 2-10 ✅, Ch. 11 → 13 | 🚧 9/12 |
 | II — Mécanismes avancés | Ch. 14 → 18          | ⬜ 0/5  |
 | III — Concurrence       | Ch. 19 → 23          | ⬜ 0/5  |
 | IV — Runtime & mémoire  | Ch. 24 → 29          | ⬜ 0/6  |
@@ -572,7 +572,8 @@ Un chapitre est « terminé » quand :
   `truncate` rune-aware), `code/ch08-structs/` (`Point`/`Rectangle` récepteur valeur,
   `Account`/`AuditedAccount` récepteur pointeur + embedding/override, `Padded`/`Packed` padding),
   `code/ch09-interfaces/` (`Shape`/`Circle`/`Rect` satisfaction implicite + Stringer, `classify`
-  type switch, `ValidationError`/`error`, piège interface-nil).
+  type switch, `ValidationError`/`error`, piège interface-nil), `code/ch10-errors/`
+  (`ErrEmptyKey` sentinelle, `ParseError`+Unwrap, `parseConfig` via `errors.Join`, `errors.AsType`).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -581,8 +582,10 @@ Un chapitre est « terminé » quand :
   (auto-adressage), embedding **sans dispatch dynamique**, padding `Padded`=24/`Packed`=16
   octets (64 bits), `==` interdit sur struct à champ slice (erreur compile), `structs.HostLayout` ;
   satisfaction implicite, `type switch`, `any` ≡ `interface{}`, **piège interface-nil** (pointeur
-  nil typé → interface non-nil), method set récepteur pointeur (`T` valeur ne satisfait pas).
+  nil typé → interface non-nil), method set récepteur pointeur (`T` valeur ne satisfait pas) ;
+  `errors.AsType[E]` (1.26, `func AsType[E error](err error) (E, bool)`), `errors.Join`/`Is`/`As`
+  à travers la chaîne `%w`, `fmt.Errorf` sans `%w` = 1 alloc (comme `errors.New`) vs 2 avec `%w`.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : rédiger le **Ch. 10 — Gestion des erreurs**
-(+ exemple `code/ch10-...`), puis enchaîner la Partie I.
+**Prochaine action concrète** : rédiger le **Ch. 11 — Généricité : types paramétrés**
+(+ exemple `code/ch11-...`), puis enchaîner la Partie I.
