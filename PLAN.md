@@ -447,7 +447,64 @@ Légende : chaque chapitre liste **Objectif**, **Contenu**, et selon les cas **S
 
 ---
 
-### PARTIE VII — Projets pratiques
+### PARTIE VII — La bibliothèque standard en pratique & mise en production
+
+> Pont entre « apprendre le langage » (Parties I-II) et « livrer un service ». On y
+> montre « la façon Go » des packages du quotidien, puis comment embarquer et déployer.
+> Lisible dès la fin de la Partie I. Les chapitres expliquent les concepts que les
+> projets (Partie VIII) se contentent de mettre en œuvre — renvois croisés systématiques.
+
+#### Ch. 41 — Entrées/sorties & flux : `io`, `bufio`, `bytes`
+
+- **Objectif** : maîtriser le modèle Reader/Writer, central en Go.
+- **Contenu** : `io.Reader`/`Writer` (petites interfaces, composition) ; `io.Copy`/`ReadAll`/`MultiReader`/`TeeReader`/`LimitReader`/`SectionReader`/`Pipe` ; `bufio` (`Reader`/`Writer`, `Scanner`, `Flush`) ; `bytes.Buffer`.
+- **🆕 1.24** : `strings.Lines`/`SplitSeq`/`FieldsSeq` (alternatives itérateur à `Scanner`).
+- **⚠️** : `Flush` oublié, `Read` partiel, `Scanner` tronqué (`bufio.ErrTooLong`), réutilisation de `Scanner.Bytes()`.
+
+#### Ch. 42 — Encodages & sérialisation : `encoding/json`, `gob`/`csv`/`xml`, `regexp`
+
+- **Objectif** : sérialiser des données et traiter du texte structuré.
+- **Contenu** : `encoding/json` (tags, `Marshal`/`Unmarshal`, `Encoder`/`Decoder`, `RawMessage`/`Number`, marshalers personnalisés) ; survol `gob`/`csv`/`xml` ; `regexp` (RE2, groupes nommés).
+- **🆕 1.24** : `omitzero`. **🆕 1.25 (expérimental)** : `encoding/json/v2` + `jsontext` (`GOEXPERIMENT=jsonv2`, prose seulement).
+- **⚠️** : champs non exportés ignorés, `any` → `float64`/`map`, compiler une regex dans une boucle chaude.
+
+#### Ch. 43 — Journalisation structurée : `log/slog`
+
+- **Objectif** : logguer en clés/valeurs, parsable et filtrable.
+- **Contenu** : `slog.Info/…`, `TextHandler`/`JSONHandler`, `HandlerOptions`/`ReplaceAttr`, `LevelVar` (niveau à chaud), attributs typés, `With`/`WithGroup`, `LogValuer` (rédaction de secret), API `*Context` + handler maison (extraire un `request_id`).
+- **🆕 1.24/1.25** : `DiscardHandler`, `slog.NewMultiHandler`.
+- **⚠️** : argument impair (`!BADKEY`), coût d'évaluation des attributs, ne pas logguer de secrets.
+
+#### Ch. 44 — Le temps en pratique : `time`
+
+- **Objectif** : durées, fuseaux, timers — sans pièges (complète le formatage du Ch. 7).
+- **Contenu** : `time.Time`/`Duration`, comparaisons (`Equal` vs `==`), **horloge monotone**, fuseaux (`Location`, UTC/Local) ; timers/tickers (`After`/`NewTimer`/`Reset`/`Stop`/`NewTicker`/`AfterFunc`) ; intégration `context`.
+- **🆕 1.23** : `time.After`/`Tick` ne fuient plus. **🆕 1.25** : tester un timeout via `testing/synctest` (horloge virtuelle).
+- **⚠️** : drainer un timer, `time.Tick` hors `main`, multiplier une `Duration` par un `int`.
+
+#### Ch. 45 — `net/http` : serveur & client
+
+- **Objectif** : comprendre le modèle HTTP (les projets le mettent en œuvre).
+- **Contenu** : `Handler`/`HandlerFunc`/`ServeMux` ; **🆕 1.22** routage enrichi (méthodes, wildcards, `PathValue`) ; middleware (`func(Handler) Handler`) ; `http.Server` (timeouts, `Shutdown`) ; client (`http.Client`, `NewRequestWithContext`, `Transport`, `RoundTripper`).
+- **🆕 1.25** : `http.CrossOriginProtection`. **Sert** `embed.FS` via `FileServerFS` (renvoi Ch. 46).
+- **⚠️** : pas de timeout par défaut, `Body.Close` oublié, écrire après `WriteHeader`.
+
+#### Ch. 46 — Embarquer & déployer : `embed`, build tags, binaires statiques, conteneurs
+
+- **Objectif** : produire un binaire autonome et le livrer.
+- **Contenu** : `//go:embed` (string/`[]byte`/`embed.FS`, motifs, règles) ; build constraints `//go:build` (suffixes de fichier, `-tags`) ; binaire statique (`CGO_ENABLED=0`, `-ldflags="-s -w"`/`-X`/`-trimpath`) ; cross-compilation (renvoi Ch. 1) ; conteneurs `scratch`/`distroless` (Dockerfile multi-stage) ; `runtime/debug.ReadBuildInfo` (`vcs.*`).
+- **⚠️** : fichier `embed` manquant (échec compilation), ligne vide après `//go:build`, CA/fuseaux dans `scratch`.
+
+#### Ch. 47 — Sécurité & chaîne d'approvisionnement
+
+- **Objectif** : adopter les réflexes de sécurité qui comptent, côté provenance du code et côté code.
+- **Contenu** : supply chain (`go.sum`/GOSUMDB, `go mod verify`, `GOPROXY`/`GOPRIVATE`, `-mod=readonly`, MVS, `toolchain`/`GOTOOLCHAIN`, builds reproductibles `-trimpath`/`-buildvcs`) ; `govulncheck` (OSV, analyse par symbole) ; code sûr (`crypto/rand` vs `math/rand`, `subtle.ConstantTimeCompare`, mots de passe `bcrypt`/`argon2`, `html/template` vs `text/template`, SQL paramétré, `os.Root`/`fs.ValidPath`, `MaxBytesReader`/CSRF, `crypto/tls` durci) ; catalogue ❌/✅ + checklist pré-déploiement.
+- **🆕 1.24** : `crypto/rand.Text`, `os.Root`, mode FIPS 140-3 (`GOFIPS140`). **🆕 1.25** : `http.CrossOriginProtection`.
+- **⚠️** : `InsecureSkipVerify`, `math/rand` pour un secret, `text/template` rendu en HTML (XSS), concaténation SQL.
+
+---
+
+### PARTIE VIII — Projets pratiques
 
 > Chaque projet : cahier des charges, architecture (schéma ASCII), code commenté par
 > étapes, tests/benchmarks, points de vigilance, « pour aller plus loin ».
@@ -518,7 +575,7 @@ Un chapitre est « terminé » quand :
 
 ## 7. Volume & phasage de production
 
-- **Échelle** : ~42 chapitres + 7 projets + 7 annexes. Estimation indicative 300-450 pages.
+- **Échelle** : ~47 chapitres + 7 projets + 8 annexes. Estimation indicative 350-500 pages.
 - **Ordre de production conseillé** (pour livrer de la valeur tôt) :
   1. **Vague 1 — Apprentissage** : Parties 0, I, II (ch. 0-18) + Projets 1 et 2.
   2. **Vague 2 — Concurrence** : Partie III (ch. 19-23) + Projet 3.
@@ -534,9 +591,9 @@ Un chapitre est « terminé » quand :
 1. [x] **Valider/ajuster** ce plan (ordre des chapitres, granularité, projets).
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
-4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
+4. [~] **Rédaction des chapitres** — **ch. 0 à 47 rédigés** : **Parties I, II, III, IV, V, VI et VII terminées** (la Partie VII « Stdlib & mise en production » ajoute `ch41-io/`, `ch42-encoding/`, `ch43-slog/`, `ch44-time/`, `ch45-http/`, `ch46-embed-build/`, `ch47-securite/`, tous `go test -race`/`vet`/`gofmt` propres) (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
 5. [~] Rédiger les projets — **Projets 1 à 7 rédigés** : 1 (CLI `txtkit`), 2 (API REST `tasksd`), 3 (pipeline concurrent `pipe`), 4 (bibliothèque générique `gends`), 5 (service réseau `kvd`), 6 (générateur de code `enumgen`) et 7 (profiling capstone `wordstats`) (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `projets/4-lib-generique/` module `example.com/gends`, `projets/5-service-reseau/` module `example.com/kvd`, `projets/6-codegen/` module `example.com/enumgen`, `projets/7-profiling/` module `example.com/wordstats`, tous `go test -race`/`vet`/`gofmt` propres) ; **Partie VII terminée (7/7)**.
-6. [x] **Vague 5 — Annexes** rédigées (A → G) : A Glossaire, B Antisèche `go`, C Carte des nouveautés 1.21 → 1.26, D Algorithmes & structures de données (+ code `code/annexe-D-algorithmes/`), E Démonstrations & benchmarks (+ code `code/annexe-E-benchmarks/`, chiffres mesurés), F Idiomes & style, G Ressources, **H Concurrence sûre** (éviter data races & deadlocks : règles d'or, catalogue races/deadlocks avec correctifs, mode opératoire de détection, checklist pre-merge, + code `code/annexe-H-concurrence/` testé `-race`). Module `code/` vert (**43 packages**, `go test -race`/`vet`/`gofmt` propres). Restent les **passes de cohérence/relecture** finales.
+6. [x] **Vague 5 — Annexes** rédigées (A → G) : A Glossaire, B Antisèche `go`, C Carte des nouveautés 1.21 → 1.26, D Algorithmes & structures de données (+ code `code/annexe-D-algorithmes/`), E Démonstrations & benchmarks (+ code `code/annexe-E-benchmarks/`, chiffres mesurés), F Idiomes & style, G Ressources, **H Concurrence sûre** (éviter data races & deadlocks : règles d'or, catalogue races/deadlocks avec correctifs, mode opératoire de détection, checklist pre-merge, + code `code/annexe-H-concurrence/` testé `-race`). Module `code/` vert (**50 packages**, `go test -race`/`vet`/`gofmt` propres). Restent les **passes de cohérence/relecture** finales.
 
 ---
 
@@ -555,7 +612,8 @@ Un chapitre est « terminé » quand :
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
-| VII — Projets           | Projets 1-7 ✅     | **7/7**   |
+| VII — Stdlib & prod     | Ch. 41-47 ✅       | **7/7**   |
+| VIII — Projets          | Projets 1-7 ✅     | **7/7**   |
 | Annexes                 | A → H ✅           | **8/8**   |
 
 ### Infrastructure

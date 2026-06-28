@@ -65,7 +65,20 @@
 - Ch. 39 — [Compilation, inlining, PGO & optimisations](chapitres/39-compilation-inlining-pgo.md)
 - Ch. 40 — [Méthodologie de performance](chapitres/40-methodologie-performance.md)
 
-## Partie VII — Projets pratiques
+## Partie VII — La bibliothèque standard en pratique & mise en production
+
+> Lisible dès la fin de la Partie I : ces chapitres montrent « la façon Go » des
+> packages du quotidien, puis comment embarquer et déployer un binaire.
+
+- Ch. 41 — [Entrées/sorties & flux : `io`, `bufio`, `bytes`](chapitres/41-io-flux.md)
+- Ch. 42 — [Encodages & sérialisation : `encoding/json`, `gob`/`csv`/`xml`, `regexp`](chapitres/42-encodages-serialisation.md)
+- Ch. 43 — [Journalisation structurée : `log/slog`](chapitres/43-journalisation-slog.md)
+- Ch. 44 — [Le temps en pratique : `time`](chapitres/44-temps.md)
+- Ch. 45 — [`net/http` : serveur & client](chapitres/45-net-http.md)
+- Ch. 46 — [Embarquer & déployer : `embed`, build tags, binaires statiques](chapitres/46-embed-build-deploiement.md)
+- Ch. 47 — [Sécurité & chaîne d'approvisionnement](chapitres/47-securite-supply-chain.md)
+
+## Partie VIII — Projets pratiques
 
 - Projet 1 — [Outil CLI](projets/1-cli/)
 - Projet 2 — [API REST](projets/2-api-rest/)

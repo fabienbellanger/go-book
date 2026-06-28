@@ -1,0 +1,1 @@
+Bonjour, {{.Name}} ! Vous utilisez la version {{.Version}}.
