@@ -169,6 +169,39 @@ Previous write at 0x00c0000b4010 by goroutine 7:
 > courses **réellement exécutées** — d'où l'importance de tests qui **exercent** la concurrence. Coût :
 > 2–10× plus lent, mémoire accrue ; réservé aux tests, pas à la production.
 
+## Deadlocks : les causes & la détection
+
+Le pendant de la course, c'est l'**interblocage** : des goroutines s'attendent en cercle, plus rien
+n'avance. Quatre causes couvrent l'essentiel :
+
+1. **Verrous en ordres opposés** (« AB-BA ») : g1 prend `A` puis `B`, g2 prend `B` puis `A`. Correctif
+   universel : **un ordre de verrouillage global** (toujours verrouiller dans le même ordre).
+2. **Mutex non réentrant** : reverrouiller dans la **même** goroutine bloque (séparez méthode publique
+   qui verrouille et logique privée « déjà verrouillée »).
+3. **Canal sans issue** : envoi non bufferisé sans receveur, `range` sur un canal **jamais fermé**, ou
+   canal `nil` (bloque à jamais). Le **producteur ferme** ; bornez par `select` + `ctx.Done()`.
+4. **`WaitGroup` mal orchestré** : `Add` **dans** la goroutine au lieu d'avant (préférez `wg.Go`, 1.25).
+
+```go
+// ✅ Ordre global : on verrouille toujours le plus petit id d'abord -> pas d'AB-BA.
+func Transfer(from, to *Account, amount int64) {
+	if from == to { return }
+	first, second := from, to
+	if first.id > second.id { first, second = second, first }
+	first.mu.Lock();  defer first.mu.Unlock()
+	second.mu.Lock(); defer second.mu.Unlock()
+	from.balance -= amount; to.balance += amount
+}
+```
+
+> ⚠️ Le runtime n'affiche `fatal error: all goroutines are asleep - deadlock!` que si **TOUTES** les
+> goroutines sont bloquées. Un deadlock **partiel** (le `main` tourne) **fige sans message** : on le
+> diagnostique en **vidant les piles** des goroutines (`SIGQUIT` / `kill -QUIT`, ou
+> `/debug/pprof/goroutine?debug=2`).
+
+> 🔁 Le catalogue complet (data races + deadlocks), les correctifs côte à côte et la **checklist
+> pre-merge** sont dans l'[Annexe H — Concurrence sûre](../annexes/H-concurrence-sure.md).
+
 ## Tester le temps : `testing/synctest` (1.25)
 
 Tester un timeout, un _rate limiter_, un _retry_ avec backoff... implique d'**attendre** — tests
@@ -286,4 +319,6 @@ go test -run TestRateLimitedVirtualTime -v ./ch23-patterns-concurrence/...
 - [Ch. 28 — L'ordonnanceur](28-ordonnanceur-gmp.md) : pourquoi l'I/O permet bien plus de goroutines.
 - [Ch. 29 — Observabilité](29-observabilite-runtime.md) : profils `goroutine`/`goroutineleak`, métriques.
 - [Ch. 36 — Benchmarks](36-tests-benchmarks-fuzzing.md) : mesurer un système concurrent.
+- [Annexe H — Concurrence sûre](../annexes/H-concurrence-sure.md) : règles d'or, catalogue races &
+  deadlocks avec correctifs, mode opératoire de détection, checklist pre-merge.
 - Projet 3 (pipeline / worker pool) : la synthèse de tout ce chapitre.

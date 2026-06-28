@@ -84,3 +84,4 @@
 - E — [Démonstrations techniques & benchmarks](annexes/E-demonstrations-benchmarks.md)
 - F — [Idiomes & style](annexes/F-idiomes-style.md)
 - G — [Ressources](annexes/G-ressources.md)
+- H — [Concurrence sûre : éviter data races & deadlocks](annexes/H-concurrence-sure.md)

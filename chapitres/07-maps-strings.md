@@ -270,6 +270,103 @@ for i := range 3 {
 result := b.String()  // "ligne0;ligne1;ligne2;"
 ```
 
+### Dates & heures : `time.Time`, formatage & parsing
+
+Une date est un `time.Time` (package `time`). Sa conversion en texte est l'un des
+points les plus **déroutants** de Go pour les nouveaux venus : au lieu des codes
+classiques (`%Y-%m-%d`, `dd/MM/yyyy`…), Go décrit un format en **écrivant une date
+de référence précise**, toujours la même :
+
+```
+  Mon Jan  2 15:04:05 MST 2006
+       1   2  3  4  5       6      (et le fuseau -0700 = 7)
+      mois jour h min sec  année
+```
+
+La disposition se lit donc comme un **exemple** : « voici à quoi ressemble cette
+date-là, mets-y la mienne ». Le moyen mnémotechnique est la suite **1 2 3 4 5 6 7** :
+mois (`01`), jour (`02`), heure 12 h (`03`), minute (`04`), seconde (`05`), année
+(`06`), fuseau (`-0700`) — l'heure sur 24 h étant `15`.
+
+```go
+t := time.Date(2025, time.June, 28, 15, 4, 5, 0, time.UTC)
+
+t.Format("2006-01-02 15:04:05")   // "2025-06-28 15:04:05"
+t.Format("02/01/2006")            // "28/06/2025"  (format français)
+t.Format(time.RFC3339)            // "2025-06-28T15:04:05Z"
+
+// Parse fait l'inverse : la disposition décrit le format de l'ENTRÉE.
+when, err := time.Parse("2006-01-02", "2025-06-28")
+// ParseInLocation(layout, valeur, loc) pour fixer le fuseau d'interprétation.
+```
+
+> ⚠️ **Seules les valeurs de la date de référence sont « magiques ».** Tout autre
+> chiffre est recopié **littéralement** : `t.Format("2024-01-02")` rend
+> `"2024-06-28"` (le `2024` est du texte !) — seul `2006`/`06` désigne l'année.
+
+**Tableau exhaustif des éléments** (les seuls reconnus ; rendus pour la référence
+`2006-01-02 15:04:05.123456789 -0700`) :
+
+| Composant              | Jeton                             | Rendu                             | Remarque                                       |
+| ---------------------- | --------------------------------- | --------------------------------- | ---------------------------------------------- |
+| **Année**              | `2006`                            | `2006`                            | 4 chiffres                                     |
+|                        | `06`                              | `06`                              | 2 chiffres                                     |
+| **Mois**               | `January`                         | `January`                         | nom complet (anglais)                          |
+|                        | `Jan`                             | `Jan`                             | nom abrégé (3 lettres)                         |
+|                        | `01`                              | `01`                              | numéro, zéro initial                           |
+|                        | `1`                               | `1`                               | numéro, sans zéro                              |
+| **Jour du mois**       | `02`                              | `02`                              | quantième, zéro initial                        |
+|                        | `2`                               | `2`                               | quantième, sans zéro                           |
+|                        | `_2`                              | `« 2»`                            | cadré à droite sur 2 colonnes (espace)         |
+| **Jour de l'année**    | `002`                             | `002`                             | quantième annuel, zéro initial (3 chiffres)    |
+|                        | `__2`                             | `«  2»`                           | quantième annuel, cadré sur 3 colonnes         |
+| **Jour de la semaine** | `Monday`                          | `Monday`                          | nom complet                                    |
+|                        | `Mon`                             | `Mon`                             | nom abrégé                                     |
+| **Heure**              | `15`                              | `15`                              | sur **24 h** (00–23) — **seul** jeton 24 h     |
+|                        | `03`                              | `03`                              | sur 12 h, zéro initial                         |
+|                        | `3`                               | `3`                               | sur 12 h, sans zéro                            |
+| **Minute**             | `04`                              | `04`                              | zéro initial                                   |
+|                        | `4`                               | `4`                               | sans zéro                                      |
+| **Seconde**            | `05`                              | `05`                              | zéro initial                                   |
+|                        | `5`                               | `5`                               | sans zéro                                      |
+| **Fraction**           | `.000` / `.000000` / `.000000000` | `.123` / `.123456` / `.123456789` | 3/6/9 décimales, **zéros de fin conservés**    |
+|                        | `.9` / `.99` / `.999` …           | `.1` / `.12` / `.123`             | décimales, **zéros de fin supprimés**          |
+|                        | `,000` / `,999`                   | `,123`                            | idem, séparateur **virgule**                   |
+| **Méridien**           | `PM`                              | `PM`                              | AM/PM majuscules                               |
+|                        | `pm`                              | `pm`                              | am/pm minuscules                               |
+| **Fuseau**             | `-0700`                           | `-0700`                           | décalage ±hhmm                                 |
+|                        | `-07:00`                          | `-07:00`                          | décalage ±hh:mm                                |
+|                        | `-07`                             | `-07`                             | décalage ±hh                                   |
+|                        | `-070000`                         | `-070000`                         | décalage ±hhmmss                               |
+|                        | `-07:00:00`                       | `-07:00:00`                       | décalage ±hh:mm:ss                             |
+|                        | `Z0700`                           | `Z` ou `-0700`                    | comme `-0700`, mais **« Z » si UTC**           |
+|                        | `Z07:00`                          | `Z` ou `-07:00`                   | comme `-07:00`, mais « Z » si UTC (← RFC 3339) |
+|                        | `Z07` / `Z070000` / `Z07:00:00`   | `Z` ou `±…`                       | variantes « Z si UTC »                         |
+|                        | `MST`                             | `MST`                             | abréviation (nom) du fuseau                    |
+
+Plutôt que de réécrire ces dispositions, on réutilise les **constantes
+prédéfinies** du package `time` :
+
+| Constante                                                | Disposition                     | Exemple de rendu                |
+| -------------------------------------------------------- | ------------------------------- | ------------------------------- |
+| `time.DateOnly`                                          | `2006-01-02`                    | `2025-06-28`                    |
+| `time.TimeOnly`                                          | `15:04:05`                      | `15:04:05`                      |
+| `time.DateTime`                                          | `2006-01-02 15:04:05`           | `2025-06-28 15:04:05`           |
+| `time.RFC3339`                                           | `2006-01-02T15:04:05Z07:00`     | `2025-06-28T15:04:05Z`          |
+| `time.RFC3339Nano`                                       | `…05.999999999Z07:00`           | `2025-06-28T15:04:05.5Z`        |
+| `time.RFC1123`                                           | `Mon, 02 Jan 2006 15:04:05 MST` | `Sat, 28 Jun 2025 15:04:05 UTC` |
+| `time.Kitchen`                                           | `3:04PM`                        | `3:04PM`                        |
+| `time.ANSIC`                                             | `Mon Jan _2 15:04:05 2006`      | `Sat Jun 28 15:04:05 2025`      |
+| `time.UnixDate`                                          | `Mon Jan _2 15:04:05 MST 2006`  | `Sat Jun 28 15:04:05 UTC 2025`  |
+| `time.Stamp` / `StampMilli` / `StampMicro` / `StampNano` | `Jan _2 15:04:05[.000…]`        | `Jun 28 15:04:05`               |
+
+(Existent aussi : `RFC822`, `RFC822Z`, `RFC850`, `RFC1123Z`, `RubyDate`.)
+
+> 💡 **Le bon réflexe** : pour un format d'API ou de stockage, préférer
+> `time.RFC3339` (tri lexicographique = tri chronologique). Le `Format`/`Parse`
+> rendent et lisent dans le **fuseau** porté par le `time.Time` ; ajuster avec
+> `t.UTC()`, `t.Local()` ou `t.In(loc)` avant d'afficher.
+
 ---
 
 ## 🆕 Go 1.2x
@@ -294,6 +391,9 @@ result := b.String()  // "ligne0;ligne1;ligne2;"
 - **`string(monInt)`** ne formate pas le nombre : c'est une conversion de **point de code**.
   Utilisez `strconv.Itoa` / `fmt.Sprint`.
 - **Concaténer avec `+=` en boucle** → O(n²) en copies. Utilisez `strings.Builder`.
+- **Disposition de date « inventée »** (`YYYY-MM-DD`, `%Y`…) → ne formate rien : Go
+  n'a qu'**une** date de référence, `2006-01-02 15:04:05`. Confondre le mois (`01`)
+  avec la minute (`04`), ou écrire `12` pour l'heure (c'est `15` en 24 h) = bugs muets.
 - **Map partagée entre goroutines** → accès concurrent non protégé = data race (voir
   [Ch. 21](21-synchronisation.md) et [Ch. 32](32-maps-hachage.md)).
 
@@ -335,6 +435,9 @@ go test ./ch07-maps-strings/...
   octets, `range` et `[]rune` en **runes**.
 - `strings.Builder` pour concaténer ; `strconv` pour nombres ↔ texte ; `string(int)` = point
   de code, pas formatage.
+- **Dates** : `time.Time.Format`/`time.Parse` décrivent le format avec la **date de
+  référence** `2006-01-02 15:04:05` (mnémo **1 2 3 4 5 6 7**) ; privilégier les
+  constantes (`time.RFC3339`, `time.DateOnly`…).
 
 ## 🔁 Pour aller plus loin
 

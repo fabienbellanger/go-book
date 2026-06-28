@@ -536,7 +536,7 @@ Un chapitre est « terminé » quand :
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
 4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
 5. [~] Rédiger les projets — **Projets 1 à 7 rédigés** : 1 (CLI `txtkit`), 2 (API REST `tasksd`), 3 (pipeline concurrent `pipe`), 4 (bibliothèque générique `gends`), 5 (service réseau `kvd`), 6 (générateur de code `enumgen`) et 7 (profiling capstone `wordstats`) (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `projets/4-lib-generique/` module `example.com/gends`, `projets/5-service-reseau/` module `example.com/kvd`, `projets/6-codegen/` module `example.com/enumgen`, `projets/7-profiling/` module `example.com/wordstats`, tous `go test -race`/`vet`/`gofmt` propres) ; **Partie VII terminée (7/7)**.
-6. [x] **Vague 5 — Annexes** rédigées (A → G) : A Glossaire, B Antisèche `go`, C Carte des nouveautés 1.21 → 1.26, D Algorithmes & structures de données (+ code `code/annexe-D-algorithmes/`), E Démonstrations & benchmarks (+ code `code/annexe-E-benchmarks/`, chiffres mesurés), F Idiomes & style, G Ressources. Module `code/` vert (**42 packages**, `go test -race`/`vet`/`gofmt` propres). Restent les **passes de cohérence/relecture** finales.
+6. [x] **Vague 5 — Annexes** rédigées (A → G) : A Glossaire, B Antisèche `go`, C Carte des nouveautés 1.21 → 1.26, D Algorithmes & structures de données (+ code `code/annexe-D-algorithmes/`), E Démonstrations & benchmarks (+ code `code/annexe-E-benchmarks/`, chiffres mesurés), F Idiomes & style, G Ressources, **H Concurrence sûre** (éviter data races & deadlocks : règles d'or, catalogue races/deadlocks avec correctifs, mode opératoire de détection, checklist pre-merge, + code `code/annexe-H-concurrence/` testé `-race`). Module `code/` vert (**43 packages**, `go test -race`/`vet`/`gofmt` propres). Restent les **passes de cohérence/relecture** finales.
 
 ---
 
@@ -556,7 +556,7 @@ Un chapitre est « terminé » quand :
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
 | VII — Projets           | Projets 1-7 ✅     | **7/7**   |
-| Annexes                 | A → G ✅           | **7/7**   |
+| Annexes                 | A → H ✅           | **8/8**   |
 
 ### Infrastructure
 
@@ -793,11 +793,14 @@ compare), `Example` testables. Stdlib pure. Le **Projet 7 (capstone)** vit dans 
 de clé sans allocation**), **benchmarks** `b.Loop`/`SetBytes` + `benchstat`, **pprof** (`net/http/pprof` monté),
 **traces + `FlightRecorder` (🆕 1.25)** capturant sur requête lente, **PGO** (`default.pgo` auto-détecté), le tout
 chiffré dans **`RAPPORT.md`** (avant/après : **×8,7 CPU, ×1286 allocations, ×5400 octets**, PGO dans le bruit).
-**Partie VII terminée (7/7).** La **Vague 5 — Annexes (A → G)** est rédigée : A Glossaire (~70 entrées),
+**Partie VII terminée (7/7).** La **Vague 5 — Annexes (A → H)** est rédigée : A Glossaire (~70 entrées),
 B Antisèche des commandes `go`, C Carte des nouveautés 1.21 → 1.26 (API vérifiées par `go doc`), D Algorithmes &
 structures de données (tri, recherche, graphes BFS/DFS/topo/Dijkstra, Stack/Queue/UnionFind génériques) avec code
 testé `code/annexe-D-algorithmes/`, E Démonstrations & benchmarks (pile/tas, mutex/atomic, interface/générique,
 concaténation, préallocation, GC tuning) avec code et **chiffres mesurés** `code/annexe-E-benchmarks/`, F Idiomes &
-style, G Ressources. Tout le module `code/` (ch01 → ch40 + deux paquets d'annexes) reste vert (`go build`/`vet`/
-`test -race ./...` sur **42 packages**, `gofmt -l` vide), et les **sept** projets (`projets/1-cli/` →
-`projets/7-profiling/`) sont `go test -race`/`vet`/`gofmt` propres. **Reste les passes finales de cohérence/relecture.**
+style, G Ressources, **H Concurrence sûre** (éviter data races & deadlocks : règles d'or, catalogue avec correctifs,
+détection — `-race`/vidage des goroutines/profils/goroutineleak — et checklist pre-merge ; code `code/annexe-H-concurrence/`
+testé `-race`, + section « Deadlocks » ajoutée au Ch. 23). Tout le module `code/` (ch01 → ch40 + trois paquets
+d'annexes) reste vert (`go build`/`vet`/`test -race ./...` sur **43 packages**, `gofmt -l` vide), et les **sept**
+projets (`projets/1-cli/` → `projets/7-profiling/`) sont `go test -race`/`vet`/`gofmt` propres. **Reste les passes
+finales de cohérence/relecture.**
