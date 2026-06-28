@@ -535,7 +535,7 @@ Un chapitre est « terminé » quand :
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
 4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
-5. [~] Rédiger les projets — **Projet 1 (CLI `txtkit`) rédigé** (`projets/1-cli/`, module `example.com/txtkit`, `go test -race`/`vet`/`gofmt` propres) ; restent le **Projet 2 (API REST)** (Vague 1), le **Projet 3** (pipeline concurrent, Vague 2) et les **Projets 4-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
+5. [~] Rédiger les projets — **Projets 1 (CLI `txtkit`) et 2 (API REST `tasksd`) rédigés** (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `go test -race`/`vet`/`gofmt` propres) ; restent le **Projet 3** (pipeline concurrent, Vague 2) et les **Projets 4-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
 
 ---
 
@@ -554,7 +554,7 @@ Un chapitre est « terminé » quand :
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
-| VII — Projets           | Projet 1 ✅, 2 → 7 | **1/7**   |
+| VII — Projets           | Projets 1-2 ✅, 3 → 7 | **2/7**   |
 | Annexes                 | A → G              | ⬜ 0/7    |
 
 ### Infrastructure
@@ -747,17 +747,22 @@ runnable,waiting}` + `/sched/threads/total` ; canaux — paniques `send on close
   benchstat révèle **+1410 % mémoire** (compromis selon SLO), `GOMEMLIMIT` levier p99.
 - ⬜ CI (GitHub Actions) lançant `go test ./...` + `go vet ./...` + `gofmt -l`.
 
-**Prochaine action concrète** : **Parties I à VI terminées (Ch. 0 à 40)** et **Projet 1 (Outil CLI) rédigé**.
-Le **Projet 1** vit dans `projets/1-cli/` — module autonome `example.com/txtkit`, outil `txtkit` à
-sous-commandes (`count` façon `wc` rune par rune + `freq` top-N), lecture fichiers/stdin via `sourcesFrom`,
-**worker pool générique borné** `mapBounded[T,R]` (sémaphore à canal + `WaitGroup.Go` 1.25, résultats
-ordonnés, `-race` propre), configuration en couches (défaut `GOMAXPROCS` < `TXTKIT_WORKERS` < flag `-j`),
-patron testable `Run(args, in, out, err) int` (`main` = `os.Exit(cli.Run(...))`), codes de retour 0/1/2,
-sortie alignée `text/tabwriter`, tri déterministe (`slices.SortFunc`), tests table-driven, `Makefile` de
-**cross-compilation** (5 plateformes, binaires statiques `CGO_ENABLED=0`, version injectée par `-ldflags -X`),
-et un `README.md` « chapitre projet » (cahier des charges, archi ASCII, étapes, pièges, distribution).
-Restent : **Projet 2 (API REST)** et **Projet 3 (pipeline concurrent / worker pool)** (Vague 1-2, réutilisent
-Ch. 19 → 23), **Projets 4-7** (Vague 4, qui réinvestissent la Partie VI : benchmarks/fuzzing, pprof,
-traces/FlightRecorder, PGO), puis la **Vague 5 — Annexes** (A → G). Tout le module `code/` (ch01 → ch40)
-reste vert (`go build`/`vet`/`test ./...` sur **40 packages**, `gofmt -l` vide), et `projets/1-cli/`
-(`go test -race`/`vet`/`gofmt` propres).
+**Prochaine action concrète** : **Parties I à VI terminées (Ch. 0 à 40)** et **Projets 1 (Outil CLI) et
+2 (API REST) rédigés**. Le **Projet 1** vit dans `projets/1-cli/` — module autonome `example.com/txtkit`,
+outil `txtkit` à sous-commandes (`count` façon `wc` rune par rune + `freq` top-N), lecture fichiers/stdin via
+`sourcesFrom`, **worker pool générique borné** `mapBounded[T,R]` (sémaphore à canal + `WaitGroup.Go` 1.25,
+résultats ordonnés, `-race` propre), configuration en couches (défaut `GOMAXPROCS` < `TXTKIT_WORKERS` <
+flag `-j`), patron testable `Run(args, in, out, err) int`, codes de retour 0/1/2, sortie `text/tabwriter`,
+tests table-driven, `Makefile` de cross-compilation. Le **Projet 2** vit dans `projets/2-api-rest/` —
+module `example.com/tasksapi`, API REST `tasksd` **stdlib pure** : routage `ServeMux` 1.22 (méthode + `{id}`
+via `PathValue`, `405`/`404` natifs), CRUD JSON `/api/tasks` avec validation (`400/404/405/422/500`),
+chaîne de middlewares (`recoverPanic` → `requestID` → `logging` → CSRF), **logging structuré `slog`**
+(`NewMultiHandler` 1.25 : texte stderr + JSON d'audit), **protection CSRF** `http.CrossOriginProtection`
+(1.25), persistance derrière l'**interface `store.Store`** (`MemStore` `RWMutex` par défaut + `SQLStore`
+`database/sql` à migrations `//go:embed`), **arrêt propre** `signal.NotifyContext` + `Server.Shutdown`,
+décodage borné/strict (`MaxBytesReader`, `DisallowUnknownFields`), tests `httptest` de bout en bout, et
+usage de `new(expr)` / `strings.SplitSeq` (1.26/1.24). Restent : **Projet 3 (pipeline concurrent / worker
+pool)** (Vague 2, réutilise Ch. 19 → 23), **Projets 4-7** (Vague 4, qui réinvestissent la Partie VI :
+benchmarks/fuzzing, pprof, traces/FlightRecorder, PGO), puis la **Vague 5 — Annexes** (A → G). Tout le
+module `code/` (ch01 → ch40) reste vert (`go build`/`vet`/`test ./...` sur **40 packages**, `gofmt -l`
+vide), et `projets/1-cli/` comme `projets/2-api-rest/` sont `go test -race`/`vet`/`gofmt` propres.

@@ -19,12 +19,12 @@
 `txtkit` est une boîte à outils de traitement de fichiers texte, à la manière de `wc`,
 mais avec **deux sous-commandes** et du **parallélisme** :
 
-| Sous-commande | Rôle                                                              |
-| ------------- | ---------------------------------------------------------------- |
-| `count`       | Compte **lignes, mots, runes, octets** de chaque entrée.         |
+| Sous-commande | Rôle                                                                |
+| ------------- | ------------------------------------------------------------------- |
+| `count`       | Compte **lignes, mots, runes, octets** de chaque entrée.            |
 | `freq`        | Affiche les **mots les plus fréquents**, toutes entrées confondues. |
-| `version`     | Affiche la version (injectée à la compilation).                  |
-| `help`        | Affiche l'aide.                                                  |
+| `version`     | Affiche la version (injectée à la compilation).                     |
+| `help`        | Affiche l'aide.                                                     |
 
 Contraintes :
 
