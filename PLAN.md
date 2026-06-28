@@ -535,7 +535,7 @@ Un chapitre est « terminé » quand :
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
 4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
-5. [~] Rédiger les projets — **Projets 1 (CLI `txtkit`), 2 (API REST `tasksd`) et 3 (pipeline concurrent `pipe`) rédigés** (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `go test -race`/`vet`/`gofmt` propres) ; restent les **Projets 4-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
+5. [~] Rédiger les projets — **Projets 1 (CLI `txtkit`), 2 (API REST `tasksd`), 3 (pipeline concurrent `pipe`) et 4 (bibliothèque générique `gends`) rédigés** (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `projets/4-lib-generique/` module `example.com/gends`, `go test -race`/`vet`/`gofmt` propres) ; restent les **Projets 5-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
 
 ---
 
@@ -554,7 +554,7 @@ Un chapitre est « terminé » quand :
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
-| VII — Projets           | Projets 1-3 ✅, 4 → 7 | **3/7**   |
+| VII — Projets           | Projets 1-4 ✅, 5 → 7 | **4/7**   |
 | Annexes                 | A → G              | ⬜ 0/7    |
 
 ### Infrastructure
@@ -768,7 +768,13 @@ appliqué à l'outil `pipe` (SHA-256 de fichiers en parallèle) : **fan-out/fan-
 (première erreur ⇒ annulation globale), **limitation de débit** (`RateLimiter` sur `time.Ticker`), **métriques**
 atomiques (pic de concurrence par CAS), source paresseuse `iter.Seq`, et tests **`testing/synctest`** (temps
 virtuel + détection de fuite de goroutines) sous `-race`. Seule dépendance externe : `golang.org/x/sync/errgroup`.
-Restent : **Projets 4-7** (Vague 4, qui réinvestissent la Partie VI : benchmarks/fuzzing, pprof,
+Le **Projet 4** vit dans `projets/4-lib-generique/` — module `example.com/gends`, **bibliothèque générique
+réutilisable** en trois packages (`set` `Set[T comparable]` ensembliste, `pqueue` `Queue[T any]` tas binaire à
+comparateur + `NewOrdered[cmp.Ordered]`, `lru` `Cache[K comparable,V]` borné sur `container/list`) : conception
+d'API (type zéro explicite, **contraintes minimales** — `set.Sorted` ajoute `cmp.Ordered` en fonction libre),
+**`Example` testables** (godoc + vérifiés), tests table-driven, **benchmarks** `for b.Loop()` (1.24) `-benchmem`,
+**fuzzing** du LRU contre un modèle de référence, source `iter.Seq`, et discipline **SemVer/compat + CI**
+documentée. Stdlib pure. Restent : **Projets 5-7** (Vague 4, qui réinvestissent la Partie VI : pprof,
 traces/FlightRecorder, PGO), puis la **Vague 5 — Annexes** (A → G). Tout le module `code/` (ch01 → ch40)
 reste vert (`go build`/`vet`/`test ./...` sur **40 packages**, `gofmt -l` vide), et `projets/1-cli/`,
-`projets/2-api-rest/` comme `projets/3-pipeline/` sont `go test -race`/`vet`/`gofmt` propres.
+`projets/2-api-rest/`, `projets/3-pipeline/` comme `projets/4-lib-generique/` sont `go test -race`/`vet`/`gofmt` propres.
