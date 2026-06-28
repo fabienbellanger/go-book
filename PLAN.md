@@ -535,7 +535,7 @@ Un chapitre est « terminé » quand :
 2. [x] Mettre en place le **squelette du dépôt** (`chapitres/`, `code/go.mod`, `projets/`, `annexes/`, `SOMMAIRE.md`, `README.md`, `.gitignore`).
 3. [x] Établir un **gabarit de chapitre** réutilisable (`chapitres/_gabarit.md`).
 4. [~] **Rédaction des chapitres** — **ch. 0 à 40 rédigés** : **Parties I, II, III, IV, V et VI terminées** (+ exemples `code/ch01-hello/`, `ch02-structure/`, `ch03-basics/`, `ch04-controlflow/`, `ch05-functions/`, `ch06-slices/`, `ch07-maps-strings/`, `ch08-structs/`, `ch09-interfaces/`, `ch10-errors/`, `ch11-generics/`, `ch12-packages/`, `ch13-tests/`, `ch14-switch/`, `ch15-closures/`, `ch16-defer/`, `ch17-panic-recover/`, `ch18-iterators/`, `ch19-goroutines/`, `ch20-channels-select/`, `ch21-synchronisation/`, `ch22-context/`, `ch23-patterns-concurrence/`, `ch24-runtime-bootstrap/`, `ch25-modele-memoire/`, `ch26-allocation-escape/`, `ch27-garbage-collector/`, `ch28-ordonnanceur-gmp/`, `ch29-observabilite-runtime/`, `ch30-slices-profondeur/`, `ch31-strings-profondeur/`, `ch32-maps-hachage/`, `ch33-interfaces-profondeur/`, `ch34-reflexion/`, `ch35-unsafe-cgo/`, `ch36-benchmarks-fuzzing/`, `ch37-profiling-pprof/`, `ch38-traces-flightrecorder/`, `ch39-compilation-pgo/`, `ch40-methodologie/`). Les Parties III (Vague 2), IV-V (Vague 3) et VI (Vague 4) ont été rédigées en avance ; restent les **projets** et les **annexes**.
-5. [~] Rédiger les projets — **Projets 1 (CLI `txtkit`), 2 (API REST `tasksd`), 3 (pipeline concurrent `pipe`), 4 (bibliothèque générique `gends`) et 5 (service réseau `kvd`) rédigés** (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `projets/4-lib-generique/` module `example.com/gends`, `projets/5-service-reseau/` module `example.com/kvd`, `go test -race`/`vet`/`gofmt` propres) ; restent les **Projets 6-7** (Vague 4) ; puis la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
+5. [~] Rédiger les projets — **Projets 1 à 7 rédigés** : 1 (CLI `txtkit`), 2 (API REST `tasksd`), 3 (pipeline concurrent `pipe`), 4 (bibliothèque générique `gends`), 5 (service réseau `kvd`), 6 (générateur de code `enumgen`) et 7 (profiling capstone `wordstats`) (`projets/1-cli/` module `example.com/txtkit`, `projets/2-api-rest/` module `example.com/tasksapi`, `projets/3-pipeline/` module `example.com/pipeline`, `projets/4-lib-generique/` module `example.com/gends`, `projets/5-service-reseau/` module `example.com/kvd`, `projets/6-codegen/` module `example.com/enumgen`, `projets/7-profiling/` module `example.com/wordstats`, tous `go test -race`/`vet`/`gofmt` propres) ; **Partie VII terminée (7/7)**. Reste la **Vague 5 — Annexes** (A → G) et les passes de cohérence/relecture.
 
 ---
 
@@ -554,7 +554,7 @@ Un chapitre est « terminé » quand :
 | IV — Runtime & mémoire  | Ch. 24-29 ✅       | **6/6**   |
 | V — Internals           | Ch. 30-35 ✅       | **6/6**   |
 | VI — Performance        | Ch. 36-40 ✅       | **5/5**   |
-| VII — Projets           | Projets 1-5 ✅, 6 → 7 | **5/7**   |
+| VII — Projets           | Projets 1-7 ✅     | **7/7**   |
 | Annexes                 | A → G              | ⬜ 0/7    |
 
 ### Infrastructure
@@ -605,36 +605,36 @@ Un chapitre est « terminé » quand :
   (publication sûre `PublishViaChannel`, `sync.Once` contre le double-checked locking, `atomic.Pointer`,
   tests `-race` verts), `code/ch26-allocation-escape/` (`sumLocalArray`/`sumSmallSlice` 0 alloc sur pile vs
   `NewPoint`/`LeakSlice` échappés, `concatPrealloc` vs `concatNoPrealloc`, assertions `testing.AllocsPerRun`
-  + benchmarks `-benchmem`), `code/ch27-garbage-collector/` (cache à références faibles `weak.Pointer`,
-  `runtime.AddCleanup`, `WithGCPercent`/`CurrentMemoryLimit` via `debug`), `code/ch28-ordonnanceur-gmp/`
-  (`parallelSum` fan-out, `WithGOMAXPROCS`, `busyWork`+`runtime.Gosched`, démo 205 ms→32 ms),
-  `code/ch29-observabilite-runtime/` (`ReadSnapshot` via `runtime/metrics` dont `/sched/*` 1.26,
-  `ReadBuildInfo`, compteur+jauge `expvar`, comparaison `ReadMemStats`), `code/ch30-slices-profondeur/`
-  (`CapGrowth` suite des cap, `SubSliceCap` 3 indices, aliasing vs `SafeAppend`, `FilterInPlace`
-  zéro-alloc, `TrimRetention` via `slices.Clone`, bench in-place 0 alloc vs new-slice 10 allocs),
-  `code/ch31-strings-profondeur/` (`ByteVsRune`/`RuneWidths` UTF-8, `JoinCSV` via `strings.Builder`,
-  `ToUpperASCII` 2 copies, `Intern`/`CountDistinct` via `unique`, bench concat `+` 117 µs/499 allocs vs
-  Builder 3,9 µs/12 allocs), `code/ch32-maps-hachage/` (`WordCount` préalloué, `IterationOrders`
-  randomisation, `SafeCounter` map+Mutex testé `-race`, bench prealloc 20→5 allocs), `code/ch33-interfaces-profondeur/`
-  (`Shape`/`Circle`/`Rectangle` dispatch, `FailBuggy`/`FailCorrect` piège interface-nil, `BoxValue`
-  boxing 0/1 alloc, `AsCircle` via `reflect.TypeAssert`, bench dispatch interface 4562 ns vs concret 1716 ns),
-  `code/ch34-reflexion/` (`InspectFields` via `Type.Fields()` 1.26, `FillDefaults` écriture `CanSet`+tags,
-  `CallMethod` appel dynamique, `Ins()`/`Outs()` 1.26, bench reflect 355 ns/5 allocs vs direct 3,2 ns),
-  `code/ch35-unsafe-cgo/` (padding `Padded`=24/`Packed`=16, `Sizeof`/`Alignof`/`Offsetof`, `BytesToString`/
-  `StringToBytes` zéro-copie via `unsafe.String`/`Slice`/`SliceData`, `SecondElem` via `unsafe.Add`, bench
-  `string([]byte)` 21 ns/1 alloc vs `unsafe.String` 3,2 ns/0 alloc), `code/ch36-benchmarks-fuzzing/`
-  (`FormatThousands` via `strings.Builder` vs `formatNaive`, `BenchmarkBuilder`/`Naive` + sous-benchmarks
-  `b.Run` par taille, `sink` anti-DCE, `FuzzFormatThousands` invariant round-trip, bench Builder 69 ns/2 allocs
-  vs Naïve 107 ns/3 allocs, benchstat A/B réel −34,9 % p=0,000), `code/ch37-profiling-pprof/` (`HotCompute`/
-  `collatzSteps` cible CPU propre, `wordFrequencies` cible tas, `CaptureCPUProfile`/`CaptureHeapProfile` via
-  `runtime/pprof`, en-tête gzip vérifié, 6 profils par défaut, `go tool pprof -top`/`-list` flat vs cum,
-  `net/http/pprof` en prose), `code/ch38-traces-flightrecorder/` (`CaptureTrace` via `runtime/trace`,
-  `processBatch` tâches/régions/`Log`, `MonitorLatency` via **FlightRecorder** 1.25 `WriteTo` sur dépassement
-  de latence, en-tête `"go 1."` vérifié), `code/ch39-compilation-pgo/` (`add`/`AddTwice` inlining `-m`,
-  `SumRange`/`SumGather`/`SumHinted` BCE `Found IsInBounds`, `TotalArea` `//go:noinline` cible PGO,
-  `default.pgo` + `-pgo=auto` + `-d=pgodebug=2` dévirtualisation, bench BCE 504,7 ns vs 595,6 ns),
-  `code/ch40-methodologie/` (`DedupNaive` O(n²) `slices.Contains` vs `Dedup` map O(n), boucle mesure→profil→
-  correction→re-mesure, bench 2472 µs→77 µs **32×** mais +1410 % mémoire, compromis latence/mémoire selon SLO).
+  - benchmarks `-benchmem`), `code/ch27-garbage-collector/` (cache à références faibles `weak.Pointer`,
+    `runtime.AddCleanup`, `WithGCPercent`/`CurrentMemoryLimit` via `debug`), `code/ch28-ordonnanceur-gmp/`
+    (`parallelSum` fan-out, `WithGOMAXPROCS`, `busyWork`+`runtime.Gosched`, démo 205 ms→32 ms),
+    `code/ch29-observabilite-runtime/` (`ReadSnapshot` via `runtime/metrics` dont `/sched/*` 1.26,
+    `ReadBuildInfo`, compteur+jauge `expvar`, comparaison `ReadMemStats`), `code/ch30-slices-profondeur/`
+    (`CapGrowth` suite des cap, `SubSliceCap` 3 indices, aliasing vs `SafeAppend`, `FilterInPlace`
+    zéro-alloc, `TrimRetention` via `slices.Clone`, bench in-place 0 alloc vs new-slice 10 allocs),
+    `code/ch31-strings-profondeur/` (`ByteVsRune`/`RuneWidths` UTF-8, `JoinCSV` via `strings.Builder`,
+    `ToUpperASCII` 2 copies, `Intern`/`CountDistinct` via `unique`, bench concat `+` 117 µs/499 allocs vs
+    Builder 3,9 µs/12 allocs), `code/ch32-maps-hachage/` (`WordCount` préalloué, `IterationOrders`
+    randomisation, `SafeCounter` map+Mutex testé `-race`, bench prealloc 20→5 allocs), `code/ch33-interfaces-profondeur/`
+    (`Shape`/`Circle`/`Rectangle` dispatch, `FailBuggy`/`FailCorrect` piège interface-nil, `BoxValue`
+    boxing 0/1 alloc, `AsCircle` via `reflect.TypeAssert`, bench dispatch interface 4562 ns vs concret 1716 ns),
+    `code/ch34-reflexion/` (`InspectFields` via `Type.Fields()` 1.26, `FillDefaults` écriture `CanSet`+tags,
+    `CallMethod` appel dynamique, `Ins()`/`Outs()` 1.26, bench reflect 355 ns/5 allocs vs direct 3,2 ns),
+    `code/ch35-unsafe-cgo/` (padding `Padded`=24/`Packed`=16, `Sizeof`/`Alignof`/`Offsetof`, `BytesToString`/
+    `StringToBytes` zéro-copie via `unsafe.String`/`Slice`/`SliceData`, `SecondElem` via `unsafe.Add`, bench
+    `string([]byte)` 21 ns/1 alloc vs `unsafe.String` 3,2 ns/0 alloc), `code/ch36-benchmarks-fuzzing/`
+    (`FormatThousands` via `strings.Builder` vs `formatNaive`, `BenchmarkBuilder`/`Naive` + sous-benchmarks
+    `b.Run` par taille, `sink` anti-DCE, `FuzzFormatThousands` invariant round-trip, bench Builder 69 ns/2 allocs
+    vs Naïve 107 ns/3 allocs, benchstat A/B réel −34,9 % p=0,000), `code/ch37-profiling-pprof/` (`HotCompute`/
+    `collatzSteps` cible CPU propre, `wordFrequencies` cible tas, `CaptureCPUProfile`/`CaptureHeapProfile` via
+    `runtime/pprof`, en-tête gzip vérifié, 6 profils par défaut, `go tool pprof -top`/`-list` flat vs cum,
+    `net/http/pprof` en prose), `code/ch38-traces-flightrecorder/` (`CaptureTrace` via `runtime/trace`,
+    `processBatch` tâches/régions/`Log`, `MonitorLatency` via **FlightRecorder** 1.25 `WriteTo` sur dépassement
+    de latence, en-tête `"go 1."` vérifié), `code/ch39-compilation-pgo/` (`add`/`AddTwice` inlining `-m`,
+    `SumRange`/`SumGather`/`SumHinted` BCE `Found IsInBounds`, `TotalArea` `//go:noinline` cible PGO,
+    `default.pgo` + `-pgo=auto` + `-d=pgodebug=2` dévirtualisation, bench BCE 504,7 ns vs 595,6 ns),
+    `code/ch40-methodologie/` (`DedupNaive` O(n²) `slices.Contains` vs `Dedup` map O(n), boucle mesure→profil→
+    correction→re-mesure, bench 2472 µs→77 µs **32×** mais +1410 % mémoire, compromis latence/mémoire selon SLO).
 - ✅ Nouveautés **vérifiées sur la toolchain 1.26.4** : `new(expr)` (type inféré),
   `min`/`max`/`clear`, débordement silencieux vs erreur de compilation sur constante ;
   `for range N` et **portée par itération** de la variable de boucle (1.22) ; itération de map
@@ -780,8 +780,18 @@ préfixe de longueur `uint32` + `io.ReadFull`, (dé)sérialisation `encoding/bin
 serveur **une goroutine par connexion** (`WaitGroup.Go` 1.25), magasin `RWMutex` à copies défensives,
 **deadlines** (idle/write), **arrêt propre** (fermeture du listener + délai de grâce + fermeture des connexions),
 robustesse aux payloads malformés, package `internal/client`, et **tests d'intégration** sur sockets réelles
-(CRUD, 25 clients concurrents `-race`, idle timeout, refus après arrêt). Stdlib pure. Restent : **Projets 6-7**
-(Vague 4, qui réinvestissent la Partie VI : pprof, traces/FlightRecorder, PGO), puis la **Vague 5 — Annexes**
-(A → G). Tout le module `code/` (ch01 → ch40) reste vert (`go build`/`vet`/`test ./...` sur **40 packages**,
-`gofmt -l` vide), et `projets/1-cli/`, `projets/2-api-rest/`, `projets/3-pipeline/`, `projets/4-lib-generique/`
-comme `projets/5-service-reseau/` sont `go test -race`/`vet`/`gofmt` propres.
+(CRUD, 25 clients concurrents `-race`, idle timeout, refus après arrêt). Stdlib pure. Le **Projet 6** vit dans
+`projets/6-codegen/` — module `example.com/enumgen`, **générateur de code** façon `stringer` : il analyse un
+paquet (`go/parser` → AST), repère les types annotés `//enumgen:stringer` via **`ast.ParseDirective` (🆕 1.26)**,
+évalue leurs constantes (`iota`, décalages, arithmétique — petit évaluateur d'AST, diagnostics localisés par
+**`BasicLit.ValueEnd` (🆕 1.26)**), et émet une méthode `String()` par `text/template` reformatée à
+`go/format.Source`. Intégration **`go generate`**, fichier généré **versionné** + **test golden** (régénère et
+compare), `Example` testables. Stdlib pure. Le **Projet 7 (capstone)** vit dans `projets/7-profiling/` — module
+`example.com/wordstats`, **service HTTP profilé de bout en bout** (reprend l'ossature du Projet 2) : point chaud
+« top-N mots » en **deux implémentations** (naïve `regexp` vs optimisée `scan` avec `map[string]*int` à **lecture
+de clé sans allocation**), **benchmarks** `b.Loop`/`SetBytes` + `benchstat`, **pprof** (`net/http/pprof` monté),
+**traces + `FlightRecorder` (🆕 1.25)** capturant sur requête lente, **PGO** (`default.pgo` auto-détecté), le tout
+chiffré dans **`RAPPORT.md`** (avant/après : **×8,7 CPU, ×1286 allocations, ×5400 octets**, PGO dans le bruit).
+**Partie VII terminée (7/7).** Reste la **Vague 5 — Annexes** (A → G). Tout le module `code/` (ch01 → ch40)
+reste vert (`go build`/`vet`/`test ./...` sur **40 packages**, `gofmt -l` vide), et les **sept** projets
+(`projets/1-cli/` → `projets/7-profiling/`) sont `go test -race`/`vet`/`gofmt` propres.
