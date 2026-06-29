@@ -81,6 +81,10 @@ go vet ./...    # analyse statique propre
 - [A Tour of Go](https://go.dev/tour/)
 - [Go by Example](https://gobyexample.com/)
 
+## 📋 Todo-list
+
+- Corriger les erreurs dans les fichiers HTML générés pour le site
+
 ## 📄 Licence
 
 Voir [LICENSE](LICENSE).

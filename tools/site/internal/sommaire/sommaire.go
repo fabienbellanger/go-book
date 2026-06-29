@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"example.com/gobook-site/internal/model"
@@ -117,10 +118,43 @@ func ResolveDirLinks(book *model.Book, srcDir string) {
 			}
 			part.Pages = append(part.Pages, page)
 			book.Pages = append(book.Pages, page)
+
+			// Publie aussi les Markdown compagnons du projet (ex. RAPPORT.md)
+			// pour que les liens du README vers ces fichiers résolvent dans le
+			// site. Ils sont rendus et chaînés (préc./suiv.) sans figurer comme
+			// entrée distincte de la navigation.
+			for _, comp := range companionMarkdown(srcDir, href) {
+				book.Pages = append(book.Pages, &model.Page{
+					SrcPath:   comp,
+					OutPath:   strings.TrimSuffix(comp, ".md") + ".html",
+					Title:     path.Base(comp), // titre provisoire ; le H1 fait foi
+					PartTitle: part.Title,
+				})
+			}
 		}
 		part.Links = keptLinks
 	}
 	linkPrevNext(book)
+}
+
+// companionMarkdown liste les fichiers Markdown d'un dossier de projet, hormis
+// le README.md déjà publié, dans l'ordre alphabétique. Renvoie nil si le dossier
+// est illisible.
+func companionMarkdown(srcDir, dirHref string) []string {
+	entries, err := os.ReadDir(filepath.Join(srcDir, filepath.FromSlash(dirHref)))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || name == "README.md" || !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		out = append(out, path.Join(dirHref, name))
+	}
+	sort.Strings(out)
+	return out
 }
 
 // isRenderable renvoie vrai si le lien pointe vers un fichier Markdown à rendre

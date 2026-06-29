@@ -14,6 +14,8 @@ var salutations map[string]string
 // init prépare l'état du package. Il s'exécute APRÈS l'initialisation des
 // variables de package et AVANT la première utilisation depuis l'extérieur.
 func init() {
+	fmt.Println("[init greeting]")
+
 	salutations = map[string]string{
 		"fr": "Bonjour",
 		"en": "Hello",

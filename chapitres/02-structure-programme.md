@@ -139,10 +139,10 @@ L'ordre d'initialisation est **déterministe** :
    [greeting]  vars de package  -->  init()        (1) package importé d'abord
         |
         v
-   [main]      vars de package  -->  init()         (2) puis le package main
+     [main]    vars de package  -->  init()        (2) puis le package main
         |
         v
-   [main]      main()                               (3) enfin le point d'entrée
+     [main]    main()                              (3) enfin le point d'entrée
 ```
 
 Dans l'exemple du chapitre, la sortie commence par `[init main] version 1.0` **avant**
@@ -180,8 +180,8 @@ go doc ./ch02-structure/greeting   # un package local
 
 ```
         +----------------+        importe        +-------------------------+
-        |  package main  | --------------------> |  package greeting        |
-        |  (exécutable)  |                       |  (bibliothèque)          |
+        |  package main  | --------------------> |  package greeting       |
+        |  (exécutable)  |                       |  (bibliothèque)         |
         +----------------+                       +-------------------------+
               |  importe                                |  importe
               v                                         v
