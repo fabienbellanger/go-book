@@ -1,5 +1,9 @@
 # Comprendre et maîtriser Go 1.26
 
+[![Site](https://github.com/fabienbellanger/go-book/actions/workflows/site.yml/badge.svg)](https://github.com/fabienbellanger/go-book/actions/workflows/site.yml)
+
+📖 **[Lire le livre en ligne → fabienbellanger.github.io/go-book](https://fabienbellanger.github.io/go-book/)**
+
 Un livre en français pour **apprendre à écrire** du Go idiomatique **et comprendre comment
 il fonctionne** sous le capot (runtime, GC, scheduler, layout mémoire), à jour pour
 **Go 1.26**.

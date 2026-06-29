@@ -79,3 +79,34 @@ make chroma
 Un workflow GitHub Actions (`.github/workflows/site.yml`) construit le site à
 chaque push sur `main` et le publie sur GitHub Pages. Le HTML n'est **jamais
 commité** : `public/` est dans `.gitignore` et reconstruit à la volée.
+
+### Prérequis : activer GitHub Pages (à faire une fois)
+
+Le workflow échoue tant que Pages n'est pas activé avec la **source « GitHub
+Actions »**. Le symptôme est une erreur 404 à l'étape `actions/deploy-pages` :
+
+```
+Error: Creating Pages deployment failed
+Error: HttpError: Not Found
+Ensure GitHub Pages has been enabled: https://github.com/<owner>/<repo>/settings/pages
+```
+
+Pour corriger, activer Pages une fois pour toutes :
+
+- **Via l'interface** : _Settings → Pages → Build and deployment → Source =
+  « GitHub Actions »_.
+- **Via la CLI `gh`** :
+
+  ```bash
+  gh api --method POST repos/<owner>/<repo>/pages -f build_type=workflow
+  # puis relancer le déploiement échoué :
+  gh run rerun <run-id>
+  ```
+
+### Note : avertissement « Node.js 20 is deprecated »
+
+Les logs affichent un avertissement indiquant que les actions ciblant Node 20
+(`actions/checkout`, `setup-go`, `upload-artifact`, `deploy-pages`) sont
+forcées sur Node 24. C'est un simple *warning*, **sans impact** sur le
+déploiement : rien à corriger. Il disparaîtra en bumpant les tags de ces
+actions quand elles publieront des versions ciblant Node 24.
