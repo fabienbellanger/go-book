@@ -1,4 +1,4 @@
-# Ch. 28 — L'ordonnanceur (G-M-P)
+# 28 — L'ordonnanceur (G-M-P)
 
 > **Objectif** — Comprendre **comment** vos goroutines tournent : le modèle **G-M-P**, les **files**
 > locales et globale, le **work stealing**, le **handoff** sur syscall bloquant, le **netpoller** (I/O

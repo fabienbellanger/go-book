@@ -1,0 +1,45 @@
+{{- define "page.html.tmpl" -}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  {{- template "head" . }}
+  <title>{{.Page.Title}} — {{.Book.Title}}</title>
+</head>
+<body>
+  {{- template "header" . }}
+  <div class="layout">
+    {{- template "sidebar" . }}
+    <main class="content">
+      <article class="markdown-body">
+        {{ .Page.HTML }}
+      </article>
+      <nav class="pager" aria-label="Navigation séquentielle">
+        {{- with .Page.Prev }}
+        <a class="pager-prev" href="{{$.BaseURL}}{{.OutPath}}" title="{{.Title}}">← {{navLabel .Title}}</a>
+        {{- else }}<span></span>{{ end }}
+        {{- with .Page.Next }}
+        <a class="pager-next" href="{{$.BaseURL}}{{.OutPath}}" title="{{.Title}}">{{navLabel .Title}} →</a>
+        {{- else }}<span></span>{{ end }}
+      </nav>
+    </main>
+    {{- if .Page.Headings }}
+    <aside class="toc" aria-label="Table des matières">
+      <p class="toc-title">Sur cette page</p>
+      <ul>
+        {{- range .Page.Headings }}{{ if eq .Level 2 }}
+        <li class="toc-h2"><a href="#{{.ID}}">{{.Text}}</a></li>
+        {{- end }}{{ end }}
+      </ul>
+    </aside>
+    {{- end }}
+  </div>
+  {{- template "footer" . }}
+  <script>
+    // Mémorise la dernière page lue pour y revenir à la réouverture du site.
+    try { localStorage.setItem("lastPage", "{{.Page.OutPath}}"); } catch (e) {}
+  </script>
+  <script src="{{.BaseURL}}assets/js/theme.js"></script>
+  <script src="{{.BaseURL}}assets/js/search.js" data-base="{{.BaseURL}}"></script>
+</body>
+</html>
+{{- end -}}

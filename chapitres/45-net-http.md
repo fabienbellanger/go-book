@@ -1,4 +1,4 @@
-# Ch. 45 — `net/http` : serveur & client
+# 45 — `net/http`
 
 > **Objectif** — Comprendre le **modèle** de `net/http` des deux côtés : écrire un **serveur**
 > (`Handler`, `ServeMux` et son routage enrichi 1.22, middlewares, timeouts, arrêt propre) et un

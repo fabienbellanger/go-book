@@ -1,4 +1,4 @@
-# Ch. 35 — `unsafe` & interopérabilité bas niveau
+# 35 — `unsafe` & interopérabilité bas niveau
 
 > **Objectif** — Contourner le typage **en connaissance de cause** : `unsafe.Pointer` et ses **règles de
 > conversion** (les patterns valides), `Sizeof`/`Alignof`/`Offsetof`, l'**alignement** et le **padding**,

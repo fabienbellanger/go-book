@@ -7,7 +7,7 @@
 > **deadlines/timeouts**, l'**arrêt propre**, la **robustesse** face aux entrées
 > malformées, et des **tests d'intégration** sur de vraies sockets.
 >
-> **Réinvestit** — [Ch. 8 Structures](../../chapitres/08-structs.md),
+> **Réinvestit** — [Ch. 8 Structures](../../chapitres/08-structs-methodes.md),
 > [Ch. 19 Goroutines](../../chapitres/19-goroutines.md),
 > [Ch. 21 Synchronisation](../../chapitres/21-synchronisation.md),
 > [Ch. 22 Context](../../chapitres/22-context.md),

@@ -1,4 +1,4 @@
-# Ch. 5 — Fonctions
+# 5 — Fonctions
 
 > **Objectif** — Écrire et composer des fonctions : retours multiples, variadiques,
 > fonctions comme valeurs, et comprendre le passage **par valeur**.

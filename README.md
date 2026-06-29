@@ -12,26 +12,29 @@ exemples compilables, listes et tableaux.
 
 La table des matières complète et cliquable est dans **[SOMMAIRE.md](SOMMAIRE.md)**.
 
-Le livre est organisé en 8 parties :
+Le livre est organisé en 9 parties (48 chapitres, 7 projets, 8 annexes) :
 
-| Partie | Thème                                       | Chapitres |
-| ------ | ------------------------------------------- | --------- |
-| 0      | Introduction & mise en route                | 0–1       |
-| I      | Fondamentaux du langage                     | 2–13      |
-| II     | Mécanismes avancés du langage               | 14–18     |
-| III    | Concurrence                                 | 19–23     |
-| IV     | Runtime & modèle mémoire                    | 24–29     |
-| V      | Internals des structures de données & types | 30–35     |
-| VI     | Performance, profiling & outils             | 36–40     |
-| VII    | Projets pratiques                           | 7 projets |
+| Partie  | Thème                                                     | Chapitres |
+| ------- | --------------------------------------------------------- | --------- |
+| 0       | Introduction & mise en route                              | 0–1       |
+| I       | Fondamentaux du langage                                   | 2–13      |
+| II      | Mécanismes avancés du langage                             | 14–18     |
+| III     | Concurrence                                               | 19–23     |
+| IV      | Runtime & modèle mémoire                                  | 24–29     |
+| V       | Internals des structures de données & types               | 30–35     |
+| VI      | Performance, profiling & outils                           | 36–40     |
+| VII     | La bibliothèque standard en pratique & mise en production | 41–47     |
+| VIII    | Projets pratiques                                         | 7 projets |
+| Annexes | Glossaire, antisèche, idiomes, concurrence sûre…          | A–H       |
 
 ## 🧭 Parcours de lecture
 
 - 🟢 **Débutant Go** : Parties 0 → I → II → III, puis projets 1 et 2.
 - 🟡 **Lecture intégrale** : dans l'ordre — c'est le parcours conçu.
 - 🔵 **« Je connais Go, je veux les internals »** : Parties IV → V → VI (suivre les renvois 🔁).
-- 🟣 **Focus concurrence** : Partie III → Ch. 28 (scheduler) → Ch. 25 (modèle mémoire) → Projet 3.
+- 🟣 **Focus concurrence** : Partie III → Ch. 28 (scheduler) → Ch. 25 (modèle mémoire) → Annexe H → Projet 3.
 - 🟠 **Focus performance** : Partie VI → Ch. 26-27 (alloc/GC) → Projet 7.
+- 🟤 **Focus production / stdlib** : Partie VII (lisible dès la fin de la Partie I) → projets 2 et 5.
 
 ## 🗂️ Organisation du dépôt
 

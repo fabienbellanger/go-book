@@ -1,4 +1,4 @@
-# Ch. 31 — Strings en profondeur
+# 31 — Strings en profondeur
 
 > **Objectif** — Comprendre qu'une `string` est un **header de 2 mots** sur un backing **immuable**,
 > savoir ce que **coûtent** (ou non) les conversions `string`↔`[]byte`, maîtriser `strings.Builder`
@@ -213,6 +213,6 @@ go test -bench=. -benchmem -run=^$ ./ch31-strings-profondeur/...
 
 - [Ch. 30 — Slices en profondeur](30-slices-profondeur.md) : le même header à 3 mots, mutable cette fois.
 - [Ch. 26 — Allocation & escape](26-allocation-escape.md) : pourquoi une copie de conversion coûte.
-- [Ch. 32 — Maps : tables de hachage](32-maps-hachage.md) : le hachage des clés string, et `unique` comme clé.
+- [Ch. 32 — Maps](32-maps-hachage.md) : le hachage des clés string, et `unique` comme clé.
 - [Ch. 35 — `unsafe` & interop](35-unsafe-cgo.md) : `unsafe.String`/`unsafe.Slice`, le zéro-copie assumé.
 - Doc : `go doc strings.Builder` ; `go doc unique` ; `go doc unicode/utf8`.

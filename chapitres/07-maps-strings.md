@@ -1,4 +1,4 @@
-# Ch. 7 — Maps & strings (usage)
+# 7 — Maps & strings (usage)
 
 > **Objectif** — Manipuler les **tables associatives** (`map`) et le **texte** (`string`),
 > en intégrant le modèle « une string est une suite d'**octets** UTF-8, pas de caractères ».
@@ -444,6 +444,6 @@ go test ./ch07-maps-strings/...
 - [Ch. 8 — Structs, méthodes & composition](08-structs-methodes.md).
 - [Ch. 31 — Strings en profondeur](31-strings-profondeur.md) : header, conversions sans copie,
   `unique`, `strings.Builder` amorti.
-- [Ch. 32 — Maps : tables de hachage](32-maps-hachage.md) : buckets, Swiss Tables, croissance.
+- [Ch. 32 — Maps](32-maps-hachage.md) : buckets, Swiss Tables, croissance.
 - [Ch. 18 — Itérateurs](18-iterateurs.md) pour `maps.Keys` / `slices.Sorted` / `FieldsSeq`.
 - [Ch. 11 — Généricité](11-genericite.md) pour les packages `maps` et `slices`.

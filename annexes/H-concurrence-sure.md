@@ -1,4 +1,4 @@
-# Annexe H — Concurrence sûre : éviter data races & deadlocks
+# Annexe H — Concurrence sûre
 
 > **Objectif** — Une **référence transversale** pour écrire du code concurrent
 > correct en Go et **traquer** les deux fautes les plus coûteuses : la **data

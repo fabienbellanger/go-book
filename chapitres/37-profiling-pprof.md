@@ -1,4 +1,4 @@
-# Ch. 37 — Profiling avec pprof
+# 37 — Profiling avec pprof
 
 > **Objectif** — **Localiser** les coûts réels d'un programme : connaître les **profils** (CPU, tas,
 > allocs, blocage, mutex, goroutines), les capturer avec **`runtime/pprof`** (programmes) ou

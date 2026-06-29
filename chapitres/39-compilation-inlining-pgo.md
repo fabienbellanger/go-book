@@ -1,4 +1,4 @@
-# Ch. 39 — Compilation, inlining, PGO & optimisations
+# 39 — Compilation, inlining, PGO & optimisations
 
 > **Objectif** — Comprendre ce que fait le **compilateur Go** et comment l'**aider** : le pipeline
 > (parse → types → SSA → asm), l'**inlining** (budget, `-gcflags=-m`), l'**escape analysis**,

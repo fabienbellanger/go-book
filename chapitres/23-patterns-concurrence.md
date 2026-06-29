@@ -1,4 +1,4 @@
-# Ch. 23 — Patterns de concurrence, data races & tests concurrents
+# 23 — Patterns de concurrence, data races & tests concurrents
 
 > **Objectif** — Composer des systèmes concurrents **corrects** et **testables** : pipelines,
 > fan-out/fan-in, **worker pools** (parallélisme borné), `errgroup`, _rate limiting_ ; définir une

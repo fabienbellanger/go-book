@@ -1,4 +1,4 @@
-# Ch. 14 — `switch` & sélection de cas
+# 14 — `switch` & sélection de cas
 
 > **Objectif** — Exploiter toute la puissance de `switch` : switch d'expression, **sans
 > condition**, `fallthrough`, cas multiples, et comprendre **ce que le compilateur génère**

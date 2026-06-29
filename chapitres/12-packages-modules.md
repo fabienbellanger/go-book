@@ -1,4 +1,4 @@
-# Ch. 12 — Packages, modules & organisation du code
+# 12 — Packages, modules & organisation du code
 
 > **Objectif** — Structurer un projet Go : du **package** (unité de compilation et de
 > visibilité) au **module** (unité de version et de distribution), avec `go.mod`, `internal/`,

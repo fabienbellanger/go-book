@@ -1,4 +1,4 @@
-# Ch. 8 — Structs, méthodes & composition
+# 8 — Structs, méthodes & composition
 
 > **Objectif** — Modéliser des **données** (`struct`) et leur **comportement** (méthodes),
 > choisir le bon **récepteur** (valeur vs pointeur) et composer par **embedding**.

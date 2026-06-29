@@ -1,4 +1,4 @@
-# Ch. 27 — Le garbage collector
+# 27 — Le garbage collector
 
 > **Objectif** — Comprendre et **régler** le GC de Go : un **mark-sweep concurrent tri-couleur**, ses
 > **write barriers**, son **pacing** (`GOGC`, `GOMEMLIMIT`), comment lire un cycle avec

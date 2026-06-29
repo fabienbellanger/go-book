@@ -1,4 +1,4 @@
-# Ch. 16 — `defer` : garanties d'exécution
+# 16 — `defer`
 
 > **Objectif** — Maîtriser le nettoyage déterministe avec `defer` : ordre **LIFO**, **moment
 > d'évaluation** des arguments, interaction avec les **retours nommés**, le piège du `defer` en

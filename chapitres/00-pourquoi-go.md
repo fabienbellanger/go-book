@@ -1,4 +1,4 @@
-# Ch. 0 — Pourquoi Go ? Philosophie & panorama
+# 0 — Pourquoi Go ? Philosophie & panorama
 
 > **Objectif** — Situer Go parmi les langages, comprendre ses partis pris, et savoir
 > comment lire ce livre.

@@ -1,4 +1,4 @@
-# Ch. 38 — Traces d'exécution & Flight Recorder
+# 38 — Traces d'exécution & Flight Recorder
 
 > **Objectif** — Comprendre le **comportement temporel** d'un programme (ordonnanceur, GC, latence,
 > blocages) avec le **traceur d'exécution** : `runtime/trace`, `go test -trace`, les vues de

@@ -1,4 +1,4 @@
-# Ch. 34 — Réflexion (`reflect`)
+# 34 — Réflexion (`reflect`)
 
 > **Objectif** — Introspecter et manipuler des valeurs **dynamiquement** : `Type`, `Value`, `Kind` ;
 > **lire** et **écrire** (`CanSet`, adressabilité) ; exploiter les **tags de struct** (décodeurs, ORM) ;

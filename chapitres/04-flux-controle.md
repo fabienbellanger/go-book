@@ -1,4 +1,4 @@
-# Ch. 4 — Flux de contrôle
+# 4 — Flux de contrôle
 
 > **Objectif** — Maîtriser les branchements (`if`, `switch`) et les boucles (`for`,
 > `range`) idiomatiques de Go.

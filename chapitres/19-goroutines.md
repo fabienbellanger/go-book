@@ -1,4 +1,4 @@
-# Ch. 19 — Goroutines : le modèle
+# 19 — Goroutines
 
 > **Objectif** — Lancer des tâches concurrentes avec `go`, comprendre **ce qu'est** une goroutine
 > (et son coût réel), la différence **concurrence ≠ parallélisme**, le **cycle de vie** d'une

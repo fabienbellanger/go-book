@@ -1,4 +1,4 @@
-# Ch. 33 — Interfaces & système de types en profondeur
+# 33 — Interfaces & système de types en profondeur
 
 > **Objectif** — Comprendre la représentation d'une interface — **`eface`** (interface vide) et
 > **`iface`** (`itab` + données) —, le rôle de l'**`itab`** et de son cache, le **dispatch dynamique**

@@ -1,0 +1,51 @@
+# Construit le site HTML du livre et le publie sur GitHub Pages.
+# Le HTML n'est jamais commité : il est régénéré à chaque push sur main.
+name: Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule publication à la fois ; on n'annule pas un déploiement en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: tools/site/go.sum
+
+      - name: Tests du générateur
+        working-directory: tools/site
+        run: go test ./...
+
+      - name: Génération du site
+        working-directory: tools/site
+        run: go run . -clean -src ../.. -out ../../public
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

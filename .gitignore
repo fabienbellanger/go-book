@@ -6,6 +6,10 @@
 *.dylib
 /code/**/bin/
 /projets/**/bin/
+/tools/**/bin/
+
+# Site HTML généré (régénéré à la demande par tools/site, jamais commité)
+/public/
 
 # Sorties de test, couverture et profils
 *.test

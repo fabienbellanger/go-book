@@ -1,4 +1,4 @@
-# Ch. 11 — Généricité : types paramétrés
+# 11 — Généricité
 
 > **Objectif** — Écrire du code **réutilisable et typé** : fonctions et types **paramétrés par
 > un type**, **contraintes**, et les packages génériques `slices`/`maps`/`cmp` — sans le surcoût

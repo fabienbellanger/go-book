@@ -1,4 +1,4 @@
-# Ch. 20 — Channels & `select`
+# 20 — Channels & `select`
 
 > **Objectif** — Faire **communiquer** des goroutines avec des canaux : envoi/réception, fermeture,
 > `range`, canaux **bufferisés ou non**, **directions**, et multiplexage avec `select` (`default`,

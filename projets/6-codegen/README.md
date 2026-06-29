@@ -8,9 +8,9 @@
 > Go — **parser → parcourir l'AST → générer** — et deux nouveautés **Go 1.26** :
 > `ast.ParseDirective` et `BasicLit.ValueEnd`.
 >
-> **Réinvestit** — [Ch. 8 Structures](../../chapitres/08-structs.md),
-> [Ch. 12 Packages](../../chapitres/12-packages.md),
-> [Ch. 13 Tests](../../chapitres/13-tests.md),
+> **Réinvestit** — [Ch. 8 Structures](../../chapitres/08-structs-methodes.md),
+> [Ch. 12 Packages](../../chapitres/12-packages-modules.md),
+> [Ch. 13 Tests](../../chapitres/13-tests-outillage.md),
 > [Ch. 34 Réflexion](../../chapitres/34-reflexion.md).
 
 ---

@@ -1,4 +1,4 @@
-# Ch. 30 — Slices & arrays en profondeur
+# 30 — Slices & arrays en profondeur
 
 > **Objectif** — Ouvrir le **header de slice** (ptr/len/cap), comprendre la **stratégie de croissance**
 > d'`append` (amortissement, facteur, arrondi aux size classes), maîtriser l'**expression à 3 indices**

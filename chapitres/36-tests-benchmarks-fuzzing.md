@@ -1,4 +1,4 @@
-# Ch. 36 — Tests avancés, benchmarks & fuzzing
+# 36 — Tests avancés, benchmarks & fuzzing
 
 > **Objectif** — **Mesurer** et **sécuriser** correctement : écrire des **benchmarks** fiables
 > (`testing.B`, `b.Loop`, `b.ReportAllocs`), éviter l'**élimination par le compilateur**, comparer

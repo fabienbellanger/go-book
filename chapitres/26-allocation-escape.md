@@ -1,4 +1,4 @@
-# Ch. 26 — Allocation mémoire & escape analysis
+# 26 — Allocation mémoire & escape analysis
 
 > **Objectif** — Comprendre **où vivent les données** : la **pile** (gratuite, par goroutine) ou le
 > **tas** (allocation + travail pour le GC). Savoir ce qu'est l'**escape analysis**, lire ses décisions

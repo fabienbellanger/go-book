@@ -1,4 +1,4 @@
-# Ch. 10 — Gestion des erreurs
+# 10 — Gestion des erreurs
 
 > **Objectif** — Maîtriser le modèle d'erreur de Go : les erreurs sont des **valeurs** que l'on
 > **enrichit** (wrapping) et **inspecte** (`Is`/`As`), jamais des exceptions que l'on masque.

@@ -1,0 +1,50 @@
+{{- define "index.html.tmpl" -}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  {{- template "head" . }}
+  <script>
+    // À la réouverture du site, revenir directement sur la dernière page lue.
+    // Le paramètre ?home (lien « Accueil ») force l'affichage du sommaire.
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).has("home")) return;
+        var last = localStorage.getItem("lastPage");
+        if (last) location.replace(last);
+      } catch (e) {}
+    })();
+  </script>
+  <title>{{.Book.Title}}</title>
+</head>
+<body>
+  {{- template "header" . }}
+  <div class="layout">
+    {{- template "sidebar" . }}
+    <main class="content">
+      <article class="markdown-body">
+        <h1>{{.Book.Title}}</h1>
+        <p class="lede">Table des matières du livre. Sélectionnez un chapitre dans la barre
+        latérale, ou utilisez la recherche (raccourci <kbd>/</kbd>).</p>
+        {{- range .Book.Parts }}
+        <section class="toc-part">
+          <h2>{{.Title}}</h2>
+          {{- if .Desc }}<p class="part-desc">{{.Desc}}</p>{{ end }}
+          <ul>
+            {{- range .Pages }}
+            <li><a href="{{$.BaseURL}}{{.OutPath}}">{{.Title}}</a></li>
+            {{- end }}
+            {{- range .Links }}
+            <li><a href="{{$.BaseURL}}{{.Href}}" class="ext">{{.Title}} ↗</a></li>
+            {{- end }}
+          </ul>
+        </section>
+        {{- end }}
+      </article>
+    </main>
+  </div>
+  {{- template "footer" . }}
+  <script src="{{.BaseURL}}assets/js/theme.js"></script>
+  <script src="{{.BaseURL}}assets/js/search.js" data-base="{{.BaseURL}}"></script>
+</body>
+</html>
+{{- end -}}

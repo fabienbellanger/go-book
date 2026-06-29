@@ -1,4 +1,4 @@
-# Ch. 18 — Itérateurs par fonction (range-over-func)
+# 18 — Itérateurs par fonction (range-over-func)
 
 > **Objectif** — Écrire et composer des **séquences paresseuses** avec les itérateurs introduits en
 > Go 1.23 : `iter.Seq[V]` / `iter.Seq2[K,V]`, `for x := range monIterateur`, conversion _push_ ↔

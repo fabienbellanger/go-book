@@ -1,4 +1,4 @@
-# Ch. 44 — Le temps en pratique : `time`
+# 44 — Le temps en pratique
 
 > **Objectif** — Manipuler des instants et des durées sans se tromper : horloge
 > monotone, comparaisons, fuseaux, timers/tickers correctement arrêtés, et

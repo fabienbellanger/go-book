@@ -1,4 +1,4 @@
-# Ch. 42 — Encodages & sérialisation : `encoding/json`, `gob`/`csv`/`xml`, `regexp`
+# 42 — Encodages & sérialisation
 
 > **Objectif** — Sérialiser et désérialiser des données dans les formats du quotidien
 > (JSON en tête), choisir le bon encodage selon le contexte, et manipuler du texte structuré
@@ -290,6 +290,6 @@ go test -race ./ch42-encoding/...
 
 - [Ch. 41 — Entrées/sorties & flux](41-io-flux.md) : les `io.Reader`/`Writer` derrière `Encoder`/`Decoder`.
 - [Ch. 34 — Réflexion](34-reflexion.md) : ce qui fait fonctionner (et coûter) `encoding/json`.
-- [Ch. 32 — Maps : tables de hachage](32-maps-hachage.md) : pourquoi l'ordre des clés n'est pas garanti.
+- [Ch. 32 — Maps](32-maps-hachage.md) : pourquoi l'ordre des clés n'est pas garanti.
 - Projet 2 — API REST : JSON aux frontières HTTP, validation, erreurs structurées.
 - Projet 6 — Générateur de code : remplacer la réflexion JSON par du code généré.

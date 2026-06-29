@@ -1,4 +1,4 @@
-# Ch. 21 — Primitives de synchronisation
+# 21 — Primitives de synchronisation
 
 > **Objectif** — Protéger un **état partagé** quand les canaux ne suffisent pas : `sync.Mutex` /
 > `RWMutex`, `WaitGroup` (+ `Go`, 1.25), `Once`/`OnceValue`, `sync/atomic` (compteurs et

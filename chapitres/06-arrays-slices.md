@@ -1,4 +1,4 @@
-# Ch. 6 — Arrays & slices (usage)
+# 6 — Arrays & slices (usage)
 
 > **Objectif** — Manipuler les séquences et acquérir le **modèle mental du slice**
 > (header `ptr`/`len`/`cap`), pour éviter ses pièges classiques.

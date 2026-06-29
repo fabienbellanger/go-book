@@ -1,4 +1,4 @@
-# Ch. 15 — Fonctions anonymes & closures
+# 15 — Fonctions anonymes & closures
 
 > **Objectif** — Écrire des fonctions littérales, comprendre la **capture par référence**, la
 > durée de vie des variables capturées, et appliquer les grands patterns à base de closures

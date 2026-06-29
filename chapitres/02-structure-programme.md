@@ -1,4 +1,4 @@
-# Ch. 2 — Structure d'un programme : packages, `import`, `main`
+# 2 — Structure d'un programme
 
 > **Objectif** — Comprendre l'**unité de compilation** de Go (le package), le **point
 > d'entrée** d'un programme, et l'**ordre d'initialisation**.

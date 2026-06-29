@@ -1,4 +1,4 @@
-# Ch. 32 — Maps : tables de hachage
+# 32 — Maps
 
 > **Objectif** — Ouvrir la table de hachage de Go : les **Swiss Tables** (groupes de 8 slots, mot de
 > contrôle, recherche parallèle h2), le **facteur de charge**, la **croissance incrémentale**, la

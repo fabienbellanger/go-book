@@ -1,4 +1,4 @@
-# Ch. 22 — `context` : annulation, délais, valeurs
+# 22 — `context`
 
 > **Objectif** — Propager une **annulation** et des **délais** à travers tout un arbre d'appels avec
 > `context.Context` : `WithCancel`/`WithTimeout`/`WithDeadline`/`WithCancelCause`, `ctx.Done()`/`Err()`/

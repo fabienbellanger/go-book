@@ -1,4 +1,4 @@
-# Ch. 29 — Observabilité du runtime & monitoring
+# 29 — Observabilité du runtime & monitoring
 
 > **Objectif** — Savoir **voir** ce que fait le runtime en production : lire l'état des goroutines, du
 > tas et du GC avec **`runtime`**, **`runtime/metrics`** (l'API moderne) et **`runtime/debug`** ;

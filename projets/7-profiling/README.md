@@ -7,11 +7,11 @@
 > **`FlightRecorder`**, **benchmarks** + `benchstat`, `-race`, et **PGO**. Le
 > livrable est un **rapport avant/après chiffré** : [`RAPPORT.md`](./RAPPORT.md).
 >
-> **Réinvestit** — [Ch. 36 Benchmarks & fuzzing](../../chapitres/36-benchmarks-fuzzing.md),
+> **Réinvestit** — [Ch. 36 Benchmarks & fuzzing](../../chapitres/36-tests-benchmarks-fuzzing.md),
 > [Ch. 37 Profiling pprof](../../chapitres/37-profiling-pprof.md),
-> [Ch. 38 Traces & FlightRecorder](../../chapitres/38-traces-flightrecorder.md),
-> [Ch. 39 Compilation & PGO](../../chapitres/39-compilation-pgo.md),
-> [Ch. 40 Méthodologie](../../chapitres/40-methodologie.md).
+> [Ch. 38 Traces & FlightRecorder](../../chapitres/38-traces-flight-recorder.md),
+> [Ch. 39 Compilation & PGO](../../chapitres/39-compilation-inlining-pgo.md),
+> [Ch. 40 Méthodologie](../../chapitres/40-methodologie-performance.md).
 
 ---
 

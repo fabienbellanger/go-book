@@ -1,0 +1,27 @@
+{{- define "search.html.tmpl" -}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  {{- template "head" . }}
+  <title>Recherche — {{.Book.Title}}</title>
+</head>
+<body>
+  {{- template "header" . }}
+  <div class="layout">
+    {{- template "sidebar" . }}
+    <main class="content">
+      <article class="markdown-body">
+        <h1>Recherche</h1>
+        <p>Tapez votre requête ci-dessous : la recherche parcourt le titre, les
+        sections et le texte de tous les chapitres et annexes.</p>
+        <input id="page-q" type="search" class="page-search" placeholder="Rechercher dans le livre…" autofocus>
+        <div id="page-results" class="page-results"></div>
+      </article>
+    </main>
+  </div>
+  {{- template "footer" . }}
+  <script src="{{.BaseURL}}assets/js/theme.js"></script>
+  <script src="{{.BaseURL}}assets/js/search.js" data-base="{{.BaseURL}}"></script>
+</body>
+</html>
+{{- end -}}

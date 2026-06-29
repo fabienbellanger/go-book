@@ -8,7 +8,7 @@
 >
 > **Réinvestit** — [Ch. 9 Interfaces](../../chapitres/09-interfaces.md),
 > [Ch. 10 Erreurs](../../chapitres/10-erreurs.md),
-> [Ch. 12 Packages](../../chapitres/12-packages.md),
+> [Ch. 12 Packages](../../chapitres/12-packages-modules.md),
 > [Ch. 21 Synchronisation](../../chapitres/21-synchronisation.md),
 > [Ch. 22 Context](../../chapitres/22-context.md),
 > [Ch. 23 Patrons de concurrence](../../chapitres/23-patterns-concurrence.md).
@@ -146,10 +146,10 @@ recoverPanic → requestID → logging → CSRF → ServeMux → handler
 - **`logging`** émet **une ligne `slog`** par requête, avec méthode, chemin,
   statut, taille, durée et identifiant — toutes corrélables :
 
-  ```
-  level=INFO msg="requête HTTP" method=POST path=/api/tasks status=201 \
-      bytes=93 dur=454µs request_id=83ab74b4d2f2c2a9
-  ```
+    ```
+    level=INFO msg="requête HTTP" method=POST path=/api/tasks status=201 \
+        bytes=93 dur=454µs request_id=83ab74b4d2f2c2a9
+    ```
 
 - **CSRF** (`http.CrossOriginProtection`, **Go 1.25**) rejette en `403` les
   requêtes **cross-origin** non sûres (`POST`/`PUT`/`DELETE`) repérées via

@@ -1,4 +1,4 @@
-# Ch. 43 — Journalisation structurée : `log/slog`
+# 43 — Journalisation structurée
 
 > **Objectif** — Produire des logs **structurés** (clés/valeurs), exploitables par une machine, avec
 > `log/slog` : niveaux, handlers texte/JSON, attributs typés, contexte commun (`With`/`WithGroup`),

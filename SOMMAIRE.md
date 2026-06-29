@@ -10,7 +10,7 @@
 
 ## Partie I — Fondamentaux du langage
 
-- Ch. 2 — [Structure d'un programme : packages, `import`, `main`](chapitres/02-structure-programme.md)
+- Ch. 2 — [Structure d'un programme](chapitres/02-structure-programme.md)
 - Ch. 3 — [Variables, constantes & types de base](chapitres/03-variables-constantes-types.md)
 - Ch. 4 — [Flux de contrôle](chapitres/04-flux-controle.md)
 - Ch. 5 — [Fonctions](chapitres/05-fonctions.md)
@@ -19,7 +19,7 @@
 - Ch. 8 — [Structs, méthodes & composition](chapitres/08-structs-methodes.md)
 - Ch. 9 — [Interfaces (fondamentaux)](chapitres/09-interfaces.md)
 - Ch. 10 — [Gestion des erreurs](chapitres/10-erreurs.md)
-- Ch. 11 — [Généricité : types paramétrés](chapitres/11-genericite.md)
+- Ch. 11 — [Généricité](chapitres/11-genericite.md)
 - Ch. 12 — [Packages, modules & organisation du code](chapitres/12-packages-modules.md)
 - Ch. 13 — [Tests & outillage de base](chapitres/13-tests-outillage.md)
 
@@ -27,16 +27,16 @@
 
 - Ch. 14 — [`switch` & sélection de cas](chapitres/14-switch.md)
 - Ch. 15 — [Fonctions anonymes & closures](chapitres/15-closures.md)
-- Ch. 16 — [`defer` : garanties d'exécution](chapitres/16-defer.md)
+- Ch. 16 — [`defer`](chapitres/16-defer.md)
 - Ch. 17 — [`panic` & `recover`](chapitres/17-panic-recover.md)
 - Ch. 18 — [Itérateurs par fonction (range-over-func)](chapitres/18-iterateurs.md)
 
 ## Partie III — Concurrence
 
-- Ch. 19 — [Goroutines : le modèle](chapitres/19-goroutines.md)
+- Ch. 19 — [Goroutines](chapitres/19-goroutines.md)
 - Ch. 20 — [Channels & `select`](chapitres/20-channels-select.md)
 - Ch. 21 — [Primitives de synchronisation](chapitres/21-synchronisation.md)
-- Ch. 22 — [`context` : annulation, délais, valeurs](chapitres/22-context.md)
+- Ch. 22 — [`context`](chapitres/22-context.md)
 - Ch. 23 — [Patterns de concurrence, data races & tests concurrents](chapitres/23-patterns-concurrence.md)
 
 ## Partie IV — Runtime & modèle mémoire
@@ -52,7 +52,7 @@
 
 - Ch. 30 — [Slices & arrays en profondeur](chapitres/30-slices-profondeur.md)
 - Ch. 31 — [Strings en profondeur](chapitres/31-strings-profondeur.md)
-- Ch. 32 — [Maps : tables de hachage](chapitres/32-maps-hachage.md)
+- Ch. 32 — [Maps](chapitres/32-maps-hachage.md)
 - Ch. 33 — [Interfaces & système de types en profondeur](chapitres/33-interfaces-profondeur.md)
 - Ch. 34 — [Réflexion (`reflect`)](chapitres/34-reflexion.md)
 - Ch. 35 — [`unsafe` & interopérabilité bas niveau](chapitres/35-unsafe-cgo.md)
@@ -70,12 +70,12 @@
 > Lisible dès la fin de la Partie I : ces chapitres montrent « la façon Go » des
 > packages du quotidien, puis comment embarquer et déployer un binaire.
 
-- Ch. 41 — [Entrées/sorties & flux : `io`, `bufio`, `bytes`](chapitres/41-io-flux.md)
-- Ch. 42 — [Encodages & sérialisation : `encoding/json`, `gob`/`csv`/`xml`, `regexp`](chapitres/42-encodages-serialisation.md)
-- Ch. 43 — [Journalisation structurée : `log/slog`](chapitres/43-journalisation-slog.md)
-- Ch. 44 — [Le temps en pratique : `time`](chapitres/44-temps.md)
-- Ch. 45 — [`net/http` : serveur & client](chapitres/45-net-http.md)
-- Ch. 46 — [Embarquer & déployer : `embed`, build tags, binaires statiques](chapitres/46-embed-build-deploiement.md)
+- Ch. 41 — [Entrées/sorties & flux](chapitres/41-io-flux.md)
+- Ch. 42 — [Encodages & sérialisation](chapitres/42-encodages-serialisation.md)
+- Ch. 43 — [Journalisation structurée](chapitres/43-journalisation-slog.md)
+- Ch. 44 — [Le temps en pratique](chapitres/44-temps.md)
+- Ch. 45 — [`net/http`](chapitres/45-net-http.md)
+- Ch. 46 — [Embarquer & déployer](chapitres/46-embed-build-deploiement.md)
 - Ch. 47 — [Sécurité & chaîne d'approvisionnement](chapitres/47-securite-supply-chain.md)
 
 ## Partie VIII — Projets pratiques
@@ -97,4 +97,4 @@
 - E — [Démonstrations techniques & benchmarks](annexes/E-demonstrations-benchmarks.md)
 - F — [Idiomes & style](annexes/F-idiomes-style.md)
 - G — [Ressources](annexes/G-ressources.md)
-- H — [Concurrence sûre : éviter data races & deadlocks](annexes/H-concurrence-sure.md)
+- H — [Concurrence sûre](annexes/H-concurrence-sure.md)

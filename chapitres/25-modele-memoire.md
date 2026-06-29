@@ -1,4 +1,4 @@
-# Ch. 25 — Le modèle mémoire de Go
+# 25 — Le modèle mémoire de Go
 
 > **Objectif** — Savoir **quand** une écriture faite par une goroutine est **garantie visible** par une
 > autre. Comprendre la relation **happens-before**, les arêtes qu'établissent `go`, les **canaux**,

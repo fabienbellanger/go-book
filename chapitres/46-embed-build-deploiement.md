@@ -1,4 +1,4 @@
-# Ch. 46 — Embarquer & déployer : `embed`, build tags, binaires statiques, conteneurs
+# 46 — Embarquer & déployer
 
 > **Objectif** — Transformer un programme Go en **artefact déployable** : embarquer
 > ses ressources dans le binaire (`//go:embed`), compiler conditionnellement (build

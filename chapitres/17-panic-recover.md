@@ -1,4 +1,4 @@
-# Ch. 17 — `panic` & `recover`
+# 17 — `panic` & `recover`
 
 > **Objectif** — Savoir **quand** paniquer (et quand ne pas le faire), rattraper une panique avec
 > `recover` dans un `defer`, re-déclencher une panique inattendue, et poser une **frontière de

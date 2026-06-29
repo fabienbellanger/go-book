@@ -1,0 +1,69 @@
+{{- /*
+  Partiels partagés par toutes les pages : head, header, sidebar, footer.
+  Les pages (page/index/search) sont des documents complets qui les appellent
+  via {{template "nom" .}}. Le contexte « . » est une map {Book, Page, BaseURL}.
+*/ -}}
+
+{{- define "head" -}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="{{.BaseURL}}assets/css/github-markdown.css">
+<link rel="stylesheet" href="{{.BaseURL}}assets/css/chroma.css">
+<link rel="stylesheet" href="{{.BaseURL}}assets/css/layout.css">
+<script>
+  // Applique le thème avant le rendu pour éviter le flash (FOUC).
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
+{{- end -}}
+
+{{- define "header" -}}
+<header class="site-header">
+  <button class="burger" id="sidebar-toggle" aria-label="Afficher ou masquer le sommaire" title="Afficher/masquer le sommaire">☰</button>
+  <a class="brand" href="{{.BaseURL}}index.html?home">{{.Book.Title}}</a>
+  <form class="search-box" action="{{.BaseURL}}search.html" method="get" role="search">
+    <input id="q" name="q" type="search" placeholder="Rechercher…  (/)" autocomplete="off">
+    <div id="search-results" class="search-results" hidden></div>
+  </form>
+  <div class="header-actions">
+    <button id="theme-toggle" class="theme-toggle" aria-label="Basculer le thème" title="Thème clair/sombre">◐</button>
+  </div>
+</header>
+{{- end -}}
+
+{{- define "sidebar" -}}
+<nav class="sidebar" aria-label="Sommaire">
+  <div class="sidebar-top">
+    <a class="sidebar-home" href="{{.BaseURL}}index.html?home">Accueil</a>
+    <button type="button" id="toggle-all-parts" class="toggle-all">Tout déplier</button>
+  </div>
+  {{- $base := .BaseURL }}
+  {{- $cur := "" }}{{ $curPart := "" }}{{ with .Page }}{{ $cur = .OutPath }}{{ $curPart = .PartTitle }}{{ end }}
+  {{- range .Book.Parts }}
+  <details class="nav-part"{{if eq .Title $curPart}} open{{end}}>
+    <summary class="nav-part-title" title="{{.Title}}"><span class="nav-part-name">{{.Title}}</span></summary>
+    <ul>
+      {{- range .Pages }}
+      <li>
+        <a href="{{$base}}{{.OutPath}}"{{if eq .OutPath $cur}} class="active" aria-current="page"{{end}}>{{navLabel .Title}}</a>
+      </li>
+      {{- end }}
+      {{- range .Links }}
+      <li><a href="{{$base}}{{.Href}}" class="ext">{{navLabel .Title}} ↗</a></li>
+      {{- end }}
+    </ul>
+  </details>
+  {{- end }}
+</nav>
+{{- end -}}
+
+{{- define "footer" -}}
+<footer class="site-footer">
+  <p>Généré par <code>gobook-site</code> — source Markdown, rendu maison en Go.</p>
+</footer>
+{{- end -}}

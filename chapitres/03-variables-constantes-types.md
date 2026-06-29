@@ -1,4 +1,4 @@
-# Ch. 3 — Variables, constantes & types de base
+# 3 — Variables, constantes & types de base
 
 > **Objectif** — Déclarer et typer des valeurs : variables, constantes, types
 > numériques, et comprendre les conversions explicites de Go.

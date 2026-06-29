@@ -1,4 +1,4 @@
-# Ch. 40 — Méthodologie de performance
+# 40 — Méthodologie de performance
 
 > **Objectif** — Adopter un **processus** rigoureux plutôt que des micro-optimisations au hasard :
 > définir un **budget/SLO**, **mesurer** d'abord, **localiser** (profil/trace), **corriger**, puis

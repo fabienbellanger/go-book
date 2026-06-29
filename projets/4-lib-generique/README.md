@@ -7,9 +7,9 @@
 > outillée par une **CI**.
 >
 > **Réinvestit** — [Ch. 11 Généricité](../../chapitres/11-genericite.md),
-> [Ch. 12 Packages](../../chapitres/12-packages.md),
+> [Ch. 12 Packages](../../chapitres/12-packages-modules.md),
 > [Ch. 13 Tests & outillage](../../chapitres/13-tests-outillage.md),
-> [Ch. 36 Benchmarks & fuzzing](../../chapitres/36-benchmarks-fuzzing.md).
+> [Ch. 36 Benchmarks & fuzzing](../../chapitres/36-tests-benchmarks-fuzzing.md).
 
 ---
 

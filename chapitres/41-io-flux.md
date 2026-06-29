@@ -1,4 +1,4 @@
-# Ch. 41 — Entrées/sorties & flux : `io`, `bufio`, `bytes`
+# 41 — Entrées/sorties & flux
 
 > **Objectif** — Maîtriser le **modèle de flux** de Go : les interfaces `io.Reader`/`io.Writer`,
 > leur composition, le tamponnage avec `bufio`, et les tampons en mémoire de `bytes`. Savoir

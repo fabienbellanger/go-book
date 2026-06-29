@@ -1,4 +1,4 @@
-# Ch. 1 — Installation, toolchain & premier programme
+# 1 — Installation, toolchain & premier programme
 
 > **Objectif** — Avoir un environnement Go fonctionnel, comprendre la toolchain, et
 > exécuter son premier programme.
@@ -205,6 +205,6 @@ Puis expérimentez :
 
 ## 🔁 Pour aller plus loin
 
-- [Ch. 2 — Structure d'un programme : packages, `import`, `main`](02-structure-programme.md).
+- [Ch. 2 — Structure d'un programme](02-structure-programme.md).
 - [Ch. 12 — Packages, modules & organisation du code](12-packages-modules.md) pour `go.mod`/`go.sum`.
 - Annexe B — Antisèche des commandes `go`.

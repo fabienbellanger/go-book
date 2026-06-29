@@ -1,0 +1,367 @@
+/* layout.css — variables de thème, header, sidebar, ToC, callouts, responsive. */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Thème clair (par défaut) */
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --accent: #0969da;
+  --border: #d1d9e0;
+  --code-bg: #f6f8fa;
+  --code-inline-bg: rgba(129, 139, 152, 0.16);
+  --sidebar-bg: #f6f8fa;
+  --header-bg: #ffffff;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-subtle: #161b22;
+  --fg: #e6edf3;
+  --fg-muted: #9198a1;
+  --accent: #4493f8;
+  --border: #30363d;
+  --code-bg: #161b22;
+  --code-inline-bg: rgba(101, 108, 118, 0.2);
+  --sidebar-bg: #0d1117;
+  --header-bg: #161b22;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+/* ---------- Header ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 3.5rem;
+  padding: 0 1rem;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 24rem;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;        /* bouton thème ancré à droite */
+}
+.burger {
+  display: block;            /* visible partout : replie la sidebar (desktop) ou
+                                ouvre le tiroir (mobile) */
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+.burger:hover { color: var(--accent); }
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+.theme-toggle:hover { background: var(--bg-subtle); }
+
+/* Recherche du header : centrée horizontalement, indépendamment des éléments
+   latéraux (marque à gauche, bouton thème à droite). */
+.search-box {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.search-box input {
+  width: 32rem;
+  max-width: 55vw;
+  padding: 0.4rem 0.7rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.search-box input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+
+.search-results {
+  position: absolute;
+  top: 2.4rem;
+  right: 0;
+  width: 28rem;
+  max-width: 90vw;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.sr-item { display: block; padding: 0.6rem 0.8rem; color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--border); }
+.sr-item:last-child { border-bottom: none; }
+.sr-item:hover, .sr-active { background: var(--bg-subtle); }
+.sr-title { font-weight: 600; font-size: 0.92rem; }
+.sr-sec { font-weight: 400; color: var(--fg-muted); }
+.sr-part { font-size: 0.78rem; color: var(--fg-muted); }
+.sr-snippet { font-size: 0.82rem; color: var(--fg-muted); margin-top: 0.2rem; }
+.sr-snippet mark, .page-results mark { background: var(--accent); color: #fff; border-radius: 2px; padding: 0 1px; }
+.sr-empty { padding: 0.8rem; color: var(--fg-muted); font-size: 0.9rem; }
+
+/* ---------- Layout 3 colonnes (pleine largeur) ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 22rem minmax(0, 1fr) 16rem;
+  gap: 2rem;
+  width: 100%;
+  margin: 0;
+  padding: 0 1.5rem;
+}
+
+/* Sidebar */
+.sidebar {
+  position: sticky;
+  top: 3.5rem;
+  align-self: start;
+  height: calc(100vh - 3.5rem);
+  overflow-y: auto;
+  padding: 1.25rem 0.5rem 2rem 0;
+  font-size: 0.88rem;
+}
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.sidebar-home {
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  padding: 0.3rem 0.5rem;
+}
+.toggle-all {
+  flex: none;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toggle-all:hover { background: var(--bg-subtle); color: var(--fg); }
+/* Parties repliables (élément <details>) : repliées par défaut, seule la partie
+   de la page courante est ouverte (attribut « open » posé par le gabarit). */
+.nav-part { margin-bottom: 0.4rem; }
+.nav-part-title {
+  display: flex;
+  align-items: center;       /* chevron et texte centrés verticalement */
+  gap: 0.3rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;          /* masque le triangle natif (Firefox) */
+}
+.nav-part-title::-webkit-details-marker { display: none; } /* Safari/Chrome */
+.nav-part-name {
+  white-space: nowrap;       /* le nom de partie reste sur une seule ligne */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-part-title::before {
+  content: "▸";
+  flex: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+  color: var(--fg-muted);
+}
+.nav-part[open] > .nav-part-title::before { transform: rotate(90deg); }
+.nav-part-title:hover { background: var(--bg-subtle); color: var(--fg); }
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+.sidebar li a {
+  display: block;
+  padding: 0.25rem 0.5rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+}
+.sidebar li a:hover { color: var(--fg); background: var(--bg-subtle); }
+.sidebar li a.active {
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+  background: var(--bg-subtle);
+}
+.sidebar li a.ext { font-style: italic; }
+
+/* Contenu */
+.content { min-width: 0; padding: 1.5rem 0 3rem; }
+.lede { color: var(--fg-muted); font-size: 1.05rem; }
+
+/* ToC locale (droite) */
+.toc {
+  position: sticky;
+  top: 3.5rem;
+  align-self: start;
+  max-height: calc(100vh - 3.5rem);
+  overflow-y: auto;
+  padding: 1.5rem 0;
+  font-size: 0.83rem;
+}
+.toc-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  margin: 0 0 0.5rem;
+}
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: 0.15rem 0; }
+.toc li a { color: var(--fg-muted); text-decoration: none; }
+.toc li a:hover { color: var(--accent); }
+.toc-h3 { padding-left: 0.9rem; }
+
+/* Pager préc./suivant */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.pager a {
+  max-width: 48%;
+  padding: 0.6rem 0.9rem;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: nowrap;       /* le libellé reste sur une seule ligne */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pager a:hover { background: var(--bg-subtle); }
+.pager-next { text-align: right; margin-left: auto; }
+
+/* Sommaire (index) */
+.toc-part { margin-bottom: 1.5rem; }
+.part-desc { color: var(--fg-muted); font-style: italic; }
+
+/* Page de recherche */
+.page-search {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-size: 1.05rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.page-search:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.page-results { margin-top: 1.5rem; }
+.page-results .sr-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.6rem; }
+
+/* Footer */
+.site-footer {
+  width: 100%;
+  margin: 0;
+  padding: 0.5rem 1.5rem;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- Callouts emoji ---------- */
+.markdown-body blockquote.callout {
+  border-left-width: 0.3em;
+  border-radius: 0 8px 8px 0;
+  padding: 0.6em 1em;
+  color: var(--fg);
+  background: var(--bg-subtle);
+}
+.callout--new  { border-left-color: #0969da; background: rgba(9, 105, 218, 0.08); }
+.callout--warn { border-left-color: #d1242f; background: rgba(209, 36, 47, 0.08); }
+.callout--tip  { border-left-color: #1a7f37; background: rgba(26, 127, 55, 0.08); }
+.callout--ref  { border-left-color: #6e7781; background: rgba(110, 119, 129, 0.10); }
+.callout--perf { border-left-color: #8250df; background: rgba(130, 80, 223, 0.08); }
+.callout--test { border-left-color: #1b7c83; background: rgba(27, 124, 131, 0.08); }
+.callout--note { border-left-color: #9a6700; background: rgba(154, 103, 0, 0.10); }
+
+/* ---------- Responsive ---------- */
+/* Sidebar repliée (desktop uniquement) : la colonne disparaît et le contenu
+   s'élargit. Sur mobile, le bouton ☰ ouvre plutôt le tiroir (.nav-open). */
+@media (min-width: 801px) {
+  body.sidebar-collapsed .sidebar { display: none; }
+  body.sidebar-collapsed .layout { grid-template-columns: minmax(0, 1fr) 16rem; }
+}
+@media (min-width: 801px) and (max-width: 1100px) {
+  body.sidebar-collapsed .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 20rem minmax(0, 1fr); }
+  .toc { display: none; }
+}
+
+@media (max-width: 800px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding: 0 1rem; }
+  .sidebar {
+    position: fixed;
+    top: 3.5rem;
+    left: 0;
+    width: 80vw;
+    max-width: 20rem;
+    height: calc(100vh - 3.5rem);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    padding: 1.25rem 1rem;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 40;
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  /* Recherche : retour dans le flux (à droite, près du bouton thème). */
+  .search-box { position: static; transform: none; margin-left: auto; }
+  .search-box input { width: 9rem; max-width: 38vw; }
+}

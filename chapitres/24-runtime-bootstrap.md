@@ -1,4 +1,4 @@
-# Ch. 24 — Architecture du runtime & bootstrap
+# 24 — Architecture du runtime & bootstrap
 
 > **Objectif** — Comprendre ce qui s'exécute **avant** et **autour** de votre `main` : le rôle du
 > **runtime** (ordonnanceur, GC, allocateur, netpoller) lié à chaque binaire, la séquence de

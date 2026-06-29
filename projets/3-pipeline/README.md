@@ -13,7 +13,7 @@
 > [Ch. 21 Synchronisation](../../chapitres/21-synchronisation.md),
 > [Ch. 22 Context](../../chapitres/22-context.md),
 > [Ch. 23 Patrons de concurrence](../../chapitres/23-patterns-concurrence.md),
-> [Ch. 38 Traces & synctest](../../chapitres/38-traces-flightrecorder.md).
+> [Ch. 38 Traces & synctest](../../chapitres/38-traces-flight-recorder.md).
 
 ---
 
@@ -222,7 +222,7 @@ statique).
   `log/slog` à intervalle régulier.
 - **`x/time/rate`** pour un vrai _token bucket_ avec rafale et `Reserve`.
 - **Profilage** (Projet 7) : tracer ce pipeline avec `runtime/trace` +
-  **FlightRecorder** ([Ch. 38](../../chapitres/38-traces-flightrecorder.md)) pour
+  **FlightRecorder** ([Ch. 38](../../chapitres/38-traces-flight-recorder.md)) pour
   visualiser fan-out et contention.
 
 ---

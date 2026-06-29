@@ -1,4 +1,4 @@
-# Ch. 9 — Interfaces (fondamentaux)
+# 9 — Interfaces (fondamentaux)
 
 > **Objectif** — Abstraire par le **comportement** : déclarer des interfaces, comprendre la
 > **satisfaction implicite**, et manipuler les valeurs dynamiques (assertions, type switch).

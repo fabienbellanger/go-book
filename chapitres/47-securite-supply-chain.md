@@ -1,4 +1,4 @@
-# Chapitre 47 — Sécurité & chaîne d'approvisionnement
+# 47 — Sécurité & chaîne d'approvisionnement
 
 > **Objectif** : adopter les réflexes de sécurité qui comptent vraiment en Go, des
 > deux côtés de la barrière : **la chaîne d'approvisionnement** (d'où vient le code

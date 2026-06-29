@@ -1,4 +1,4 @@
-# Ch. 13 — Tests & outillage de base
+# 13 — Tests & outillage de base
 
 > **Objectif** — Adopter la **culture du test** intégrée à Go : écrire des tests
 > **table-driven**, des sous-tests, des `Example` exécutables, et exploiter `go test`/`go vet`.
