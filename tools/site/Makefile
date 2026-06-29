@@ -15,7 +15,7 @@ OUT     := $(SRC)/public               # dossier de sortie du site
 ADDR    ?= :8080
 LDFLAGS := -s -w
 
-.PHONY: build serve test vet fmt check chroma dist clean
+.PHONY: build serve test vet fmt update-deps check chroma dist clean
 
 build:
 	go run . -clean -src $(SRC) -out $(OUT)
@@ -31,6 +31,11 @@ vet:
 
 fmt:
 	gofmt -l .
+
+update-deps:
+	go get -u ./...
+	go mod tidy
+	go mod verify
 
 check: fmt vet test
 

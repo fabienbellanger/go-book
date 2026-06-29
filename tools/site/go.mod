@@ -8,4 +8,4 @@ require (
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 )
 
-require github.com/dlclark/regexp2/v2 v2.2.1 // indirect
+require github.com/dlclark/regexp2/v2 v2.2.2 // indirect
