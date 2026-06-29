@@ -9,9 +9,11 @@
 #   make dist    compile le générateur (binaire statique)
 #   make clean   supprime public/ et bin/
 
+# SRC : racine du livre (où sont chapitres/, annexes/)
+# OUT : dossier de sortie du site
 BINARY  := gobook-site
-SRC     := ../..                       # racine du livre (où sont chapitres/, annexes/)
-OUT     := $(SRC)/public               # dossier de sortie du site
+SRC     := ../..
+OUT     := $(SRC)/public
 ADDR    ?= :8080
 LDFLAGS := -s -w
 
