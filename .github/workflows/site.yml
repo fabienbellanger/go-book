@@ -1,8 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # Construit le site HTML du livre et le publie sur GitHub Pages.
 # Le HTML n'est jamais commité : il est régénéré à chaque push sur main.
 name: Site
 
-"on":
+on:
   push:
     branches: [main]
   workflow_dispatch:
