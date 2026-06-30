@@ -145,10 +145,10 @@ benchstat old.txt new.txt
 ```
 
 ```
-            │   old.txt   │             new.txt              │
-            │   sec/op    │   sec/op     vs base             │
+            |   old.txt   |             new.txt              |
+            |   sec/op    |   sec/op     vs base             |
 Format-8      106.90n ± 8%   69.60n ± 1%  -34.89% (p=0.000 n=10)
-            │  allocs/op  │  allocs/op   vs base             │
+            |  allocs/op  |  allocs/op   vs base             |
 Format-8       3.000 ± 0%    2.000 ± 0%  -33.33% (p=0.000 n=10)
 ```
 
