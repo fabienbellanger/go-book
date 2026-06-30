@@ -5,7 +5,7 @@
 > **re-vérifier** avec `benchstat` — en mesurant **tous les axes** (temps, mémoire, p99), car une
 > « victoire » sur l'un peut être une **régression** sur l'autre.
 >
-> **Prérequis** — [Ch. 36](36-tests-benchmarks-fuzzing.md), [Ch. 37](37-profiling-pprof.md), [Ch. 39](39-compilation-inlining-pgo.md)
+> **Prérequis** — [Ch. 36](36-tests-benchmarks-fuzzing.md), [Ch. 37](37-profiling-pprof.md), [Ch. 38](38-traces-flight-recorder.md), [Ch. 39](39-compilation-inlining-pgo.md)
 
 ---
 

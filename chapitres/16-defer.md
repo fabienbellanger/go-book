@@ -24,6 +24,13 @@ defer f.Close() // garanti, qu'on sorte par erreur ou normalement
 // ... utiliser f ...
 ```
 
+Le mécanisme rappelle le `try`/`finally` de Java ou Python, ou le RAII de C++ — en plus léger :
+pas de bloc dédié, `defer` est une instruction ordinaire, posée à l'endroit même où la ressource est
+acquise. Différence importante avec un bloc `finally` : un `defer` est rattaché à la **fonction
+englobante tout entière**, jamais à un bloc (`if`, `for`...) qui le contient. Il ne se déclenche
+qu'au retour de **cette fonction**, pas à la sortie d'une boucle ou d'un `if` — point central du
+piège vu plus bas.
+
 L'exemple est dans [`code/ch16-defer/`](../code/ch16-defer/).
 
 ---
@@ -32,7 +39,10 @@ L'exemple est dans [`code/ch16-defer/`](../code/ch16-defer/).
 
 Plusieurs `defer` dans une fonction s'exécutent en ordre **inverse** d'enregistrement (_Last In,
 First Out_) : le dernier différé part en premier. C'est logique pour défaire des acquisitions
-imbriquées (on libère dans l'ordre inverse où l'on a pris).
+imbriquées (on libère dans l'ordre inverse où l'on a pris) : si une ressource B dépend d'une
+ressource A acquise avant elle (un verrou qui protège un fichier déjà ouvert, par exemple), B doit
+être libérée avant A. C'est exactement l'ordre que produit le LIFO des `defer`, sans que vous ayez à
+y penser — il suffit d'empiler les `defer` dans l'ordre naturel d'acquisition.
 
 ```go
 // code/ch16-defer/defer.go
@@ -80,8 +90,42 @@ func evalContrast() (snapshot, live int) {
 // snapshot == 1 (valeur figée), live == 99 (valeur finale)
 ```
 
+Ce comportement n'a rien d'arbitraire : un `defer` reste, au fond, un **appel de fonction normal**,
+simplement **exécuté plus tard**. Comme pour tout appel `f(x)`, les arguments sont calculés au
+moment où l'appel est **préparé** — ici, à la ligne `defer`. Seule l'**invocation** elle-même est
+repoussée au retour :
+
+```
+  x := 1
+   |
+   +-- defer func(v int){snapshot=v}(x)   <- x est LU ICI (argument) : v fige à 1
+   +-- defer func()     {live=x}()        <- aucune lecture ici, juste l'enregistrement
+   |
+  x = 99                                     (v=1 ne voit plus ce changement, mais la
+   |                                          closure le verra)
+  return                                  -> exécute les defers, en LIFO :
+                                              func(){live=x}()      -> live = 99 (lu maintenant)
+                                              func(v int){...}(v=1) -> snapshot = 1 (figé avant)
+```
+
 > 💡 Pour photographier une valeur au moment du `defer`, **passez-la en argument**. Pour observer sa
 > valeur finale, **capturez-la** dans la closure.
+
+> ⚠️ La règle s'applique aussi au **récepteur** d'une méthode différée. `defer obj.Method()` évalue
+> `obj` immédiatement, comme n'importe quel argument — mais ce qui est figé dépend du type de
+> récepteur :
+>
+> ```go
+> type counter struct{ n int }
+>
+> func (c counter) showValue()  { fmt.Println(c.n) } // récepteur valeur : copié au defer
+> func (c *counter) showByRef() { fmt.Println(c.n) }  // récepteur pointeur : lu à l'exécution
+>
+> c := counter{n: 1}
+> defer c.showValue()  // copie c MAINTENANT : affichera 1
+> defer c.showByRef()  // capture &c MAINTENANT, mais lit *c plus tard : affichera 2
+> c.n = 2
+> ```
 
 ## Interaction avec les retours nommés
 
@@ -111,7 +155,10 @@ func doubleViaDefer() (result int) {
 
 `defer` se déclenche au retour de la **fonction**, **pas** à la fin de l'itération. Empiler des
 `defer` dans une boucle **repousse** toutes les libérations à la toute fin — les ressources
-s'accumulent (descripteurs de fichiers, verrous...).
+s'accumulent (descripteurs de fichiers, verrous...). Sur une boucle qui parcourt des milliers de
+fichiers, c'est l'erreur classique `too many open files` (limite `ulimit -n` du système
+d'exploitation) : chaque `os.Open` réussit, mais aucun `Close` ne s'exécute avant la fin de la
+fonction qui les a tous accumulés.
 
 ```go
 // PIÈGE : tous les Close() à la fin, en LIFO. Les ressources restent ouvertes.
@@ -164,6 +211,10 @@ func trace(name string, log *[]string) func() {
 defer trace("work", &log)() // noter le () final : on appelle trace, on diffère son résultat
 ```
 
+Ce pattern exploite directement la règle vue plus haut : `trace("work", &log)` est **appelée
+immédiatement** (elle journalise `"enter:work"` tout de suite et renvoie une closure), seul le
+**résultat de cet appel** — la closure renvoyée — est différé par le `defer` qui l'entoure.
+
 ### Verrou
 
 L'idiome le plus répandu — _lock_ suivi immédiatement de `defer unlock` :
@@ -175,6 +226,10 @@ func withLock(mu *sync.Mutex, fn func()) {
 	fn()
 }
 ```
+
+Placer le `defer mu.Unlock()` **juste après** `mu.Lock()` — plutôt qu'à la fin de la fonction — est
+la convention : la libération reste **visuellement collée** à l'acquisition, donc impossible à
+oublier en ajoutant un retour anticipé plus loin dans le corps de la fonction.
 
 ---
 
@@ -192,6 +247,9 @@ func withLock(mu *sync.Mutex, fn func()) {
   une closure (portée par itération).
 - **Argument vs capture** : l'argument est figé à l'enregistrement, la closure lit la valeur finale.
   Confondre les deux donne des bugs subtils.
+- **Récepteur de méthode** : `defer obj.Method()` fige `obj` à l'enregistrement si `Method` a un
+  récepteur **valeur** (copie), mais lit l'état **au retour** si le récepteur est un **pointeur**
+  (la closure implicite ne fait que déréférencer plus tard).
 - **Modifier un retour non nommé** depuis un `defer` n'a **aucun effet** : la valeur est déjà copiée.
 - **Ignorer l'erreur de `Close()`** : sur un fichier en **écriture**, `defer f.Close()` peut masquer
   une erreur d'écriture finale. Pour ces cas, fermez explicitement et vérifiez l'erreur
@@ -201,8 +259,18 @@ func withLock(mu *sync.Mutex, fn func()) {
 
 ## ⚡ Performance
 
-Depuis Go 1.14, le compilateur **« ouvre » les defers** à position fixe (nombre statiquement connu,
-hors boucle) : pas d'enregistrement à l'exécution, le coût est **celui d'un appel direct**. Mesuré
+Avant Go 1.13, chaque `defer` allouait un enregistrement sur le **tas** (_defer record_) : coût
+notable même hors boucle. Go 1.13 a ajouté une allocation sur la **pile** pour les cas simples ;
+Go 1.14 va plus loin avec les _**open-coded defers**_ : le compilateur **« déplie »** les appels
+différés directement à chaque point de sortie de la fonction (un peu comme s'il avait écrit
+l'appel à la main avant chaque `return`) — plus aucun enregistrement à l'exécution, le coût devient
+**celui d'un appel direct**.
+
+Cette optimisation a une condition précise : la fonction doit compter **8 `defer` au plus, comptés
+textuellement**, et **aucun d'entre eux ne doit être à l'intérieur d'une boucle**. C'est une
+condition **syntaxique**, pas dynamique : un seul `defer` écrit dans un `for` désactive l'open-coding
+pour cette fonction, **même si la boucle ne tourne qu'une fois** — c'est exactement le cas de
+`deferLoop` ci-dessous, qui retombe donc sur le mécanisme runtime malgré ses 8 appels. Mesuré
 (go1.26.4, `b.Loop`) :
 
 ```

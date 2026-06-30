@@ -21,6 +21,10 @@ func main() {
 	fmt.Printf("JoinCSV : %q\n", JoinCSV([]string{"go", "rust", "zig"}))
 	fmt.Printf("ToUpperASCII(%q) = %q (é inchangé : hors ASCII)\n", "héllo", ToUpperASCII("héllo"))
 
+	phrase := "the-quick-brown-fox"
+	fmt.Printf("DetachSubstring(%q,4,9) = %q (copie indépendante du backing de phrase)\n",
+		phrase, DetachSubstring(phrase, 4, 9))
+
 	// Interning : mêmes contenus -> mêmes handles.
 	a1, a2 := Intern("event.created"), Intern("event.created")
 	fmt.Printf("Intern x2 : handles == ? %v ; Value=%q ; taille handle=%d o\n",

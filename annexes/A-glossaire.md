@@ -11,6 +11,9 @@ indiqué par 🔁 donne le détail.
 
 ### A
 
+- **AddCleanup** (`runtime.AddCleanup`) — Mécanisme moderne (remplaçant
+  recommandé de `SetFinalizer`) pour exécuter une fonction quand un objet devient
+  inatteignable. 🔁 voir Ch. 27.
 - **Allocation** — Réservation de mémoire pour une valeur. Sur la **pile** elle est
   quasi gratuite (libérée au retour de fonction) ; sur le **tas** elle a un coût et
   pèse sur le GC. 🔁 voir Ch. 26.
@@ -18,17 +21,14 @@ indiqué par 🔁 donne le détail.
   `Add`, `CompareAndSwap`) sur un entier ou un pointeur, sans verrou. Les types
   `atomic.Int64`, `atomic.Pointer[T]`… garantissent l'atomicité et un ordre
   mémoire. 🔁 voir Ch. 21.
-- **AddCleanup** (`runtime.AddCleanup`) — Mécanisme moderne (remplaçant
-  recommandé de `SetFinalizer`) pour exécuter une fonction quand un objet devient
-  inatteignable. 🔁 voir Ch. 27.
 
 ### B
 
-- **Build tags** (contraintes de build) — Commentaires `//go:build` en tête de
-  fichier qui conditionnent sa compilation (OS, architecture, version, étiquettes
-  personnalisées). 🔁 voir Ch. 12.
 - **Bucket** — Compartiment interne d'une map contenant un petit groupe de
   paires clé/valeur. 🔁 voir Ch. 32.
+- **Build tags** (contraintes de build) — Commentaires `//go:build` en tête de
+  fichier qui conditionnent sa compilation (OS, architecture, version, étiquettes
+  personnalisées). 🔁 voir Ch. 46.
 - **byte** — Alias de `uint8`. Une chaîne est une suite immuable d'octets ; un
   `[]byte` en est la version modifiable. 🔁 voir Ch. 31.
 
@@ -42,6 +42,9 @@ indiqué par 🔁 donne le détail.
   en communiquant. » 🔁 voir Ch. 20.
 - **Closure** (fermeture) — Fonction anonyme qui capture des variables de son
   contexte englobant, par référence. 🔁 voir Ch. 15.
+- **Context** (`context.Context`) — Objet passé en premier argument d'une chaîne
+  d'appels, qui porte l'**annulation**, une **deadline** et des valeurs de portée
+  requête (`Done`, `Err`, `Value`). 🔁 voir Ch. 22.
 - **Contrainte** (constraint) — Interface qui limite les types acceptés par un
   paramètre de type générique (méthodes et/ou **type set**). 🔁 voir Ch. 11.
 
@@ -60,6 +63,9 @@ indiqué par 🔁 donne le détail.
 
 - **eface** (empty interface) — Représentation interne d'une interface vide
   (`any`) : une paire (type, pointeur vers la donnée). 🔁 voir Ch. 33.
+- **Erreur** (`error`) — Valeur ordinaire (pas une exception) implémentant
+  `Error() string` ; on l'enrichit par **wrapping** (`fmt.Errorf("…: %w", err)`)
+  et on l'inspecte avec `errors.Is`/`errors.As`. 🔁 voir Ch. 10.
 - **Escape analysis** — Analyse du compilateur déterminant si une valeur peut
   rester sur la pile ou doit « s'échapper » vers le tas. `go build -gcflags=-m`
   l'expose. 🔁 voir Ch. 26.
@@ -74,7 +80,10 @@ indiqué par 🔁 donne le détail.
   fichier juste après un évènement rare (ex. requête lente). 🔁 voir Ch. 38.
 - **Fuite de goroutine** — Goroutine qui ne se termine jamais (bloquée sur un
   canal, une lecture réseau…), retenant sa pile et ses captures. Cause fréquente de
-  fuite mémoire. 🔁 voir Ch. 23.
+  fuite mémoire. 🔁 voir Ch. 19, Ch. 23.
+- **Fuzzing** (`testing.F`) — Génération automatique d'entrées à partir d'un
+  **corpus** de départ (`f.Add`) pour faire échouer une propriété censée toujours
+  tenir (`f.Fuzz`). 🔁 voir Ch. 36.
 
 ### G
 
@@ -91,13 +100,17 @@ indiqué par 🔁 donne le détail.
 - **GOGC** — Règle l'agressivité du GC : pourcentage de croissance du tas avant
   déclenchement (100 par défaut). 🔁 voir Ch. 27.
 - **GOMAXPROCS** — Nombre maximal de P, donc de goroutines exécutées en
-  parallèle. Par défaut le nombre de cœurs (ou la limite CPU du conteneur,
+  parallèle. Par défaut le nombre de cœurs (ou la limite **cgroups** du conteneur,
   🆕 1.25). 🔁 voir Ch. 28.
 - **GOMEMLIMIT** — Limite souple de mémoire totale que le runtime vise à ne pas
   dépasser, en ajustant le GC. 🔁 voir Ch. 27.
 - **Goroutine** — Fil d'exécution léger géré par le runtime (pile initiale de
   quelques kio, extensible). On en lance des centaines de milliers sans peine.
   🔁 voir Ch. 19.
+- **Green Tea** (GC, 🆕 1.26 par défaut) — Variante du marquage GC qui scanne la
+  mémoire par **spans contigus** plutôt que pointeur par pointeur, pour une
+  meilleure localité de cache (−10 à −40 % d'overhead GC selon la charge).
+  🔁 voir Ch. 27.
 
 ### H
 
@@ -113,16 +126,34 @@ indiqué par 🔁 donne le détail.
   (`itab`, pointeur vers la donnée). 🔁 voir Ch. 33.
 - **Inlining** — Optimisation insérant le corps d'une petite fonction sur le site
   d'appel, supprimant le coût de l'appel et ouvrant d'autres optimisations.
-  🔁 voir Ch. 26.
+  🔁 voir Ch. 39.
 - **Interface** — Ensemble de méthodes ; un type la satisfait **implicitement**.
   Valeur = (type dynamique, valeur dynamique). 🔁 voir Ch. 9.
 - **iota** — Compteur prédéclaré valant l'indice de la spec courante dans un bloc
   `const`, idéal pour les énumérations. 🔁 voir Ch. 3.
+- **itab** (interface table) — Table associant un type concret à une interface :
+  type dynamique + pointeurs vers les implémentations de méthodes. 🔁 voir Ch. 33.
 - **Itérateur** (`iter.Seq[T]`, `iter.Seq2[K,V]`, 🆕 1.23) — Fonction de
   _range-over-func_ : `func(yield func(T) bool)`, parcourue par `for x := range`.
   🔁 voir Ch. 18.
-- **itab** (interface table) — Table associant un type concret à une interface :
-  type dynamique + pointeurs vers les implémentations de méthodes. 🔁 voir Ch. 33.
+
+### J
+
+- **JSON** (`encoding/json`) — Format d'échange texte par défaut en Go ;
+  `Marshal`/`Unmarshal` convertissent entre valeur Go et `[]byte` JSON, pilotés par
+  des tags de struct (`json:"name,omitempty"`). 🔁 voir Ch. 42.
+
+### K
+
+- **Kind** (`reflect.Kind`) — Catégorie d'un type au sens de la réflexion
+  (`Struct`, `Int`, `Slice`, `Pointer`…), distincte de son nom. Renvoyée par
+  `reflect.Type.Kind()`. 🔁 voir Ch. 34.
+
+### L
+
+- **linkname** (`//go:linkname`) — Directive liant un symbole local à un symbole
+  **non exporté** d'un autre package (souvent `runtime`). Fragile, à éviter sauf
+  nécessité absolue. 🔁 voir Ch. 35.
 
 ### M
 
@@ -132,13 +163,16 @@ indiqué par 🔁 donne le détail.
   puis **balayage** (récupération) des autres. 🔁 voir Ch. 27.
 - **mcache / mcentral / mheap** — Hiérarchie d'allocation du runtime : cache par
   P (`mcache`, sans verrou), réserve centrale par classe de taille (`mcentral`),
-  tas global (`mheap`). 🔁 voir Ch. 27.
+  tas global (`mheap`). 🔁 voir Ch. 26.
 - **Modèle mémoire** — Spécification (`go.dev/ref/mem`) des garanties de
   visibilité des écritures entre goroutines. 🔁 voir Ch. 25.
+- **Modernizer** (`go fix`, 🆕 1.26) — Réécriture automatique de code vers des
+  formes plus modernes (ex. boucles `for range N`, `min`/`max`, `any` au lieu
+  d'`interface{}`), appliquée via `go fix ./...`. 🔁 voir Ch. 1.
 - **Module** — Unité de versionnement et de dépendances, définie par `go.mod`
   (chemin du module + version de Go + dépendances). 🔁 voir Ch. 12.
 - **mspan / span** — Plage contiguë de pages mémoire gérée par le runtime,
-  découpée en objets d'une même **classe de taille**. 🔁 voir Ch. 27.
+  découpée en objets d'une même **classe de taille**. 🔁 voir Ch. 26.
 - **Mutex** (`sync.Mutex`) — Verrou d'exclusion mutuelle ; un seul détenteur à la
   fois. Ne pas copier après usage. 🔁 voir Ch. 21.
 
@@ -146,7 +180,7 @@ indiqué par 🔁 donne le détail.
 
 - **nil** — Valeur zéro des pointeurs, slices, maps, channels, fonctions et
   interfaces. ⚠️ Une interface valant nil n'est pas forcément « nil » si son type
-  dynamique est renseigné. 🔁 voir Ch. 10, Ch. 33.
+  dynamique est renseigné. 🔁 voir Ch. 9, Ch. 33.
 
 ### O
 
@@ -200,14 +234,14 @@ indiqué par 🔁 donne le détail.
 
 ### T
 
+- **Trace d'exécution** (`runtime/trace`) — Journal chronologique fin des
+  évènements du runtime (ordonnancement, GC, blocages), lu par `go tool trace`.
+  🔁 voir Ch. 38.
 - **Type alias** (`type A = B`) — Deuxième nom pour un type existant. Depuis
   🆕 1.24, un alias peut être **générique** (`type Set[T comparable] = map[T]struct{}`).
   🔁 voir Ch. 11.
 - **Type set** — Ensemble des types satisfaisant une contrainte (ex. `~int | ~string`,
   où `~T` inclut les types sous-jacents). 🔁 voir Ch. 11.
-- **Trace d'exécution** (`runtime/trace`) — Journal chronologique fin des
-  évènements du runtime (ordonnancement, GC, blocages), lu par `go tool trace`.
-  🔁 voir Ch. 38.
 
 ### U
 
@@ -217,14 +251,20 @@ indiqué par 🔁 donne le détail.
 
 ### V
 
-- **Valeur zéro** — Valeur par défaut d'un type non initialisé (`0`, `""`,
-  `false`, `nil`, struct à champs zéro). Principe « rendre le zéro utile ».
+- **Valeur zéro** (zero value) — Valeur par défaut d'un type non initialisé (`0`,
+  `""`, `false`, `nil`, struct à champs zéro). Principe « rendre le zéro utile ».
   🔁 voir Ch. 3, Ch. 8.
 
 ### W
 
+- **WaitGroup.Go** (`sync.WaitGroup`, 🆕 1.25) — Méthode qui lance une goroutine,
+  l'enregistre (`Add(1)`) et la décompte (`defer Done()`) atomiquement, en un seul
+  appel `wg.Go(fn)`. 🔁 voir Ch. 21.
 - **Weak pointer** (`weak.Pointer[T]`, 🆕 1.24) — Référence n'empêchant pas le GC
   de récupérer l'objet pointé ; utile pour des caches. 🔁 voir Ch. 27.
+- **Workspace** (`go.work`) — Fichier (non commité) qui relie plusieurs modules
+  locaux pour les développer ensemble, sans `replace` ni publication.
+  🔁 voir Ch. 12.
 - **Work-stealing** — Stratégie d'équilibrage : un P sans travail « vole » des
   goroutines dans la file d'un autre P, ou puise dans la file globale.
   🔁 voir Ch. 28.

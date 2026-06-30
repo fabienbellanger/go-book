@@ -38,6 +38,11 @@ t.Unix(); t.UnixMilli(); t.UnixNano()               // secondes/ms/ns depuis 197
 time.Unix(1750000000, 0)                            // reconstruire depuis un epoch
 ```
 
+> ⚡ `Year()`, `Month()` et `Day()` appelés séparément refont chacun, indépendamment, la
+> conversion depuis le temps absolu vers le calendrier grégorien. Si vous avez besoin de
+> plusieurs composantes, `year, month, day := t.Date()` les calcule en un seul passage —
+> un appel au lieu de trois.
+
 Arithmétique : on **ajoute une durée** ou on **décale par calendrier**.
 
 ```go
@@ -55,9 +60,13 @@ n'est **pas** toujours « demain même heure » (changements d'heure été/hiver
 a.Before(b); a.After(b); a.Equal(b)
 ```
 
-⚠️ **N'utilisez pas `==` sur des `time.Time`.** Deux instants peuvent représenter le
-même moment tout en différant par leur **fuseau** ou leur **lecture monotone** : `==`
-les jugera inégaux. `Equal` compare l'instant réel.
+⚠️ **N'utilisez pas `==` sur des `time.Time`.** `time.Time` est un **struct** (champs
+internes non exportés portant le temps mural, un éventuel temps monotone et un pointeur
+vers la `*Location`) ; `==` compare ces champs **un à un**, comme pour n'importe quel
+struct comparable. Deux instants peuvent représenter le même moment tout en différant
+par leur **fuseau** (pointeur `*Location` différent) ou leur **lecture monotone**
+(présente sur l'un, absente sur l'autre) : `==` les jugera inégaux. `Equal` compare
+l'instant réel, indépendamment de ces détails de représentation.
 
 ```go
 paris, _ := time.LoadLocation("Europe/Paris")
@@ -73,6 +82,14 @@ u == p                     // false (fuseaux différents) ⚠️
 t.Truncate(time.Hour)   // vers le bas (multiple de d depuis l'instant zéro)
 t.Round(time.Minute)    // au plus proche (0.5 arrondi vers le haut)
 ```
+
+⚠️ `Truncate`/`Round` raisonnent sur la durée **absolue** écoulée depuis l'instant zéro
+(`0001-01-01 00:00:00 UTC`), **pas** sur l'heure affichée dans le fuseau de `t`. Avec un
+fuseau dont le décalage UTC n'est pas un multiple entier de `d`, le résultat peut
+surprendre : `t.Truncate(24*time.Hour)` ne tombe pas forcément sur minuit **local**
+(seulement sur minuit **UTC**, qui peut être 1h ou 2h du matin à Paris selon la saison).
+Pour tronquer au jour local, passez par les composantes (`time.Date(t.Year(), t.Month(),
+t.Day(), 0, 0, 0, 0, t.Location())`) plutôt que par `Truncate`.
 
 ---
 
@@ -96,6 +113,22 @@ t.Round(time.Minute)    // au plus proche (0.5 arrondi vers le haut)
   C'est pourquoi on mesure **toujours** une durée avec `time.Since`, jamais en
   soustrayant deux `Unix()`.
 - **Afficher / sérialiser** utilise la composante murale.
+
+Pourquoi deux horloges plutôt qu'une seule ? Chacune répond à un besoin que l'autre ne
+peut pas couvrir. La murale donne une **date civile** (utile pour afficher, journaliser,
+comparer à une échéance fixée à l'avance), mais elle peut sauter en arrière ou en avant à
+tout moment, hors du contrôle du programme. La monotone garantit une **progression
+régulière** (indispensable pour mesurer un écart sans risque), mais elle n'a de sens
+qu'à l'intérieur du processus courant — généralement un compteur depuis le démarrage de
+la machine, sans rapport avec une date calendaire, donc impossible à afficher ou à
+transmettre à un autre processus.
+
+⚠️ **Comparaison entre deux `time.Time`** (`Before`/`After`/`Equal`/`Sub`/`Compare`) :
+si **les deux** valeurs portent une lecture monotone, l'opération l'utilise exclusivement
+et ignore le temps mural. Si **l'une des deux seulement** en a une (par exemple un
+`time.Time` reconstruit avec `time.Date` comparé à un `time.Now()` brut), l'opération
+**bascule silencieusement** sur le temps mural pour les deux valeurs — aucune erreur,
+aucun avertissement, juste un résultat un peu moins fiable face aux sauts d'horloge.
 
 ⚠️ Certaines opérations **retirent** la lecture monotone : `t.Round(0)`, `t.Truncate(0)`,
 le passage par un fuseau (`In`, `UTC`, `Local`), la sérialisation (`MarshalJSON`,
@@ -137,6 +170,13 @@ time.Duration(n) * time.Second   // ✅ 5s
 💡 `5 * time.Second` compile car `5` est une constante non typée (Ch. 3) ; `n * time.Second`
 ne compile pas car `n` a le type `int`.
 
+⚠️ Un `int64` de nanosecondes ne couvre qu'**environ 290 ans** (positifs ou négatifs). Au
+delà — typiquement en multipliant une durée par une valeur calculée dynamiquement (jours
+× heures × ...) sans borne de contrôle — la valeur **déborde silencieusement** et repart
+côté négatif, sans panique ni erreur à la compilation ou à l'exécution. Validez les
+durées calculées dynamiquement (configuration, entrée utilisateur) plutôt que de
+multiplier en aveugle.
+
 ---
 
 ## Fuseaux horaires : `time.Location`
@@ -146,14 +186,27 @@ time.UTC                        // référence universelle
 time.Local                      // fuseau de la machine
 loc, err := time.LoadLocation("Europe/Paris")   // base IANA (tzdata)
 t.In(loc)                       // même instant, autre fuseau d'affichage
+fixed := time.FixedZone("CET+1", 3600)          // décalage fixe, sans règle DST
 ```
 
 > 💡 **Règle d'or** : **stocker et calculer en UTC**, ne convertir en local **qu'à
 > l'affichage**. On évite ainsi les bugs de changement d'heure et de DST.
 
+`time.Local` reflète le fuseau du **système** (variable d'environnement `TZ`, ou
+configuration OS à défaut) : un même binaire affiche une heure différente selon la
+machine qui l'exécute. Les conteneurs minimaux et la plupart des plateformes CI
+démarrent sans `TZ` réglée, donc avec `time.Local == time.UTC` — une bonne raison
+supplémentaire de ne **jamais** dépendre du fuseau local pour la logique métier, et de le
+réserver à l'affichage final, explicitement converti avec `In`.
+
 ⚠️ `LoadLocation` lit la base tzdata du système. Sur une image conteneur minimale
 (`scratch`), elle est absente → importez le package `time/tzdata` (embarque la base
 dans le binaire) ou installez les fichiers. 🔁 Ch. 46.
+
+⚡ `LoadLocation` **reparse** les fichiers tzdata à chaque appel, sans cache interne :
+appelée dans un chemin chaud (par requête HTTP, par itération de boucle), elle coûte
+inutilement cher. Chargez chaque `*Location` une fois (variable de niveau paquet ou
+`init`) et réutilisez le pointeur obtenu.
 
 ---
 
@@ -184,6 +237,15 @@ dans une boucle `select` ne fuit donc plus.
 1. **Réutiliser** un seul timer sur plusieurs itérations (`Reset`) plutôt qu'en allouer
    un par tour — moins d'allocations.
 2. **Contrôler** précisément l'arrêt (annuler un délai en cours).
+
+Le changement de 1.23 vaut aussi pour `NewTimer`/`NewTicker` eux-mêmes : la documentation
+du package précise désormais que `Stop` « n'est plus nécessaire pour aider le
+ramasse-miettes ». Mais cela ne dispense **pas** d'appeler `Stop` dans le cas le plus
+courant : tant qu'une référence vivante subsiste — un ticker stocké dans un champ de
+struct, ou simplement une goroutine qui lit encore `ticker.C` — le GC ne peut **pas** le
+récupérer, et le ticker continue de produire des tops jusqu'à un `Stop` explicite. Le fix
+de 1.23 supprime la fuite **mémoire** sur un timer devenu inaccessible ; il ne supprime
+pas le besoin de `Stop` pour arrêter un timer encore référencé.
 
 ### `NewTimer` / `Reset` / `Stop` et le drainage du canal
 
@@ -223,6 +285,21 @@ process qui tourne pour toute la vie du programme. Partout ailleurs, `NewTicker`
   NewTimer(50ms)  :   |-------------------+      (un seul tir)
                                           50 ms
 ```
+
+| Aspect           | `time.Timer`                                                                       | `time.Ticker`                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Émission         | **une seule fois**, après `d`                                                      | en **boucle**, toutes les `d`                                                                   |
+| Constructeurs    | `time.NewTimer(d)`, `time.After(d)`                                                | `time.NewTicker(d)`, `time.Tick(d)`                                                             |
+| Réutilisation    | `Reset(d)` reprogramme un nouveau tir unique                                       | sans objet — tourne en continu tant qu'actif                                                    |
+| `Stop`           | annule un tir **en attente**                                                       | **seul** moyen de mettre fin aux tops                                                           |
+| Si `Stop` oublié | depuis 1.23, pas de fuite mémoire si non référencé ; sinon le tir reste en attente | depuis 1.23, pas de fuite mémoire si non référencé ; sinon **continue de tourner indéfiniment** |
+| Usage typique    | timeout, deadline ponctuelle                                                       | heartbeat, polling, rafraîchissement périodique                                                 |
+
+⚠️ La durée passée à `NewTicker` doit être **strictement positive** : `NewTicker(0)` ou
+une durée négative provoque une **panique** (`non-positive interval for NewTicker`).
+`NewTimer`, à l'inverse, accepte une durée nulle ou négative — le timer se déclenche
+alors **dès que possible**, sans paniquer ; c'est un moyen valide (bien que peu lisible)
+d'envoyer immédiatement une valeur dans `timer.C`.
 
 ---
 
@@ -288,8 +365,10 @@ cd code && go test -race ./ch44-time/...
 - **`Duration`** est un `int64` de nanosecondes : `time.Duration(n) * time.Second` pour
   une variable (pas `n * time.Second`).
 - **Fuseaux** : stocker en **UTC**, convertir en local seulement à l'affichage.
-- **Tickers** : toujours `Stop`. Depuis **1.23**, `After`/`Tick` ne fuient plus, mais
-  `NewTimer`+`Reset` reste préférable pour réutiliser/contrôler un timer.
+- **Tickers** : toujours `Stop` tant qu'une référence subsiste (struct, goroutine de
+  lecture) — depuis **1.23**, le GC ne récupère que les timers/tickers devenus
+  **inaccessibles**, quel que soit leur mode de création (`After`, `Tick`, `NewTimer`,
+  `NewTicker`). `NewTimer`+`Reset` reste préférable pour réutiliser/contrôler un timer.
 - Pour propager un délai dans une API, passer un **`context` avec deadline**, pas une durée.
 
 ## 🔁 Pour aller plus loin

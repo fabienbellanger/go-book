@@ -12,7 +12,10 @@
 Le test n'est pas un add-on en Go : il est **dans le langage et l'outillage**. Aucune dépendance
 à installer, aucun framework à choisir. Un fichier `*_test.go`, une fonction `TestXxx`, et
 `go test` — c'est tout. Cette intégration explique la **culture du test** très répandue dans
-l'écosystème.
+l'écosystème : pas de débat « JUnit ou TestNG », « pytest ou unittest », « Jest ou Mocha » — un
+seul outil, identique dans tous les projets Go, de la bibliothèque standard au plus petit module.
+Le coût d'entrée pour écrire un test est quasi nul, ce qui encourage à en écrire plus tôt et plus
+souvent.
 
 L'exemple complet est dans [`code/ch13-tests/`](../code/ch13-tests/).
 
@@ -42,6 +45,12 @@ go test -run Slugify   # filtre par nom (regexp)
 > 💡 **`t.Error`/`t.Errorf`** signalent un échec mais **continuent** le test ; **`t.Fatal`/`t.Fatalf`**
 > l'**arrêtent** immédiatement (utile quand la suite n'a plus de sens, ex. après une erreur
 > d'ouverture). Le message décrit **`got` vs `want`** — la convention.
+
+> ⚠️ Le nom doit suivre **exactement** le motif `TestXxx`, où `Xxx` commence par une **majuscule**
+> (ou un chiffre) : `func TestFoo` est reconnu, mais `func Testfoo` **compile sans erreur** et
+> n'est **jamais exécuté** par `go test`. `go vet` (que `go test` invoque en partie avant de
+> lancer les tests) le signale : `Testfoo has malformed name: first letter after 'Test' must
+> not be lowercase`.
 
 ## Tests **table-driven** + sous-tests
 
@@ -84,6 +93,35 @@ func TestSlugify(t *testing.T) {
 > 💡 Ajouter un cas = ajouter **une ligne**. C'est ce qui rend ce style si productif : la logique
 > de test est écrite une fois, les cas se multiplient sans effort.
 
+> 💡 Variante courante dans la stdlib : `[]struct{...}` peut être remplacé par
+> **`map[string]struct{...}`**, la clé servant de nom de cas (plus besoin du champ `name`). Le
+> prix est la perte de l'**ordre d'exécution déterministe** — l'itération sur une map est
+> randomisée (🔁 [Ch. 7](07-maps-strings.md)) — mais c'est sans conséquence ici puisque chaque
+> sous-test est indépendant.
+
+> ⚠️ **Sous-tests parallèles et variable de boucle.** Paralléliser chaque cas avec `t.Parallel()`
+> ne pose pas le même problème que sans elle : un appel à `t.Parallel()` **met le sous-test en
+> pause** et rend la main à la boucle englobante, qui passe aussitôt au tour suivant. Avant Go
+> **1.22**, la variable de boucle était **unique et partagée** par toutes les itérations
+> ([Ch. 4](04-flux-controle.md), [Ch. 15](15-closures.md)) : au moment où les sous-tests en pause
+> reprenaient, ils lisaient tous la **même** valeur — celle laissée par le dernier tour de boucle.
+>
+> ```go
+> for _, tc := range cases {
+> 	tc := tc // nécessaire avant Go 1.22 ; sans quoi tous les sous-tests testent le DERNIER tc
+> 	t.Run(tc.name, func(t *testing.T) {
+> 		t.Parallel()
+> 		if got := Slugify(tc.in); got != tc.want {
+> 			t.Errorf("Slugify(%q) = %q ; attendu %q", tc.in, got, tc.want)
+> 		}
+> 	})
+> }
+> ```
+>
+> Le piège est **sournois** : le test s'exécute et rapporte un résultat — juste pas sur la bonne
+> entrée, donc sans erreur de compilation ni panique pour l'indiquer. Depuis Go 1.22, la portée
+> **par itération** rend `tc := tc` inutile (à condition que `go.mod` déclare `go 1.22` ou plus).
+
 ## Helpers : `t.Helper()`
 
 Une fonction d'assertion partagée doit appeler **`t.Helper()`** : en cas d'échec, Go pointe alors
@@ -97,6 +135,29 @@ func mustEqual(t *testing.T, got, want string) {
 	}
 }
 ```
+
+| Méthode              | Effet                                                                  | Quand l'utiliser                                            |
+| -------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `t.Error`/`t.Errorf` | Marque l'échec, **continue** le test                                   | Plusieurs assertions indépendantes dans le même test        |
+| `t.Fatal`/`t.Fatalf` | Marque l'échec, **arrête** le test immédiatement                       | La suite n'a plus de sens (échec de setup, ex. ouverture)   |
+| `t.Skip`/`t.Skipf`   | Marque le test **ignoré** (ni succès ni échec)                         | Précondition absente (réseau, OS, mode `-short`)            |
+| `t.Helper()`         | N'arrête rien : exclut la fonction courante du **call frame** rapporté | Toute fonction d'assertion ou de setup partagée entre tests |
+
+`t.Skip` se combine souvent avec **`testing.Short()`**, qui reflète le flag `-short` (utile pour
+exclure les tests lents — réseau, base de données — d'un cycle de développement rapide) :
+
+```go
+func TestIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("test d'intégration ignoré en mode -short")
+	}
+	// ... appel réseau, base de données, etc.
+}
+```
+
+> 💡 `t.Skip` sans condition est aussi pratique pour **désactiver temporairement** un test cassé
+> pendant un refactoring, sans le supprimer ni le laisser échouer en CI — préférez-le à un
+> commentaire qui finit par être oublié.
 
 ## `Example` : documentation exécutable
 
@@ -137,15 +198,57 @@ func TestSaveLines(t *testing.T) {
 
 **`t.Cleanup(fn)`** enregistre une fonction de nettoyage exécutée en fin de test, en ordre
 **LIFO** (dernier enregistré, premier exécuté) — pratique quand un **helper** ouvre une ressource
-et doit la libérer.
+et doit la libérer. L'ordre se vérifie concrètement :
+
+```go
+// slugify_test.go
+func TestCleanupLIFO(t *testing.T) {
+	var order []int
+	t.Run("ressource", func(t *testing.T) {
+		t.Cleanup(func() { order = append(order, 1) }) // enregistré en 1er -> exécuté en dernier
+		t.Cleanup(func() { order = append(order, 2) }) // enregistré en 2nd -> exécuté en premier
+	})
+	if !slices.Equal(order, []int{2, 1}) {
+		t.Errorf("ordre des cleanups = %v ; attendu [2 1] (LIFO)", order)
+	}
+}
+```
+
+Les cleanups du sous-test `"ressource"` s'exécutent dès qu'il se termine — avant même que
+`TestCleanupLIFO` ne rende la main — d'où la possibilité de les observer via une simple variable
+capturée par la closure.
+
+> 💡 **Golden files.** Pour une sortie longue (rapport, JSON formaté, gabarit HTML), comparer
+> caractère par caractère dans le code de test devient illisible. La technique consiste à
+> comparer la sortie à un fichier de référence versionné sous `testdata/` — un nom de dossier que
+> l'outillage `go` **ignore systématiquement** (ni compilé, ni traité comme package), donc libre
+> d'accueillir n'importe quel contenu lu par le test via `os.ReadFile` — et à le régénérer via un
+> flag dédié, par exemple `go test -update` (`if *update { os.WriteFile(path, got, 0o644) }`). La
+> stdlib ne fournit pas cet outillage : c'est une **convention** répandue, pas une fonction du
+> package `testing`.
 
 ## Couverture
 
 ```bash
 go test -cover ./ch13-tests/...                    # pourcentage de lignes couvertes
 go test -coverprofile=cover.out ./ch13-tests/...   # profil détaillé
-go tool cover -html=cover.out                      # visualisation ligne à ligne
+go tool cover -func=cover.out                      # détail par fonction (terminal, idéal en CI)
+go tool cover -html=cover.out                      # visualisation ligne à ligne (navigateur)
 ```
+
+`-func` détaille le profil sans navigateur — pratique en CI. Sur `ch13-tests/`, il révèle un
+détail instructif :
+
+```
+ch13-tests/main.go:11:      main          0.0%
+ch13-tests/report.go:12:    SaveLines     80.0%
+ch13-tests/slugify.go:11:   Slugify       100.0%
+total:                      (statements)  48.4%
+```
+
+`main` est à **0 %** : `go run ./ch13-tests` l'exécute, mais aucun test ne l'appelle (et l'appeler
+depuis un test relancerait tout le programme). Un total inférieur à 100 % n'est donc pas
+forcément un signal d'alerte — encore faut-il savoir **quelle** ligne manque et pourquoi.
 
 > ⚠️ La couverture **mesure l'exécution, pas la pertinence**. 100 % de lignes exécutées ne garantit
 > pas que les **bons cas** sont testés. C'est un indicateur, pas un objectif.
@@ -154,7 +257,17 @@ go tool cover -html=cover.out                      # visualisation ligne à lign
 
 `go vet` détecte des erreurs que le compilateur laisse passer : verbe `Printf` incohérent,
 copie de `sync.Mutex`, code mort… `go test` lance d'ailleurs **un sous-ensemble** de `vet`
-automatiquement avant les tests.
+automatiquement avant les tests. Exemple concret — le compilateur accepte ce code (`Printf`
+prend des `...any`), mais l'incohérence entre verbe et argument est une vraie erreur :
+
+```go
+fmt.Printf("%d\n", "x") // compile (any) ; à l'exécution : "%!d(string=x)"
+```
+
+```
+$ go vet ./...
+./main.go:9:14: fmt.Printf format %d has arg "x" of wrong type string
+```
 
 ```bash
 go vet ./...
@@ -194,7 +307,11 @@ go test -fuzz=FuzzSlugify ./ch13-tests/...    # fuzzing actif (génère des entr
 
 ## 🆕 Go 1.2x
 
-- **1.24** — **`b.Loop()`** : nouvelle façon de cadencer un benchmark (remplace `for i := 0; i < b.N`).
+- **1.24** — **`b.Loop()`** : nouvelle façon de cadencer un benchmark (remplace `for i := 0; i < b.N`) ;
+  **`T.Chdir(dir)`** change le répertoire courant du test et le **restaure automatiquement** via
+  `t.Cleanup` (incompatible avec `t.Parallel`) ; **`T.Context()`** renvoie un `context.Context`
+  annulé juste avant les cleanups, pratique pour borner une opération asynchrone lancée par le
+  test (🔁 [Ch. 22](22-context.md)).
 - **1.25** — **`T.Attr(key, value)`** attache une métadonnée à un test (ticket, catégorie) ;
   **`T.Output()`** renvoie un `io.Writer` indenté comme `t.Log` ; nouveaux analyzers `go vet`
   **`waitgroup`** et **`hostport`**.
@@ -213,7 +330,8 @@ func TestObservability(t *testing.T) {
 ## ⚠️ Pièges
 
 - **Tests dépendants de l'ordre** ou d'un **état partagé** (variable globale) : fragiles. Chaque
-  test doit être **indépendant** et idéalement parallélisable (`t.Parallel()`).
+  test doit être **indépendant** et idéalement parallélisable (`t.Parallel()` — voir le piège de
+  capture de boucle pré-1.22 détaillé plus haut).
 - **Asserter sur l'ordre d'itération d'une map** ([Ch. 7](07-maps-strings.md)) : il est **randomisé**.
   Triez avant de comparer, ou utilisez `// Unordered output:`.
 - **Oublier `t.Helper()`** dans une assertion partagée → les échecs pointent la mauvaise ligne.
@@ -251,13 +369,16 @@ go test -fuzz=FuzzSlugify -fuzztime=5s ./ch13-tests/...
 
 ## 📌 À retenir
 
-- Test = fichier **`*_test.go`** + **`func TestXxx(t *testing.T)`** + `go test`. Rien à installer.
+- Test = fichier **`*_test.go`** + **`func TestXxx(t *testing.T)`** + `go test`. Rien à installer
+  (mais le nom doit être exact : `Testfoo` ne s'exécute jamais).
 - Le style **table-driven** + **`t.Run`** : une table de cas, un sous-test chacun, ajout = une ligne.
-- **`t.Helper()`** pour les assertions partagées ; **`Example`** + `// Output:` = doc **et** test.
-- **`t.TempDir`**/**`t.Cleanup`** isolent les effets de bord ; `-cover` mesure (sans juger la
-  pertinence) ; `go vet` complète le compilateur.
-- 🆕 `b.Loop` (1.24), `T.Attr`/`T.Output` (1.25), `T.ArtifactDir` (1.26) ; benchmarks & fuzzing
-  partagent le package `testing`.
+  En parallèle (`t.Parallel()`), `tc := tc` n'est plus nécessaire dès `go.mod` en `go 1.22+`.
+- **`t.Helper()`** pour les assertions partagées ; **`t.Skip`/`testing.Short()`** pour les tests
+  longs ; **`Example`** + `// Output:` = doc **et** test.
+- **`t.TempDir`**/**`t.Cleanup`** isolent les effets de bord (ordre **LIFO**) ; `-cover`/`-func`
+  mesurent l'exécution (sans juger la pertinence) ; `go vet` complète le compilateur.
+- 🆕 `b.Loop`/`T.Chdir`/`T.Context` (1.24), `T.Attr`/`T.Output` (1.25), `T.ArtifactDir` (1.26) ;
+  benchmarks & fuzzing partagent le package `testing`.
 
 ## 🔁 Pour aller plus loin
 

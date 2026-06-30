@@ -84,3 +84,15 @@ func Enumerate[V any](seq iter.Seq[V]) iter.Seq2[int, V] {
 		}
 	}
 }
+
+// BrokenAfterStop est un itérateur volontairement BOGUÉ : il ignore le booléen
+// renvoyé par yield et continue d'en appeler même après une demande d'arrêt.
+// Il sert à illustrer le piège documenté au chapitre : le runtime ne laisse
+// pas faire, voir TestYieldAfterStopPanics dans iterators_test.go.
+func BrokenAfterStop() iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := 0; i < 3; i++ {
+			yield(i) // BUG : la valeur de retour n'est jamais vérifiée
+		}
+	}
+}

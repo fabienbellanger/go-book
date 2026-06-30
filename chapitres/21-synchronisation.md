@@ -19,6 +19,13 @@ Le package `sync` et `sync/atomic` fournissent ces garde-fous. Règle de choix :
 transférer/signaler, **mutex** pour protéger une section de code, **atomic** pour une seule valeur.
 L'exemple est dans [`code/ch21-synchronisation/`](../code/ch21-synchronisation/).
 
+Ce chapitre couvre en réalité **deux problèmes distincts**, à ne pas confondre : **l'exclusion
+mutuelle** (combien de goroutines ont le droit d'être dans une section de code à la fois ? — réponse
+de `Mutex`, `RWMutex`, `atomic`) et la **signalisation/attente** (une goroutine doit-elle patienter
+qu'un événement survienne, ou que d'autres aient terminé ? — réponse de `WaitGroup`, `Once`, `Cond`).
+Un `Mutex` ne dit jamais « attends que telle chose arrive » ; un `WaitGroup` ne protège aucune
+donnée. Les deux familles se combinent souvent dans une même structure.
+
 ---
 
 ## `sync.Mutex` : exclusion mutuelle
@@ -45,6 +52,26 @@ func (c *SafeCounter) Inc() {
 > struct (et son mutex) : utilisez un **récepteur pointeur**. `go vet` (analyzer `copylocks`) le
 > détecte.
 
+**Pourquoi copier casse tout.** Un `Mutex` n'est pas un simple booléen « verrouillé / libre » : il
+contient un état interne (un compteur de goroutines en attente, un sémaphore pour les réveiller) qui
+n'a de sens qu'à **une seule adresse mémoire**. Copier la struct qui le contient duplique cet état à
+un instant donné — l'original et la copie deviennent deux verrous **indépendants**, qui ne se voient
+plus l'un l'autre :
+
+```go
+func (c Counter) Inc() { // BUG : récepteur valeur -> copie c.mu à chaque appel
+	c.mu.Lock()         // verrouille LA COPIE, pas le mutex partagé par les autres appelants
+	defer c.mu.Unlock()
+	c.n++                // et cet incrément est lui aussi perdu : c est jetée au retour
+}
+```
+
+Deux goroutines qui croient protéger « la même » donnée via un `Mutex` copié peuvent toutes les deux
+obtenir un `Lock` en même temps : l'exclusion disparaît silencieusement, **sans erreur de
+compilation**. `go vet ./...` détecte ce cas précis (récepteur valeur), et aussi les cas plus
+insidieux où une struct contenant un `Mutex` est passée par valeur à une fonction, ou stockée par
+valeur dans une slice/map.
+
 ## `sync.RWMutex` : lecteurs multiples
 
 Quand les **lectures** dominent, `RWMutex` laisse **plusieurs lecteurs** entrer en parallèle (`RLock`)
@@ -65,6 +92,18 @@ func (r *Registry) Set(key string, val int) {
 }
 ```
 
+```
+   RLock  G1  [-----------lit-----------]
+   RLock  G2       [-----------lit-----------]      G1, G2, G3 en parallele :
+   RLock  G3            [-----------lit-----------]  RLock n'exclut pas RLock
+                                                   |
+   Lock   G4                                      [--------ecrit--------]
+                                                   ^ attend la fin de TOUS les RLock en cours
+                                                                             |
+   RLock  G5                                                                [----lit----]
+                                                                             ^ attend la fin du Lock
+```
+
 > ⚠️ `RWMutex` n'est **pas réentrant** : tenter de prendre le `Lock` en tenant déjà un `RLock`
 > (« montée en grade ») **interbloque**. Il n'est gagnant que si les lectures sont **nombreuses et
 > longues** ; sous écritures fréquentes, un `Mutex` simple est souvent plus rapide.
@@ -72,8 +111,11 @@ func (r *Registry) Set(key string, val int) {
 ## `sync.WaitGroup` & `WaitGroup.Go` (1.25)
 
 Un `WaitGroup` attend la fin d'un groupe de goroutines (déjà croisé au [Ch. 19](19-goroutines.md)).
-Le schéma historique — `Add(1)` / `go` / `defer Done()` — est **verbeux et fragile** (un `Add` mal
-placé casse tout). Go 1.25 ajoute **`WaitGroup.Go`** qui fait les trois d'un coup :
+Contrairement à un `Mutex`, il **ne protège aucune donnée** : c'est un compteur thread-safe dont la
+méthode `Wait` bloque tant qu'il n'est pas revenu à zéro — l'outil de la **signalisation** (« tout le
+monde a-t-il fini ? »), pas de l'exclusion mutuelle. Le schéma historique — `Add(1)` / `go` /
+`defer Done()` — est **verbeux et fragile** (un `Add` mal placé casse tout). Go 1.25 ajoute
+**`WaitGroup.Go`** qui fait les trois d'un coup :
 
 ```go
 // code/ch21-synchronisation/counters.go
@@ -103,6 +145,13 @@ var config = sync.OnceValue(expensiveInit) // expensiveInit ne tourne qu'une foi
 // 100 appels concurrents -> 1 seule exécution réelle (vérifié : loadCount == 1)
 runConcurrently(100, func() { _ = config() })
 ```
+
+> ⚠️ Le comportement en cas de **panique** diffère entre les deux API. Avec `Once.Do(f)` : si `f`
+> panique, le `Once` est quand même marqué « fait » — les appels suivants à `Do` renvoient
+> silencieusement, **sans** ré-exécuter `f` ni repaniquer. Avec `OnceFunc`/`OnceValue`/`OnceValues` :
+> si `f` panique, **chaque** appel suivant **repanique avec la même valeur**, indéfiniment. Une
+> initialisation qui peut échouer doit en tenir compte : `OnceValue` ne donne jamais l'illusion d'un
+> succès après un échec, mais ne retente pas non plus tout seul.
 
 ## `sync/atomic` : sans verrou
 
@@ -135,6 +184,22 @@ func (c *Config) Store(s *Settings) { c.current.Store(s) }       // publication 
 > ⚠️ Mélanger un accès **atomique** et un accès **ordinaire** à la même variable est une **course**.
 > Si une donnée est atomique, **tous** ses accès doivent passer par les méthodes `atomic`. Les types
 > `atomic.T` (1.19+) évitent aussi l'ancien piège d'alignement des fonctions `atomic.AddInt64`.
+
+### Quel outil pour quel besoin ?
+
+| Outil          | Protège                                                       | Coût relatif (sous contention)                                        | Choisir quand…                                   |
+| -------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------ |
+| `sync/atomic`  | **une seule** valeur (mot machine, pointeur)                  | le plus bas (~50 ns)                                                  | compteur, drapeau, configuration publiée en bloc |
+| `sync.Mutex`   | une section critique (plusieurs champs liés par un invariant) | moyen (~140 ns)                                                       | état composite à modifier de façon cohérente     |
+| `sync.RWMutex` | une section critique à **lecture dominante**                  | lecture rapide (~65 ns), écriture plus chère qu'un `Mutex`            | cache/registre lu très souvent, écrit rarement   |
+| canal (`chan`) | rien directement : **transfère la propriété** d'une valeur    | le plus élevé (~185 ns, rendez-vous, [Ch. 20](20-channels-select.md)) | coordination, pipeline, signal d'arrêt           |
+
+La distinction `atomic`/`Mutex` vs **canal** n'est pas qu'une question de coût : un canal fait passer
+une donnée d'un propriétaire à l'autre (jamais deux goroutines n'y accèdent **en même temps**), alors
+qu'un mutex protège une donnée que plusieurs goroutines **partagent réellement**. Et `atomic` ne
+protège qu'**une** valeur : dès que plusieurs champs doivent rester cohérents **entre eux** (ex. un
+solde et son historique), un `Mutex` est obligatoire — deux `atomic` indépendants peuvent être lus à
+des instants différents, donc incohérents l'un par rapport à l'autre.
 
 ## `sync.Pool` : recycler le jetable
 
@@ -181,6 +246,13 @@ func joinInts(nums []int, sep string) string {
 - **Copier un type `sync`** (`Mutex`, `WaitGroup`, `Once`...) après usage : récepteur **pointeur**
   obligatoire ; `go vet copylocks` veille.
 - **Oublier `Unlock`** : interblocage. Toujours `defer mu.Unlock()` juste après `Lock`.
+- **Mutex non réentrant** : appeler `Lock()` depuis une goroutine qui le détient déjà (appel
+  récursif, ou méthode publique verrouillante qui en appelle une autre) bloque **pour toujours** — Go
+  n'a pas de verrou réentrant. Isolez la logique interne dans des méthodes **non verrouillantes**,
+  appelées par les méthodes publiques qui, elles, verrouillent.
+- **Ordre de verrouillage incohérent** (verrou A puis B ici, B puis A là) : interblocage **circulaire**
+  dès que les deux séquences s'exécutent en même temps (cycle classique « ABBA »). Imposez un **ordre
+  total** dès qu'une opération touche plusieurs verrous (ex. trier par un identifiant stable).
 - **Montée en grade `RLock` -> `Lock`** sur un `RWMutex` : interblocage (non réentrant).
 - **Mélanger atomique et non-atomique** sur la même variable : course. Tout ou rien.
 - **`sync.Pool` pour du durable** : le GC le vide. Réservé aux objets temporaires, à réinitialiser.
@@ -197,6 +269,11 @@ Mesuré (go1.26.4, Apple M3, `RunParallel` = sous contention) :
 ```
 
 - Pour **une valeur**, `atomic` est ~**2,6×** plus rapide qu'un `mutex` (et plus simple).
+- Ces chiffres mesurent le **pire cas** : plusieurs goroutines qui se disputent réellement le verrou
+  (`RunParallel`). Un `Mutex` **non contesté** (jamais qu'une seule goroutine à la fois en pratique)
+  coûte presque aussi peu qu'un `atomic` — `Lock`/`Unlock` se résout alors en une simple opération
+  atomique réussie au premier essai, sans passer par le runtime. Le surcoût mesuré ici vient du
+  **réveil des goroutines mises en sommeil** quand elles doivent attendre, pas du verrou lui-même.
 - Pour de la **lecture pure**, `RWMutex` est ~**1,9×** plus rapide qu'un `Mutex` — utile seulement si
   les lectures dominent réellement.
 - **Faux partage** (_false sharing_) : deux atomics chauds sur la **même ligne de cache** (64 o) se
@@ -218,6 +295,9 @@ go test -bench=. -benchmem -cpu=8 ./ch21-synchronisation/...
 1. Retirez le `Lock` de `SafeCounter.Inc` et lancez `go test -race` : observez la course signalée.
 2. Donnez à `SafeCounter` un récepteur **valeur** et lancez `go vet` : lisez l'alerte `copylocks`.
 3. Remplacez `RWMutex` par `Mutex` dans `Registry` et comparez les benchmarks de lecture.
+4. Faites paniquer `expensiveInit` (`panic("boom")` avant le `return`) puis appelez `config()`
+   plusieurs fois : chaque appel **repanique** avec `"boom"`, sans jamais ré-exécuter `expensiveInit`
+   avec succès — la panique d'un `OnceValue` n'est jamais avalée.
 
 ---
 

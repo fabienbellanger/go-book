@@ -12,10 +12,15 @@
 ## Introduction
 
 Go est un langage **à sûreté mémoire** : pas d'arithmétique de pointeur, pas de réinterprétation de
-types. Le package **`unsafe`** ouvre une porte de sortie — pour le zéro-copie, l'interop C, ou parler au
-matériel. Le prix : **vous** devenez responsable de la correction, et vous perdez la garantie de
-portabilité et de compatibilité. Ce chapitre **clôt la Partie V** ; il s'utilise avec parcimonie et
-**toujours** mesure à l'appui. Code dans [`code/ch35-unsafe-cgo/`](../code/ch35-unsafe-cgo/).
+types. Cette sûreté repose sur un fait précis : le compilateur et le GC connaissent, pour **chaque**
+valeur, son **type exact** — c'est ce qui permet au GC de savoir où se trouvent les pointeurs vivants (et
+donc ce qu'il doit conserver) et au vérificateur de types de refuser de mélanger un `*int` et un
+`*string`. Le package **`unsafe`** ouvre une porte de sortie — pour le zéro-copie, l'interop C, ou parler
+au matériel — en court-circuitant précisément ce typage : dès qu'un `unsafe.Pointer` entre en jeu, le
+compilateur **perd la capacité de suivre la valeur**, et c'est exactement ce que vous lui retirez en
+échange du contrôle bas niveau. Le prix : **vous** devenez responsable de la correction, et vous perdez la
+garantie de portabilité et de compatibilité. Ce chapitre **clôt la Partie V** ; il s'utilise avec
+parcimonie et **toujours** mesure à l'appui. Code dans [`code/ch35-unsafe-cgo/`](../code/ch35-unsafe-cgo/).
 
 ---
 
@@ -53,12 +58,37 @@ compilation** : aucun coût à l'exécution.
 
 ## `unsafe.Pointer` : les règles du jeu
 
-`unsafe.Pointer` est le **pointeur universel** : il convertit entre types de pointeurs. La règle d'or :
-un **`uintptr` n'est PAS une référence** — le GC ne le suit pas. Stocker un `uintptr` puis le
-reconvertir est un **bug** (l'objet a pu être déplacé ou collecté). Les **patterns valides** :
+`unsafe.Pointer` est le **pointeur universel** : il convertit entre types de pointeurs, en cassant
+volontairement le typage statique. La règle d'or : un **`uintptr` n'est PAS une référence** — c'est un
+simple entier, que le GC **ne suit pas**. Deux mécanismes concrets rendent un `uintptr` stocké dangereux :
+
+- Le GC ne marque **pas** un objet comme vivant via un `uintptr` qui pointe vers lui : si plus aucun
+  `unsafe.Pointer`/pointeur typé ne le référence, le GC peut le **libérer** pendant que le `uintptr`
+  pointe encore vers son ancien emplacement — un accès ultérieur lit (ou écrit) de la mémoire déjà
+  réutilisée.
+- La **pile d'une goroutine peut être déplacée** : quand elle croît, le runtime alloue une pile plus
+  grande, **copie** son contenu et **réécrit** tous les pointeurs qui y font référence
+  ([Ch. 26](26-allocation-escape.md)). Un `unsafe.Pointer` est réécrit avec elle ; un `uintptr` stocké à
+  part **ne l'est pas** — il continue de désigner l'ancienne adresse, devenue invalide.
+
+```
+  avant croissance de pile           après croissance (copie + réécriture)
+  +-------------------+              +-----------------------------+
+  | x  @ 0xc0001000   |   copie      | x  @ 0xc0002000 (nouvelle    |
+  +-------------------+  -------->   |    adresse, pile agrandie)   |
+                                      +-----------------------------+
+  unsafe.Pointer(&x)  -> réécrit automatiquement vers 0xc0002000 (le runtime suit le Pointer)
+  uintptr(unsafe.Pointer(&x)) -> reste 0xc0001000 : adresse PERIMEE, lecture = comportement indéfini
+```
+
+C'est pour cela que la conversion `unsafe.Pointer` → `uintptr` → `unsafe.Pointer` n'est valide que **dans
+la même expression**, sans appel de fonction entre les deux (rien ne doit pouvoir déplacer l'objet entre
+la conversion et la reconversion). Les **patterns valides** :
 
 1. **`*T1` → `unsafe.Pointer` → `*T2`** : réinterpréter, si les **layouts sont compatibles**.
-2. **Arithmétique** via **`unsafe.Add(ptr, offset)`** (1.17) — jamais de calcul manuel sur `uintptr`.
+2. **Arithmétique** via **`unsafe.Add(ptr, offset)`** (1.17) : sucre syntaxique sûr pour le pattern brut
+   `unsafe.Pointer(uintptr(ptr) + offset)` **dans une seule expression** — préférez `unsafe.Add`, qui
+   élimine le risque de fractionner ce calcul sur plusieurs lignes (et donc de violer la règle ci-dessus).
 3. **`unsafe.Slice(ptr, n)`** / **`unsafe.String(ptr, n)`** : bâtir un slice/une string depuis un pointeur.
 4. Contrats documentés de **`syscall`** et **`reflect`** (`Value.Pointer`, `UnsafeAddr`).
 
@@ -94,15 +124,22 @@ Mesuré :
 | `unsafe.String` (zéro-copie) | **3,23**  | **0** | **0**     |
 
 **6,5× plus rapide, 0 allocation.** ⚠️ Le contrat : le `[]byte` source ne doit **plus jamais** être
-modifié (la string le suppose immuable). Une seule entorse = corruption silencieuse. À réserver aux
-chemins **mesurés** où la copie domine.
+modifié après l'appel (la string le suppose immuable). La portée du risque dépasse la variable locale :
+si cette string sert de **clé de map**, son hachage est calculé une fois à l'insertion ; la muter ensuite
+désynchronise le hachage de son contenu et corrompt silencieusement la map (recherches qui échouent,
+doublons apparents), sans jamais paniquer. Une seule entorse = corruption silencieuse, difficile à
+rejouer en débogage. À réserver aux chemins **mesurés** où la copie domine.
 
 ## `//go:linkname` (mention)
 
 La directive **`//go:linkname locale distante`** lie un symbole local à un symbole **non exporté** d'un
 autre package (souvent `runtime`). C'est ainsi que certaines bibliothèques accèdent à `runtime.nanotime`
-ou à des entrailles. Très **fragile** (casse entre versions), à éviter sauf nécessité absolue ; Go 1.23+
-**restreint** d'ailleurs son usage vers le runtime.
+ou à des entrailles. Très **fragile** (casse entre versions), à éviter sauf nécessité absolue. Depuis
+**Go 1.23**, le linker distingue deux usages : en **push** — le package qui définit le symbole l'expose
+lui-même via son propre `//go:linkname` — toujours autorisé ; en **pull** — un package tiers vise un
+symbole interne qui ne s'est pas déclaré exportable ainsi — désormais **bloqué** pour tout nouveau
+symbole (les usages déjà recensés dans l'écosystème open source restent tolérés, pour ne pas casser
+l'existant). Le flag du linker `-checklinkname=0` désactive ce contrôle, à réserver au débogage.
 
 ## Interopérabilité C : cgo
 
@@ -117,10 +154,43 @@ import "C"
 // résultat := float64(C.sqrt(C.double(2))) // appel de la libm
 ```
 
-Le coût d'un appel cgo n'est **pas** celui d'un appel Go : changement de pile, barrière pour
-l'ordonnanceur ([Ch. 28](28-ordonnanceur-gmp.md)). On **regroupe** donc le travail côté C plutôt que de
-multiplier les allers-retours. cgo complique aussi le build (compilateur C requis, `CGO_ENABLED=1`) et la
-cross-compilation — d'où la préférence Go pour le **tout-Go** quand c'est possible.
+Le coût d'un appel cgo n'est **pas** celui d'un appel Go : il traverse une frontière entre deux mondes
+d'exécution qui ne partagent ni pile ni convention d'appel.
+
+```
+  pile Go (goroutine g, gérée par le runtime)      pile C (système, taille fixe)
+  +--------------------------+                     +------------------------+
+  | appelant Go               |                    |                        |
+  +--------------------------+   runtime.cgocall    |                        |
+  | C.sqrt(x)                 | ------------------> |   sqrt(x)  (code C)   |
+  +--------------------------+  1. bascule de pile   +------------------------+
+              |                  2. M marqué « en syscall » (comme un appel
+              |                     système, Ch. 28) : son P est libéré, un
+              |                     autre M peut l'utiliser pendant ce temps
+              v                  3. exécution C, hors du contrôle du GC/de
+  +--------------------------+      l'ordonnanceur Go
+  | reprise après C.sqrt(x)   | <------------------ |  retour de sqrt(x)    |
+  +--------------------------+   4. ré-acquisition d'un P avant de continuer
+```
+
+Cette traversée a un coût **fixe, par appel**, même pour un `sqrt` trivial : changement de pile, marquage/
+démarquage du M, et **perte d'inlining** — une fonction Go qui appelle du C n'est **jamais inlinée** (le
+compilateur ne sait pas inliner un appel qui change de monde d'exécution). On **regroupe** donc le
+travail côté C plutôt que de multiplier les allers-retours : un appel qui traite 10 000 éléments bat
+10 000 appels qui en traitent un chacun.
+
+cgo impose aussi des **règles de passage de pointeurs** vérifiées à l'exécution : un pointeur Go passé à
+C ne doit pas pointer vers de la mémoire contenant **elle-même** des pointeurs Go, et le code C ne doit
+**pas conserver** ce pointeur au-delà de l'appel — le GC doit pouvoir continuer à localiser tous les
+pointeurs Go, y compris ceux momentanément visibles côté C. Violer cette règle ne se voit pas à la
+compilation : le runtime la vérifie via `GODEBUG=cgocheck` (`1` par défaut — coût faible ; `2` —
+vérification exhaustive ; `0` — désactivé) et **plante** le programme avec un diagnostic s'il détecte une
+infraction.
+
+cgo complique enfin le build (compilateur C requis, `CGO_ENABLED=1`) et la cross-compilation — la
+compilation croisée native décrite au [Ch. 1](01-installation-toolchain.md) bascule sur `CGO_ENABLED=0`
+dès que `GOOS`/`GOARCH` diffère de la machine hôte, donc **sans cgo** — d'où la préférence Go pour le
+**tout-Go** quand c'est possible.
 
 > Le code de ce chapitre reste **sans cgo** (aucune dépendance C) pour que `go test ./...` passe partout.
 

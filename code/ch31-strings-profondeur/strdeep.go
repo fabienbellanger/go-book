@@ -41,6 +41,14 @@ func JoinCSV(items []string) string {
 	return b.String()
 }
 
+// DetachSubstring extrait s[start:end] et la DÉTACHE de son backing d'origine via
+// strings.Clone (1.18). Sans cela, la sous-chaîne partagerait le backing complet de s :
+// même si s pèse plusieurs Mo, il resterait vivant tant que la sous-chaîne existe (même
+// piège de rétention que pour les slices, Ch. 30).
+func DetachSubstring(s string, start, end int) string {
+	return strings.Clone(s[start:end])
+}
+
 // ToUpperASCII met en majuscules les lettres ASCII. Comme une string est IMMUABLE,
 // on passe par []byte pour modifier : une copie à l'aller (string->[]byte) et une au
 // retour ([]byte->string).

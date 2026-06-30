@@ -43,6 +43,13 @@ func TestJoinCSV(t *testing.T) {
 	}
 }
 
+func TestDetachSubstring(t *testing.T) {
+	s := "the-quick-brown-fox"
+	if got := DetachSubstring(s, 4, 9); got != "quick" {
+		t.Errorf("DetachSubstring = %q ; attendu \"quick\"", got)
+	}
+}
+
 func TestToUpperASCII(t *testing.T) {
 	if got := ToUpperASCII("héllo"); got != "HéLLO" {
 		t.Errorf("ToUpperASCII = %q ; attendu \"HéLLO\"", got)

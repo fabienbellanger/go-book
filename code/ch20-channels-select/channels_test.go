@@ -55,3 +55,16 @@ func TestRecvTimeoutValueWins(t *testing.T) {
 		t.Errorf("recvWithTimeout = (%d, %v) ; attendu (42, true)", v, ok)
 	}
 }
+
+// select choisit AU HASARD parmi les cas prêts (spec du langage) : sur un grand
+// nombre de tirages avec deux cas toujours prêts, aucune branche ne doit dominer.
+func TestSelectFairnessIsBalanced(t *testing.T) {
+	const n = 100_000
+	a, b := selectFairness(n)
+	if a+b != n {
+		t.Fatalf("a+b = %d ; attendu %d", a+b, n)
+	}
+	if a < n/4 || b < n/4 {
+		t.Errorf("répartition trop déséquilibrée : a=%d b=%d (n=%d)", a, b, n)
+	}
+}

@@ -27,6 +27,15 @@ func TestNewPointEscapes(t *testing.T) {
 	}
 }
 
+// pointToInterface s'échappe pour la MÊME raison que NewPoint (sa durée de vie
+// dépasse l'appel), mais par un chemin différent : une interface retenue, pas un
+// pointeur renvoyé. Preuve que le coût vient de la rétention, pas du mécanisme.
+func TestPointToInterfaceEscapes(t *testing.T) {
+	if got := testing.AllocsPerRun(100, func() { pointToInterface(Point{1, 2}) }); got != 1 {
+		t.Errorf("pointToInterface = %.0f alloc/op ; attendu 1 (boxé puis retenu par sink)", got)
+	}
+}
+
 // La préallocation transforme N réallocations en UNE seule.
 func TestPreallocReducesAllocs(t *testing.T) {
 	no := testing.AllocsPerRun(10, func() { _ = concatNoPrealloc(1000) })

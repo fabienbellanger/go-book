@@ -71,7 +71,8 @@ s = make([]int, 3, 8) // len=3, cap=8 (réserve de la place)
 
 > ⚠️ **`nil` slice vs slice vide** : `var s []int` est `nil` (`s == nil` vaut `true`),
 > alors que `[]int{}` ne l'est pas. Les deux ont `len == 0` et fonctionnent avec `append`,
-> `range`, `len` — préférez la forme `nil` par défaut.
+> `range`, `len` — préférez la forme `nil` par défaut (sauf cas particulier, voir Pièges
+> ci-dessous pour l'exception JSON).
 
 ## `append` & réallocation
 
@@ -86,11 +87,19 @@ s = append(s, autre...) // un autre slice, éclaté
 
 Quand `len == cap`, il n'y a plus de place : `append` **alloue un nouveau tableau**, plus
 grand, y **recopie** les éléments, et renvoie un header pointant dessus. La capacité croît
-**géométriquement**. Progression réellement observée (Go 1.26) :
+**géométriquement** : multiplier la capacité (plutôt que l'incrémenter d'une constante)
+garantit un coût de copie **amorti constant** par `append` — sinon, ajouter `n` éléments un
+par un coûterait O(n²) en recopies cumulées. Le facteur de croissance n'est cependant pas
+fixe : il vaut environ **×2** tant que le slice est petit, puis se réduit progressivement
+vers **×1.25** sur les gros slices. C'est un compromis : un facteur toujours à ×2 limiterait
+les réallocations mais gâcherait beaucoup de mémoire une fois le slice volumineux (la moitié
+de la capacité allouée resterait inutilisée en moyenne) ; un facteur trop petit dès le début
+multiplierait au contraire les réallocations sur les petits slices, où leur coût relatif est
+le plus pénalisant. Progression réellement observée (Go 1.26) :
 
 ```
    cap : 0 -> 4 -> 8 -> 16 -> 32 -> 64 -> 128 -> 256 -> 512 -> 848 -> ...
-         \________ ×2 tant que petit ________/   \__ ralentit (~×1.5) __/
+         \________ ×2 tant que petit ________/   \_ ralentit, tend vers ×1.25 _/
 ```
 
 ```
@@ -120,6 +129,21 @@ L'**expression à trois indices** `a[i:j:k]` fixe en plus la **capacité** (`cap
 
 ```go
 s[1:3:3] // [1 2] mais cap=2 -> tout append réallouera
+```
+
+`k` ne change rien aux éléments visibles (`len` ne dépend que de `i` et `j`) : il pose une
+**limite artificielle** à la zone du tableau sous-jacent que `append` a le droit d'utiliser
+avant de réallouer, même si le tableau réel continue au-delà :
+
+```
+   s := arr[1:4:5]        // i=1  j=4  k=5
+
+   arr [0] [1] [2] [3] [4] [5] [6]
+           ^----len=3----^
+           ^-------cap=4-------^
+                                ^-- k=5 : arr continue jusqu'à [6], mais s ne
+                                    "voit" pas cette place -> append() au-delà
+                                    de cap=4 réalloue, sans toucher à arr[5..6]
 ```
 
 C'est l'outil pour **isoler** un sous-slice et empêcher qu'un `append` ne déborde sur le
@@ -169,7 +193,13 @@ grid[1][2] // 6
 ```
 
 Chaque ligne est un slice indépendant (longueurs potentiellement différentes : tableau
-« en dents de scie »).
+« en dents de scie »), et donc une **allocation séparée** : contrairement à un vrai tableau
+2D contigu (comme en C), `grid[0]` et `grid[1]` peuvent se trouver à des adresses mémoire
+arbitrairement éloignées. Conséquence : une indirection supplémentaire à chaque accès
+(`grid[i][j]` déréférence deux pointeurs), et aucune garantie de localité de cache entre les
+lignes. Pour une matrice réellement contiguë, on préfère un seul slice plat
+(`make([]int, rows*cols)`) avec un calcul d'index manuel (`i*cols+j`) — détail des
+compromis au [Ch. 30](30-slices-profondeur.md) et [Ch. 26](26-allocation-escape.md).
 
 ## Le package `slices` (🆕 1.21)
 
@@ -204,6 +234,10 @@ s = slices.Clip(s)          // ramène cap à len (libère l'excédent)
 - **Oublier de réaffecter `append`** — `append(s, x)` sans `s =` perd le résultat si une
   réallocation a lieu. Écrivez **toujours** `s = append(s, x)`.
 - **`range` copie la valeur** — pour muter, indexez `s[i]` (rappel du [Ch. 4](04-flux-controle.md)).
+- **`nil` vs vide en JSON** — `encoding/json` sérialise un slice `nil` en `null` et un
+  slice vide (`[]T{}`) en `[]`. Si l'API consommatrice distingue les deux (cas fréquent côté
+  front-end), initialisez explicitement `[]T{}` plutôt que de laisser passer une zero value
+  `nil` — détail au [Ch. 42](42-encodages-serialisation.md).
 
 ## 🧪 À tester soi-même
 

@@ -56,6 +56,22 @@ func TestEnumerate(t *testing.T) {
 	}
 }
 
+// Piège documenté au Ch. 18 : un itérateur qui rappelle yield après qu'il a
+// renvoyé false fait paniquer le runtime, pour l'empêcher de continuer à
+// pousser des valeurs alors que le consommateur a déjà dit stop.
+func TestYieldAfterStopPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("attendu une panique : yield rappelé après un arrêt")
+		}
+	}()
+	for v := range BrokenAfterStop() {
+		if v == 1 {
+			break // BrokenAfterStop rappelle quand même yield(2) -> panique
+		}
+	}
+}
+
 // Zip via iter.Pull : paires jusqu'à la source la plus courte.
 func TestZip(t *testing.T) {
 	var keys []string

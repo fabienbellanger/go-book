@@ -66,3 +66,26 @@ func recvWithTimeout(ch <-chan int, d time.Duration) (int, bool) {
 		return 0, false // délai dépassé : rien n'est arrivé à temps
 	}
 }
+
+// selectFairness exécute n fois un select dont les DEUX cas sont TOUJOURS prêts
+// (chaque branche remet aussitôt une valeur après l'avoir consommée) et compte
+// combien de fois chacune est choisie. Démontre la règle du langage : quand
+// plusieurs cas sont prêts, select en choisit un par sélection ALÉATOIRE UNIFORME
+// — aucune branche n'est favorisée par son ordre d'écriture dans le code.
+func selectFairness(n int) (a, b int) {
+	chA := make(chan struct{}, 1)
+	chB := make(chan struct{}, 1)
+	chA <- struct{}{}
+	chB <- struct{}{}
+	for range n {
+		select {
+		case <-chA:
+			a++
+			chA <- struct{}{} // remis aussitôt : les deux cas restent prêts au tour suivant
+		case <-chB:
+			b++
+			chB <- struct{}{}
+		}
+	}
+	return a, b
+}

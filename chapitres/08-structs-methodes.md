@@ -42,6 +42,12 @@ pp := &Point{X: 5, Y: 6}                       // pointeur vers un struct (type 
 np := new(Point)                               // *Point pointant sur un Point à zéro
 ```
 
+Le littéral **positionnel** doit fournir une valeur pour **chaque champ**, dans l'ordre exact de
+la déclaration : en omettre un est une erreur de compilation (`too few values in struct
+literal`). Le littéral **nommé** n'a pas cette contrainte — un champ absent prend simplement sa
+zero value, et l'ordre des clés est libre. Les deux styles ne se mélangent pas dans un même
+littéral.
+
 > 💡 Préférez la forme **nommée** (`Point{X: 1, Y: 2}`) : elle résiste à l'ajout/réordonnancement
 > de champs et documente le code. La forme positionnelle est réservée aux très petits structs
 > stables (ex. `Point`).
@@ -59,6 +65,31 @@ fmt.Println(z.Y)   // 0
 
 L'accès aux champs via un **pointeur** est **déréférencé automatiquement** : `pp.X` équivaut à
 `(*pp).X` (pas besoin d'écrire l'étoile).
+
+### Affecter un struct, c'est le copier — superficiellement
+
+`v2 := v1` (et de même, passer `v1` **par valeur** à une fonction) copie **tous les champs**
+de `v1`, y compris ceux qui sont des **slices, maps ou pointeurs**. Mais ces champs-là ne sont
+que des **en-têtes** (pointeur + métadonnées, [Ch. 6](06-arrays-slices.md)) : les copier ne
+copie pas les données qu'ils référencent — les deux structs finissent par **partager** le même
+tableau ou la même table sous-jacente.
+
+```go
+type Cart struct {
+	Items []string
+}
+
+c1 := Cart{Items: []string{"a", "b"}}
+c2 := c1                  // copie le struct... mais Items pointe vers le MÊME tableau
+c2.Items[0] = "z"
+fmt.Println(c1.Items[0])  // "z" : c1 est modifié aussi !
+```
+
+> ⚠️ C'est une **copie superficielle** (_shallow copy_). Seuls les champs scalaires
+> (`int`, `string`, `bool`, `Point`…) sont réellement indépendants après l'affectation. Pour
+> une copie totalement isolée d'un champ slice, dupliquez-le explicitement avec
+> `slices.Clone` ([Ch. 6](06-arrays-slices.md)) ; pour une map, copiez clé par clé ou via
+> `maps.Clone` ([Ch. 7](07-maps-strings.md)).
 
 ### Comparaison
 
@@ -87,8 +118,16 @@ type User struct {
 }
 ```
 
-Les tags sont inertes pour le compilateur ; seul du code réflexif les interprète (détail au
-[Ch. 34](34-reflexion.md), usage concret au Projet 2 — API REST).
+Syntaxiquement, un tag est une suite de paires `clé:"valeur"` **séparées par des espaces**, à
+l'intérieur d'un littéral brut (backticks) — par exemple `json:"name" validate:"required"`.
+Pour `encoding/json`, le premier élément de la valeur (avant une éventuelle virgule) est le nom
+de clé JSON ; les suivants sont des options : `omitempty` omet le champ si sa valeur vaut sa
+zero value, `-` l'exclut systématiquement de l'encodage.
+
+Les tags sont inertes pour le compilateur — une faute de frappe (`josn:"name"`) ne provoque
+**aucune erreur de compilation**, elle est simplement ignorée silencieusement à l'exécution.
+Seul du code réflexif les interprète (détail au [Ch. 34](34-reflexion.md), usage concret au
+Projet 2 — API REST).
 
 ---
 
@@ -108,6 +147,12 @@ d := Point{0, 0}.Distance(Point{3, 4}) // 5
 On peut déclarer une méthode sur **n'importe quel type nommé défini dans le même package**
 (pas seulement un struct) — par exemple `type Celsius float64` avec une méthode
 `String() string`.
+
+> 💡 Convention de nommage : le récepteur est une **abréviation courte** du type (`p` pour
+> `Point`, `a` pour `Account`) — jamais `this` ni `self` comme dans d'autres langages, Go n'a
+> pas de mot-clé dédié au récepteur. La **même** lettre doit être réutilisée sur **toutes** les
+> méthodes d'un même type ; un linter externe à `go vet` (`staticcheck`, règle `ST1006`) le
+> signale sinon.
 
 ### Récepteur **valeur** vs **pointeur** — LA décision
 
@@ -131,7 +176,10 @@ func (a Account) Lost(n int)     { a.balance += n } // VALEUR  : modifie une cop
 > 💡 **Auto-adressage** : sur une variable **adressable**, `acc.Deposit(100)` est réécrit en
 > `(&acc).Deposit(100)` automatiquement. Mais une valeur **non adressable** (élément de map,
 > retour de fonction, littéral) ne peut **pas** appeler une méthode à récepteur pointeur :
-> `Account{}.Deposit(1)` ne compile pas.
+> `Account{}.Deposit(1)` ne compile pas. Symétriquement, un **pointeur** peut toujours appeler
+> une méthode à récepteur **valeur** : `pp.Distance(q)` (avec `pp *Point`) est réécrit en
+> `(*pp).Distance(q)` — un pointeur valide est toujours déréférençable, cette direction ne
+> connaît donc pas l'exception d'adressabilité ci-dessus.
 
 **Règles de choix** (dans l'ordre) :
 
@@ -147,8 +195,20 @@ func (a Account) Lost(n int)     { a.balance += n } // VALEUR  : modifie une cop
 Le **method set** d'un type détermine quelles interfaces il satisfait (détail
 [Ch. 9](09-interfaces.md)) :
 
-- méthodes à récepteur **valeur** → dans le method set de `T` **et** de `*T` ;
-- méthodes à récepteur **pointeur** → dans le method set de **`*T` uniquement**.
+| Récepteur déclaré                | Dans le method set de `T` ? | Dans le method set de `*T` ? |
+| -------------------------------- | :-------------------------: | :--------------------------: |
+| **valeur** (`func (p T) M()`)    |             ✅              |              ✅              |
+| **pointeur** (`func (p *T) M()`) |             ❌              |              ✅              |
+
+Concrètement, avec `Deposit` déclaré sur `*Account` (récepteur pointeur, voir plus haut) :
+
+```go
+type Depositor interface{ Deposit(int) }
+
+var _ Depositor = &Account{} // OK : *Account a Deposit dans son method set
+// var _ Depositor = Account{} // erreur de compilation :
+//   Account ne possède pas Deposit (méthode déclarée à récepteur pointeur)
+```
 
 > ⚠️ Conséquence : si `Deposit` est sur `*Account`, alors **`*Account`** satisfait une interface
 > qui exige `Deposit`, mais **`Account`** (valeur) ne la satisfait pas. On y revient au
@@ -183,6 +243,17 @@ aa.Account.Owner // accès EXPLICITE au champ embarqué
    |  log  []string                |
    +-------------------------------+
 ```
+
+### Conflits de noms entre plusieurs embeddings
+
+Avec **plusieurs** champs embarqués, deux champs/méthodes de **même nom** à la **même
+profondeur** créent une **ambiguïté** : y accéder directement (`x.Foo`) est une erreur de
+compilation (`ambiguous selector x.Foo`) — il faut alors désambiguïser explicitement
+(`x.A.Foo` ou `x.B.Foo`). Si les noms apparaissent à des **profondeurs différentes**, Go
+retient automatiquement le **moins profond**, sans erreur. C'est précisément ce mécanisme de
+profondeur qui rend possible la redéfinition (shadowing) ci-dessous : un champ ou une méthode
+du type englobant est à la profondeur **0**, donc toujours plus proche que son équivalent
+embarqué (profondeur **1**) — il l'emporte systématiquement.
 
 ### Redéfinition (shadowing) et délégation
 
@@ -268,6 +339,8 @@ struct isolé, mais réel sur un **tableau de millions d'éléments**. Détail (
   Choisissez **un** style par type.
 - **Muter via un récepteur valeur** → modifie une copie ; l'original est intact (bug silencieux).
 - **Copier un gros struct** (passage par valeur, affectation) → coût caché ; passez un `*T`.
+- **Copier un struct contenant un slice/map** → copie **superficielle** : les deux variables
+  partagent les mêmes données sous-jacentes (voir « Affecter un struct » ci-dessus).
 - **Embedding pris pour de l'héritage** → pas de dispatch dynamique (voir ci-dessus).
 - **Comparer un struct à champ non comparable** (`slice`/`map`/`func`) avec `==` → erreur de
   compilation.
@@ -279,7 +352,13 @@ struct isolé, mais réel sur un **tableau de millions d'éléments**. Détail (
 - **Passer/retourner un `*T`** pour les gros structs évite des copies ; pour les **petits**
   (≤ ~2-3 mots), la valeur est souvent **plus rapide** (pas d'indirection, reste sur la pile).
 - **Ordonner les champs** (large → étroit) réduit le padding et la pression mémoire/cache.
+  L'analyseur `fieldalignment` (`golang.org/x/tools/go/analysis/passes/fieldalignment`,
+  `go install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest`)
+  détecte — et peut réécrire (`-fix`) — automatiquement un ordre de champs sous-optimal.
 - `struct{}` est **gratuit** (0 octet) : idéal pour les ensembles et les canaux de signal.
+- **Embarquer par valeur ne coûte rien de plus** qu'un champ nommé classique : mêmes octets,
+  mêmes accès directs, pas d'indirection. Embarquer un **pointeur** (`*Account`) ajoute en
+  revanche une indirection à chaque champ/méthode promu, exactement comme un champ `*T` normal.
 - L'**escape analysis** ([Ch. 26](26-allocation-escape.md)) décide pile vs tas : un `&T{}` ne
   va pas forcément sur le tas.
 
@@ -306,11 +385,14 @@ go test ./ch08-structs/...
 
 - Un **struct** agrège des champs ; **zero value** utilisable sans constructeur ; littéraux
   **nommés** de préférence.
+- Affecter un struct le **copie**, mais **superficiellement** : les champs slice/map/pointeur
+  restent partagés entre l'original et la copie.
 - Une **méthode** a un **récepteur** : **valeur** (copie, petit/immuable) ou **pointeur**
   (mutation, gros struct) — ne **mélangez pas** les deux sur un type.
 - Comparaison `==` champ par champ, **si tous les champs sont comparables**.
 - L'**embedding** compose et **promeut** champs/méthodes, mais **n'est pas de l'héritage** : pas
-  de dispatch dynamique.
+  de dispatch dynamique. Un nom promu en conflit à la **même profondeur** entre deux embeddings
+  est **ambigu** (erreur de compilation) ; à profondeurs différentes, le plus proche l'emporte.
 - L'**ordre des champs** influe sur la taille (padding) ; `struct{}` pèse **0 octet**.
 
 ## 🔁 Pour aller plus loin

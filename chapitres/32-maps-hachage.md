@@ -37,8 +37,8 @@ contrôle** de 8 octets — **un octet par slot** — qui résume l'état du slo
 
 ## La recherche : `h2` comparé en parallèle
 
-Le hash d'une clé se scinde en deux : **`h1`** (bits hauts) choisit la **table** et le **groupe** de
-départ ; **`h2`** (7 bits bas) sert à filtrer les slots du groupe.
+Le hash d'une clé (64 bits) se scinde en deux : **`h1`** (les **57 bits hauts**) choisit la **table** et
+le **groupe** de départ ; **`h2`** (les **7 bits bas** restants) sert à filtrer les slots du groupe.
 
 ```
   hash(key) = [   h1  (bits hauts)   |  h2 (7 bits)  ]
@@ -54,18 +54,46 @@ départ ; **`h2`** (7 bits bas) sert à filtrer les slots du groupe.
 ```
 
 L'astuce : comparer `h2` aux **8 octets de contrôle d'un coup** (une seule instruction sur un registre,
-technique **SWAR**) donne un **masque** des slots candidats. On ne compare la clé entière que pour ces
-quelques candidats. Résultat : moins de comparaisons, meilleur usage du cache. Si le groupe est plein
-sans correspondance, on **sonde** le groupe suivant.
+technique **SWAR** — pas besoin d'instructions SIMD matérielles spécifiques à une architecture) donne un
+**masque** des slots candidats. On ne compare la clé entière que pour ces quelques candidats. Avec
+seulement **7 bits**, `h2` ne distingue que 128 valeurs : statistiquement, **1 candidat sur 128** est une
+fausse alerte (deux clés différentes qui partagent le même `h2`) — la comparaison complète de la clé
+reste donc nécessaire, mais devient **rare**.
+
+Pourquoi ce découpage bat-il un **chaînage classique** (chaque collision ajoute un nœud alloué à part,
+relié par pointeur) ? Parce que le mot de contrôle d'un groupe — **8 octets contigus** — tient dans un
+fragment d'une seule ligne de cache : une unique lecture mémoire suffit pour écarter la quasi-totalité
+des slots, sans jamais toucher aux clés/valeurs elles-mêmes ni suivre le moindre pointeur. Les 8 entrées
+du groupe sont elles aussi **contiguës**, donc la comparaison de clé qui suit reste locale. Le chaînage,
+lui, force un saut mémoire (souvent un défaut de cache) par nœud de la liste — c'est ce coût-là, pas le
+nombre brut de comparaisons, qui domine sur des maps trop grandes pour le cache L1/L2. Si le groupe est
+plein sans correspondance, on **sonde** le groupe suivant.
 
 ## Facteur de charge & croissance incrémentale
 
 Les Swiss Tables tournent **denses** : elles grossissent vers **~87,5 %** de remplissage (7 slots sur 8)
 avant de croître — contre ~81 % pour l'ancienne map. Plus dense = moins de mémoire, meilleure localité.
 
-Quand une table dépasse ce seuil, elle **double**. Pour les **grandes** maps, un **annuaire** de tables
-indexé par les bits hauts permet de ne **scinder qu'une table à la fois** : la croissance est
-**incrémentale**, sans longue pause pour tout réorganiser. C'est pourquoi **préallouer** paie :
+Une table individuelle est plafonnée à **128 groupes, soit 1024 entrées**. Quand elle atteint ce seuil,
+elle ne grossit pas sur place : elle **scinde en deux** nouvelles tables de 1024 entrées, départagées par
+un bit supplémentaire emprunté à `h1`. Pour les **grandes** maps, un **annuaire** (directory) regroupe
+ainsi plusieurs tables, chacune adressée par les bits hauts du hash :
+
+```
+  annuaire (directory) — route chaque clé via les bits hauts de h1
+  +------------+------------+------------+------------+
+  |  table 00  |  table 01  |  table 10  |  table 11  |   <- jusqu'à 1024 entrées chacune
+  +------------+------------+------------+------------+
+                      |
+                      v  table 01 atteint 1024 entrées
+              scinde en DEUX tables ; l'annuaire gagne un bit
+              les 3 AUTRES tables ne sont pas touchées
+```
+
+Ne **scinder qu'une seule table à la fois** borne le coût d'une insertion qui déclenche une croissance :
+au pire, copier 1024 entrées — quelle que soit la taille totale de la map, même à plusieurs millions de
+clés. C'est la **croissance incrémentale** : pas de pause proportionnelle à la taille globale.
+C'est pourquoi **préallouer** paie :
 
 ```go
 // code/ch32-maps-hachage/maps.go

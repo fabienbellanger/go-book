@@ -43,6 +43,11 @@ La sûreté en Go repose donc sur **trois piliers** :
 > ou produire un résultat impossible à reproduire. C'est pourquoi elle est si dure à
 > déboguer : elle passe 10 000 fois, puis casse en production.
 
+> 💡 Limiter `GOMAXPROCS=1` ne supprime **pas** le risque : l'ordonnanceur **préempte**
+> une goroutine à tout moment, y compris au milieu d'un `n++`, même sur un seul cœur
+> logique ([Ch. 28](../chapitres/28-ordonnanceur-gmp.md)). Réduire le parallélisme
+> réduit la probabilité d'observer la course, il ne l'élimine pas.
+
 ---
 
 ## 2. Les règles d'or
@@ -104,6 +109,12 @@ mu.Lock(); m["a"]++; mu.Unlock()
 > ⚠️ L'écriture concurrente d'une map déclenche un **`fatal error`** non
 > récupérable (pas un simple avertissement `-race`) : le runtime tue le programme.
 
+> 💡 `sync.Map` n'est pas un remplacement universel du couple mutex+map : il est
+> optimisé pour deux cas précis — des clés écrites une fois puis lues en boucle (cache
+> qui ne fait que croître), ou des clés **disjointes** entre goroutines. Dans le cas
+> général (mêmes clés lues et écrites par plusieurs goroutines), un `Mutex` classique
+> autour d'une map est souvent aussi rapide et plus simple à raisonner.
+
 ### 3.3 Variable de boucle capturée (corrigé en 🆕 Go 1.22)
 
 ```go
@@ -159,6 +170,28 @@ var cfg atomic.Pointer[Config]
 cfg.Store(loaded)        // écrivain
 c := cfg.Load()          // lecteurs : sans verrou, toujours une vue cohérente
 ```
+
+### 3.7 Copier une struct qui embarque un verrou
+
+```go
+// ❌ Counter est copié PAR VALEUR : c est une copie indépendante, avec SON PROPRE
+// mutex. La protection devient illusoire : deux appelants verrouillent deux mutex
+// différents sur ce qu'ils croient être la même donnée.
+func process(c Counter) { c.Inc() }
+
+var results []Counter
+results = append(results, c) // copie aussi le mutex : même piège
+```
+
+```go
+// ✅ Passer par POINTEUR : un seul mutex, partagé par tous les appelants.
+func process(c *Counter) { c.Inc() }
+```
+
+> 📌 `go vet` (analyseur `copylocks`) détecte ce piège et émet un avertissement dès
+> qu'une valeur contenant un `sync.Mutex` (ou `sync.RWMutex`, `sync.WaitGroup`...) est
+> copiée — passage par valeur, `append` sur un slice, simple affectation. Règle
+> pratique : un type qui embarque un verrou se manipule **toujours par pointeur**.
 
 ---
 
@@ -260,6 +293,18 @@ bornez l'attente avec un **`select` + `ctx.Done()`** ou `time.After` ([Ch. 20](.
 [Ch. 22](../chapitres/22-context.md)) ; ne lisez/écrivez jamais un canal `nil` par
 mégarde.
 
+```go
+// ✅ Borner l'envoi : on n'attend plus indéfiniment, on abandonne sur annulation ou délai.
+select {
+case ch <- 1:
+	// envoyé
+case <-ctx.Done():
+	return ctx.Err() // l'appelant a annulé : on ne bloque pas pour toujours
+case <-time.After(2 * time.Second):
+	return errors.New("envoi sur ch : délai dépassé")
+}
+```
+
 ### 4.5 `WaitGroup` mal orchestré
 
 ```go
@@ -316,6 +361,8 @@ longtemps désignent le cycle.
 - [ ] Chaque `Lock()` a son **`defer Unlock()`**.
 - [ ] **Un ordre de verrouillage global** est défini et respecté (si ≥ 2 verrous).
 - [ ] Aucune méthode ne **reverrouille** un mutex déjà tenu par la même goroutine.
+- [ ] Aucun type contenant un verrou (`sync.Mutex`, `sync.RWMutex`, `sync.WaitGroup`)
+      n'est **copié** par valeur (paramètre, `append`, affectation) — toujours par pointeur.
 - [ ] Chaque goroutine a une **condition d'arrêt claire** (canal fermé, `ctx.Done()`).
 - [ ] Les canaux sont **fermés par le producteur**, une seule fois.
 - [ ] `WaitGroup.Add` est **hors** des goroutines (ou `wg.Go`).
@@ -337,3 +384,6 @@ longtemps désignent le cycle.
   goroutines** (`SIGQUIT`), profils `goroutine`/`mutex`/`block`, `goroutineleak`.
 - **`go test -race` en CI** sur des tests qui exercent vraiment la concurrence : une
   course non exécutée ne sera pas vue.
+- Un type qui embarque un verrou se passe **par pointeur** ; le copier (même par
+  inadvertance, via `append` ou un paramètre par valeur) le désynchronise — `go vet`
+  (`copylocks`) l'attrape.

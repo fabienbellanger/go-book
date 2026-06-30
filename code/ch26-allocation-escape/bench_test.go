@@ -17,6 +17,12 @@ func BenchmarkNewPoint(b *testing.B) {
 	}
 }
 
+func BenchmarkPointToInterface(b *testing.B) {
+	for b.Loop() {
+		pointToInterface(Point{1, 2}) // 1 alloc/op : boxé puis retenu par sink
+	}
+}
+
 func BenchmarkConcatNoPrealloc(b *testing.B) {
 	for b.Loop() {
 		_ = concatNoPrealloc(1000) // plusieurs réallocations

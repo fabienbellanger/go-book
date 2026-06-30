@@ -31,6 +31,14 @@ package greeting   // tous les .go de ce dossier déclarent « package greeting 
 > par convention on les fait coïncider. Le **chemin d'import**, lui, suit l'arborescence
 > du module.
 
+Une seule exception confirme la règle « un dossier = un package » : les fichiers
+`_test.go`. Ils peuvent déclarer le **même nom de package** que le reste du dossier (test
+« boîte blanche », avec accès aux identifiants non exportés — c'est le choix fait par
+`greeting_test.go` dans l'exemple du chapitre) ou un nom suffixé de `_test` (test « boîte
+noire », `package greeting_test`, qui ne voit que l'API exportée, comme le ferait un
+appelant extérieur). Le second style force à tester l'API publique telle qu'un utilisateur
+la verrait ; à privilégier dès que c'est possible (détail au [Ch. 13](13-tests-outillage.md)).
+
 ## `package main` vs bibliothèque
 
 Deux familles de packages :
@@ -50,6 +58,17 @@ func main() { // point d'entrée OBLIGATOIRE d'un exécutable
 	fmt.Println("démarrage")
 }
 ```
+
+`func main()` ne prend **aucun paramètre** et ne renvoie **rien** — contrairement au
+`int main(int argc, char **argv)` du C. Les arguments de la ligne de commande s'obtiennent
+via `os.Args` (un `[]string`, le nom du programme en `os.Args[0]`), et le **code de
+sortie** se règle avec `os.Exit(n)` (`0` implicite si `main` se termine normalement, `2`
+en cas de `panic` non récupérée).
+
+> 💡 Un module peut contenir **plusieurs** `package main` : typiquement un par sous-dossier
+> de `cmd/` (`cmd/server`, `cmd/client`…), chacun produisant son **propre binaire**, nommé
+> par défaut d'après son dossier (`go build ./cmd/server` produit l'exécutable `server`),
+> sauf à imposer un nom avec `-o` (🔁 Ch. 12 pour l'organisation `cmd/`/`internal/`).
 
 ## `import` : chemins, regroupement, alias
 
@@ -87,6 +106,13 @@ import (
 | Blank   | `import _ "image/png"` | n'importe que pour exécuter l'`init()` du package             |
 | Dot     | `import . "fmt"`       | `Println` sans préfixe — ⚠️ nuit à la lisibilité, à proscrire |
 
+L'import blank ci-dessus n'est pas qu'un exemple d'école : `image/png` enregistre son
+décodeur auprès du registre global du package `image` depuis son `init()` (section
+suivante). Sans cet import, `image.Decode` ne reconnaîtrait pas les fichiers PNG — alors
+même qu'aucune fonction de `png` n'est appelée explicitement. Le même mécanisme sert à
+enregistrer un driver `database/sql` : `import _ "github.com/lib/pq"` rend le driver
+PostgreSQL disponible sans exposer le moindre symbole.
+
 > ⚠️ Un import **inutilisé** est une **erreur de compilation** (pas un simple avertissement).
 > C'est volontaire : le code reste propre. `goimports` retire automatiquement les imports
 > superflus.
@@ -110,6 +136,16 @@ var defaultLang = "fr" // privée
 Cela vaut pour **tout** : fonctions, types, variables, constantes, champs de struct,
 méthodes. C'est simple, mécanique, et immédiatement visible à la lecture.
 
+Précision : la règle porte sur la catégorie Unicode **« lettre majuscule » (Lu)**, pas
+seulement sur `A`-`Z`. Un identifiant commençant par `É` ou `Ω` est donc exporté ; un
+identifiant commençant par un chiffre, un `_`, ou une lettre sans casse (la plupart des
+idéogrammes) ne l'est jamais, quelle que soit l'intention du développeur.
+
+> 💡 Cette règle a des conséquences au-delà de la simple visibilité : `encoding/json` (et la
+> plupart des bibliothèques de (dé)sérialisation) **ignorent silencieusement les champs non
+> exportés** d'une struct. Un champ `total` minuscule oublié dans un `json.Marshal` ne
+> provoque ni erreur ni avertissement : il disparaît simplement du JSON produit.
+
 ## `main`, `init` et l'ordre d'initialisation
 
 Deux fonctions ont un rôle spécial :
@@ -124,9 +160,11 @@ L'ordre d'initialisation est **déterministe** :
 
 1. Les **packages importés** sont initialisés **en premier**, récursivement (un package
    est prêt avant celui qui l'importe).
-2. Dans un package : les **variables de package** sont initialisées (dans l'ordre de
-   leurs dépendances), **puis** les fonctions **`init()`** s'exécutent (dans l'ordre des
-   fichiers, puis d'apparition).
+2. Dans un package : les **variables de package** sont initialisées dans l'ordre de
+   **leurs dépendances** — pas l'ordre du texte : une variable qui en référence une autre
+   est initialisée après elle, même si elle est déclarée avant dans le fichier. **Puis**
+   les fonctions **`init()`** s'exécutent, dans l'**ordre lexicographique des noms de
+   fichiers** du package, et dans l'ordre d'apparition au sein d'un même fichier.
 3. Enfin, pour un exécutable, **`main()`** démarre.
 
 ```
@@ -152,6 +190,16 @@ toute ligne de `main()` — preuve que les `init()` tournent avant `main`.
 > table de correspondance, valider une configuration. À garder **court et sans effet de
 > bord surprenant** — du code difficile à tester sinon.
 
+> ⚠️ Contrairement à toute autre fonction, `init` peut être **déclarée plusieurs fois**
+> dans un même fichier, voire un même package (le compilateur les exécute toutes, dans
+> l'ordre où elles apparaissent) — c'est la seule exception du langage à l'interdiction de
+> redéclarer un identifiant. N'en abusez pas pour autant : un seul `init()` par fichier,
+> centré sur une responsabilité, reste plus lisible et plus simple à déboguer.
+
+> ⚠️ `os.Exit(code)` termine le programme **immédiatement**, sans exécuter les `defer` en
+> attente (🔁 Ch. 16). Réservez-le à la toute fin de `main` ; appelé en profondeur dans la
+> pile, il peut laisser des ressources ouvertes (fichiers, verrous, connexions).
+
 ## Commentaires de documentation & `go doc`
 
 La documentation **est** dans le code, sous forme de commentaires placés **juste avant**
@@ -161,6 +209,12 @@ l'élément documenté. Convention : commencer la phrase par le **nom** de l'él
 // Greet renvoie une salutation pour name dans la langue lang.
 func Greet(lang, name string) string { … }
 ```
+
+Cette convention n'est pas qu'une question de style : `go doc` et `pkg.go.dev` extraient la
+**première phrase** du commentaire comme résumé synthétique (affiché dans les listes et les
+résultats de recherche), et `staticcheck` (règle `ST1020`) signale un commentaire de
+fonction exportée qui ne commence pas par son nom. La respecter rend la documentation
+générée immédiatement exploitable, sans effort supplémentaire.
 
 Le commentaire d'un **package** commence par `Package <nom>` et se place avant la clause
 `package` (souvent dans un fichier `doc.go`).
@@ -196,6 +250,31 @@ go doc ./ch02-structure/greeting   # un package local
 > ⚠️ Go **interdit les imports circulaires** (A importe B qui importe A). C'est une
 > contrainte de conception : elle force à clarifier les responsabilités, parfois via un
 > troisième package commun.
+
+En pratique, deux techniques pour casser un cycle : **extraire un package de plus bas
+niveau** partagé par les deux côtés (types et constantes communs, sans dépendance vers
+eux), ou **inverser la dépendance via une interface** — le package de haut niveau définit
+une interface décrivant ce dont il a besoin, et c'est le package de bas niveau qui
+l'implémente sans le connaître (🔁 Ch. 9 — Interfaces). Un cycle d'imports est souvent le
+signe qu'un type ou une fonction est mal placé : un signal d'architecture, pas seulement un
+obstacle technique à contourner.
+
+## ⚠️ Pièges
+
+- **Dossier ≠ package, sauf une exception** — les fichiers `_test.go` peuvent déclarer
+  `package nomDuPaquet` (boîte blanche, accès aux non exportés) ou `package
+nomDuPaquet_test` (boîte noire, API publique seulement). C'est la seule entorse à
+  « un dossier = un package ».
+- **Dot import** (`. "fmt"`) économise un préfixe mais rend le code illisible dès que le
+  fichier grossit : on ne sait plus d'où vient un symbole. À réserver à de rares DSL de
+  test.
+- **Import inutilisé ou circulaire** : erreur de **compilation**, jamais un simple
+  avertissement — rien ne compile tant que ce n'est pas corrigé.
+- **Plusieurs `init()` dans un même fichier** sont autorisés (seule exception du langage à
+  l'interdiction de redéclarer un identifiant) : à éviter en code de production, où un seul
+  `init()` lisible vaut mieux.
+- **`os.Exit()` ignore les `defer`** : un appel en profondeur d'appel peut laisser des
+  ressources non libérées (fichiers, verrous) — à réserver à la toute fin de `main`.
 
 ## 🧪 À tester soi-même
 

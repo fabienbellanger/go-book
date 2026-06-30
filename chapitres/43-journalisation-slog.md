@@ -11,8 +11,13 @@
 ## Introduction
 
 `fmt.Println("user", id, "a échoué")` produit une ligne **pour un humain** : pour la retrouver en
-production, il faut une expression régulière fragile. Le **logging structuré** journalise des **paires
-clé/valeur** que l'on peut filtrer, agréger et alerter dessus (`level=ERROR user_id=7`).
+production, il faut une expression régulière qui casse au moindre changement de formulation du
+message. Le **logging structuré** journalise des **paires clé/valeur** plutôt qu'une phrase : chaque
+clé (`user_id`, `level`, `addr`…) devient un **champ indexable** côté outil d'exploitation (Loki,
+Elasticsearch, Datadog…), interrogeable **indépendamment du texte** — une requête `user_id:7 AND
+level:ERROR` reste valide même si le message passe de `"a échoué"` à `"connexion refusée"`. C'est ce
+qui distingue le **diagnostic ponctuel** (lire des logs) de l'**exploitation outillée** (chercher,
+agréger, alerter sur un champ précis, à l'échelle d'une flotte de services).
 
 Depuis Go 1.21, le paquet **`log/slog`** est la réponse standard : une API stable, des **niveaux**
 (`Debug`/`Info`/`Warn`/`Error`), des sorties **texte** (lisible en dev) ou **JSON** (ingérable par
@@ -30,17 +35,33 @@ Loki, Elasticsearch, Datadog…), le tout sans dépendance tierce. L'exemple com
 
 ## Premiers logs
 
-Le logger **par défaut** écrit en texte sur `stderr`. Les fonctions de paquet sont les plus directes :
+Le logger **par défaut** (avant toute configuration) écrit sur `stderr`, mais **pas** au format d'un
+`TextHandler` : tant que `slog.SetDefault` n'a pas été appelé, les fonctions de paquet passent par le
+logger par défaut du paquet historique `log` (🔁 voir « Pont avec l'ancien `log` » plus bas pour ce
+mécanisme). Ce sont malgré tout les plus directes pour démarrer :
 
 ```go
 slog.Info("service démarré", "addr", ":8080", "pid", 4242)
 slog.Warn("file presque pleine", "ratio", 0.92)
 slog.Error("échec base", "err", err)
-// time=... level=INFO msg="service démarré" addr=:8080 pid=4242
+// 2009/11/10 23:00:00 INFO service démarré addr=:8080 pid=4242
 ```
 
-Après le message viennent des **paires** clé (string) / valeur (any). Pour changer la sortie globale,
-on installe un handler avec `slog.SetDefault` :
+Après le message viennent des **paires** clé (string) / valeur (any).
+
+| Niveau            | Valeur | Usage typique                                                                |
+| ----------------- | ------ | ---------------------------------------------------------------------------- |
+| `slog.LevelDebug` | -4     | détail d'investigation (requête SQL, état intermédiaire) — bruyant en prod   |
+| `slog.LevelInfo`  | 0      | événement normal du cycle de vie (démarrage, requête traitée) — défaut       |
+| `slog.LevelWarn`  | 4      | anomalie absorbée automatiquement (retry, repli) — à surveiller sans alerter |
+| `slog.LevelError` | 8      | échec qui requiert une action — déclenche typiquement une alerte             |
+
+Les valeurs numériques ne sont pas arbitraires : l'écart de 4 entre niveaux laisse de la place pour des
+niveaux intermédiaires propres à un écosystème (ex. `NOTICE` chez certains fournisseurs cloud), sans
+toucher aux constantes `slog`.
+
+Pour produire une sortie homogène (texte structuré ou JSON) plutôt que ce format hérité, on installe un
+handler avec `slog.SetDefault` :
 
 ```go
 slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -48,7 +69,21 @@ slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 ## Handlers : texte ou JSON
 
-Un **`Handler`** décide du **format** et de la **destination**. La librairie en fournit deux, plus un
+Un **`Handler`** décide du **format** et de la **destination**. C'est la pièce qu'on **substitue** pour
+changer la sortie sans toucher au code métier qui appelle `logger.Info(...)` :
+
+```
+  logger.Info(msg, attrs...)
+         |
+         v
+   slog.Logger   ----Handle(ctx, Record)---->   slog.Handler   ---->   sortie
+  (Info/Warn/Error,                            (Enabled, Handle,      (stdout, fichier,
+   With, WithGroup)                             WithAttrs, WithGroup)  réseau...)
+```
+
+`Logger.With(...)` ne change **pas** de `Handler` : il renvoie un nouveau `Logger` qui pointe vers le
+**même** handler, avec des attributs déjà attachés (détail au prochain encart) — c'est le `Handler`,
+pas le `Logger`, qui décide concrètement du format texte/JSON. La librairie en fournit deux, plus un
 handler nul :
 
 | Handler                    | Sortie                  | Usage                         |
@@ -60,7 +95,6 @@ handler nul :
 Le 3ᵉ argument est un `*slog.HandlerOptions` qui pilote le comportement :
 
 ```go
-// code/ch43-slog/main.go
 opts := &slog.HandlerOptions{
 	Level:     slog.LevelDebug, // seuil minimal (Leveler) ; nil = Info
 	AddSource: true,            // ajoute fichier:ligne de l'appel
@@ -93,7 +127,10 @@ level.Set(slog.LevelDebug)                  // sûr entre goroutines
 ## Attributs : typés plutôt que paires
 
 La forme `"clé", valeur` est pratique mais **non typée** (et piégeuse, voir ⚠️). Les **constructeurs
-d'attributs** sont typés, plus rapides (pas de _boxing_ dans `any`) et plus sûrs :
+d'attributs** sont typés et plus sûrs : en interne, `slog.Value` stocke un `int`, une `string`, une
+`Duration`… directement dans ses champs plutôt que de les emballer dans une interface `any` — c'est
+**cette représentation interne** qui évite le _boxing_, pas l'appel à `Info`/`Warn`/`Error` lui-même
+(qui reste `args ...any`, voir ⚡ Performance pour la nuance) :
 
 ```go
 logger.Info("connexion",
@@ -122,7 +159,15 @@ reqLog.Info("ok")      // ...component=auth msg=ok
 reqLog.Warn("retry")   // ...component=auth msg=retry
 ```
 
-`WithGroup("db")` préfixe **tous** les attributs suivants par `db.` (ou les imbrique en JSON).
+`WithGroup("db")` préfixe **tous** les attributs suivants par `db.` (handler texte) ou les imbrique
+dans un sous-objet (handler JSON) :
+
+```go
+dbLog := logger.WithGroup("db")
+dbLog.Info("requête", slog.String("table", "users"), slog.Int("rows", 3))
+// texte : ...db.table=users db.rows=3
+// JSON  : ..."db":{"table":"users","rows":3}
+```
 
 ### Schéma — dérivation d'un logger
 
@@ -157,13 +202,13 @@ func (u User) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.Int("id", u.ID),
 		slog.String("name", u.Name),
-		slog.Any("password", u.Pass), // masqué par le LogValuer de Password
+		slog.Any("password", u.Pass),
 	)
 }
 ```
 
-Résultat : `"user":{"id":7,"name":"ada","password":"[REDACTED]"}` — le secret ne fuit jamais, même
-imbriqué.
+Le mot de passe passe par son propre `LogValuer` (celui de `Password`) : résultat,
+`"user":{"id":7,"name":"ada","password":"[REDACTED]"}` — le secret ne fuit jamais, même imbriqué.
 
 ## Intégration au `context`
 
@@ -199,9 +244,13 @@ func (h contextHandler) Handle(ctx context.Context, r slog.Record) error {
 ## 🆕 Go 1.2x
 
 - **1.21** — introduction de **`log/slog`** (API GA) et de **`slog.LogValuer`**.
+- **1.22** — **`slog.SetLogLoggerLevel`** : règle le niveau minimal du pont implicite vers le paquet
+  `log` (voir « Pont avec l'ancien `log` »).
 - **1.24** — **`slog.DiscardHandler`** : une valeur prête à l'emploi pour jeter tous les logs (tests,
   désactivation), plus simple qu'un handler vers `io.Discard`.
-- **1.25** — **`slog.NewMultiHandler(h1, h2, …)`** : diffuse **chaque** enregistrement vers **plusieurs**
+- **1.25** — **`slog.GroupAttrs(key, attrs...)`** : variante de `slog.Group` qui accepte directement
+  des `Attr` plutôt que `...any`, même logique d'optimisation que `Logger.LogAttrs`.
+- **1.26** — **`slog.NewMultiHandler(h1, h2, …)`** : diffuse **chaque** enregistrement vers **plusieurs**
   handlers à la fois (par ex. un `TextHandler` lisible en console **et** un `JSONHandler` vers un
   fichier d'audit) :
 
@@ -214,14 +263,32 @@ func (h contextHandler) Handle(ctx context.Context, r slog.Record) error {
 
 ## Pont avec l'ancien `log`
 
-Du code (ou une dépendance) qui écrit via `log.Printf` peut être **redirigé** dans le pipeline
-structuré avec `slog.NewLogLogger`, qui fabrique un `*log.Logger` reversant vers un handler `slog` :
+Le pont entre `log` et `slog` fonctionne dans **les deux sens**.
+
+**`slog` vers `log`** — du code (ou une dépendance) qui écrit via `log.Printf` peut être **redirigé**
+dans le pipeline structuré avec `slog.NewLogLogger`, qui fabrique un `*log.Logger` reversant vers un
+handler `slog` :
 
 ```go
 h := slog.NewJSONHandler(os.Stdout, nil)
 std := slog.NewLogLogger(h, slog.LevelWarn) // *log.Logger
 http.Server{ErrorLog: std}                  // les erreurs du serveur passent par slog
 ```
+
+**`log` vers `slog`** — dans l'autre sens, `slog.SetDefault` met **aussi** à jour le logger par défaut
+du paquet `log` : du code existant qui appelle encore `log.Printf` se met, **sans modification**, à
+traverser le handler installé :
+
+```go
+slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+log.Printf("legacy line %d", 42)
+// {"time":"...","level":"INFO","msg":"legacy line 42"}
+```
+
+Avant ce premier `SetDefault`, c'est l'**inverse** qui se produit (cf. « Premiers logs » plus haut) :
+les appels `slog.Info`/`Warn`/`Error` passent par le logger par défaut de `log`.
+`slog.SetLogLoggerLevel` (1.22) règle le **niveau minimal** de ce pont implicite — utile pour laisser
+passer du `Debug` avant même d'avoir configuré un vrai handler.
 
 ## ⚠️ Pièges
 
@@ -234,13 +301,32 @@ http.Server{ErrorLog: std}                  // les erreurs du serveur passent pa
   même si le niveau Info est désactivé. Pour différer, passez un type à `LogValuer` (lazy) ou gardez
   l'appel sous `if logger.Enabled(ctx, slog.LevelDebug)`.
 - **Embedding d'un `Handler`** : réimplémentez `WithAttrs`/`WithGroup` (voir ci-dessus).
+- **`slog.SetDefault` n'est pas rétroactif** : il change ce que renvoient `slog.Default()` et les
+  fonctions de paquet **à partir de cet appel**, mais un `*slog.Logger` déjà construit via
+  `slog.New(...)` garde **son** handler d'origine, même après un `SetDefault` ultérieur. Il met aussi
+  à jour le logger par défaut du paquet `log` (🔁 « Pont avec l'ancien `log` » ci-dessus), ce qui
+  surprend si on l'ignore.
 
 ## ⚡ Performance
 
 - `With` **pré-calcule** et **mémorise** les attributs communs : moins de travail par message qu'en les
   répétant à chaque appel.
-- Les **attributs typés** évitent d'emballer la valeur dans `any` (pas d'allocation de _boxing_,
-  🔁 [Ch. 33](33-interfaces-profondeur.md)).
+- Les **attributs typés** évitent le _boxing_ de la **valeur** dans `slog.Value`
+  (🔁 [Ch. 33](33-interfaces-profondeur.md)). Mais `Info`/`Warn`/`Error`/`Debug` restent `args ...any` :
+  chaque `Attr` est quand même reconverti en interface pour construire le slice variadique. Sur un
+  chemin chaud, `Logger.LogAttrs` (et `slog.GroupAttrs` pour les groupes, 🆕 1.25) accepte `...Attr`
+  directement et évite cette conversion :
+
+  ```go
+  logger.LogAttrs(ctx, slog.LevelInfo, "requête traitée",
+  	slog.String("method", "GET"),
+  	slog.Int("status", 200),
+  )
+  ```
+
+- `AddSource` capture la position d'appel via `runtime.Callers` à **chaque** enregistrement émis : un
+  coût mesurable sur un chemin à fort volume, à réserver aux niveaux `Warn`/`Error` plutôt qu'à tous
+  les `Info`.
 - Le `JSONHandler` réutilise ses buffers ; un handler personnalisé doit rester **léger** (déléguer au
   handler englobé plutôt que reformater).
 - `Enabled` / `LogValuer` permettent d'**éviter** tout coût quand un niveau est désactivé.
@@ -272,7 +358,11 @@ go test -race ./ch43-slog/...
 - `LogValuer` **masque** les secrets et **diffère** les calculs coûteux.
 - Les variantes **`*Context`** + un handler maison propagent des champs de **portée requête**
   (request_id) — pensez à réimplémenter `WithAttrs`/`WithGroup` si vous englobez un handler.
-- 🆕 `NewMultiHandler` (1.25) diffuse vers plusieurs sorties ; `DiscardHandler` (1.24) les jette.
+- `slog.SetDefault` bascule les fonctions de paquet **et** le pont avec l'ancien `log` ; il n'affecte
+  jamais un `*slog.Logger` déjà construit via `slog.New`.
+- 🆕 `NewMultiHandler` (1.26) diffuse vers plusieurs sorties ; `DiscardHandler` (1.24) les jette ;
+  `GroupAttrs` (1.25) complète `LogAttrs` (présent depuis 1.21) pour éviter le passage par `any` sur
+  un chemin chaud.
 
 ## 🔁 Pour aller plus loin
 

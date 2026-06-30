@@ -113,10 +113,11 @@ l'OS, l'architecture ou des **tags** maison.
    automatiquement le fichier :
 
    ```
-   net_linux.go        compilé seulement sous Linux
-   net_windows.go      compilé seulement sous Windows
-   simd_amd64.go       compilé seulement sur amd64
-   foo_test.go         compilé seulement par `go test`
+   net_linux.go         compilé seulement sous Linux
+   net_windows.go       compilé seulement sous Windows
+   simd_amd64.go        compilé seulement sur amd64
+   net_linux_amd64.go   compilé seulement sous Linux/amd64 (suffixes cumulés)
+   foo_test.go          compilé seulement par `go test`
    ```
 
 2. **Par directive `//go:build`** — une expression booléenne en tête de fichier :
@@ -130,6 +131,10 @@ l'OS, l'architecture ou des **tags** maison.
    Opérateurs : `&&`, `||`, `!`, parenthèses. Les termes sont des OS (`linux`, `darwin`,
    `windows`…), des archs (`amd64`, `arm64`…), `cgo`, la version de Go (`go1.26`), ou un
    **tag personnalisé**.
+
+   Les deux mécanismes se **cumulent** quand ils coexistent sur le même fichier : un
+   fichier nommé `net_linux.go` qui contient en plus une directive `//go:build` doit
+   satisfaire **les deux** conditions (ET logique implicite) pour être compilé.
 
 ### 🆕 La syntaxe `//go:build`
 
@@ -194,6 +199,13 @@ CGO_ENABLED=0 go build -o app ./cmd/app
 
 Go bascule alors sur ses implémentations **pures Go**. C'est la base d'un déploiement
 `scratch` (voir plus bas).
+
+> ⚠️ **Le revers du résolveur pur Go.** Sans cgo, la résolution de noms n'interroge plus
+> NSS (`/etc/nsswitch.conf`) : certains mécanismes propres au système (NIS, certains
+> modules d'authentification d'`os/user`, des configurations DNS exotiques) deviennent
+> **indisponibles**. Pour l'immense majorité des services réseau (HTTP, gRPC, bases de
+> données), le résolveur Go suffit ; en cas de résolution de noms non standard, tester
+> explicitement avant d'écarter cgo en production.
 
 ### Réduire la taille : `-ldflags="-s -w"`
 
@@ -297,6 +309,14 @@ func vcsRevision() string {
 > ⚠️ En `go test` / `go run`, les settings `vcs.*` ne sont **pas** renseignés (build hors
 > mode release) : prévoir le cas `""`.
 
+> ⚠️ **VCS stamping et builds Docker.** Si l'étape `COPY . .` d'un Dockerfile copie aussi
+> le dossier `.git` et que son propriétaire diffère de l'utilisateur du conteneur, Git
+> refuse d'y toucher (protection « dubious ownership », depuis Git 2.35.2 / CVE-2022-24765)
+> et `go build` échoue avec `error obtaining VCS status: exit status 128`. Deux parades :
+> exclure `.git` via un `.dockerignore` (le binaire perd simplement son `vcs.revision`,
+> sans erreur), ou compiler avec `-buildvcs=false` quand l'information VCS n'est pas
+> nécessaire.
+
 ---
 
 ## Déployer en conteneur : image minimale
@@ -321,6 +341,14 @@ USER nonroot:nonroot
 ENTRYPOINT ["/app"]
 ```
 
+L'ordre des instructions n'est pas arbitraire : Docker met en **cache chaque instruction**
+indépendamment et invalide tout ce qui suit la première qui change. En copiant
+`go.mod`/`go.sum` et en lançant `go mod download` **avant** `COPY . .`, le téléchargement
+des dépendances reste en cache tant que ces deux fichiers ne changent pas — seule une
+modification du **code source** (fréquente) redéclenche `go build`, jamais
+`go mod download` (rare, coûteux en réseau). Inverser l'ordre ferait retélécharger toutes
+les dépendances à chaque modification d'une seule ligne de code applicatif.
+
 Pourquoi une image **réduite** (`scratch` = totalement vide, ou `distroless` = juste les
 fichiers système indispensables) :
 
@@ -328,6 +356,15 @@ fichiers système indispensables) :
   exploiter ;
 - **taille** : quelques Mo (le binaire) au lieu de centaines ;
 - **démarrage** instantané.
+
+En pratique, le choix se fait entre quatre familles d'images de base :
+
+| Image de base                       | Taille (image + binaire) | Contenu                                             | Shell / outils  | Cas d'usage                                              |
+| ----------------------------------- | ------------------------ | --------------------------------------------------- | --------------- | -------------------------------------------------------- |
+| `golang:1.26` (complète)            | 800 Mo et plus           | toolchain Go, OS complet, gestionnaire de paquets   | oui (bash, apt) | **jamais en prod** — uniquement l'étape de build         |
+| `debian:bookworm-slim` / `alpine`   | 80-120 Mo                | OS minimal + libc                                   | oui (sh)        | besoin ponctuel d'un shell/outils en production          |
+| `gcr.io/distroless/static-debian12` | ~20 Mo + binaire         | CA, fuseaux, utilisateur `nonroot`, **aucun shell** | non             | choix par défaut pour un binaire Go statique             |
+| `scratch`                           | 0 Mo + binaire           | rien du tout                                        | non             | surface d'attaque minimale ; CA/fuseaux à gérer soi-même |
 
 > ⚠️ **Pièges de `scratch`.** Une image totalement vide ne contient **ni certificats CA**
 > (les appels HTTPS échouent) **ni base de fuseaux horaires** (`time.LoadLocation` échoue).
@@ -366,6 +403,9 @@ fichiers système indispensables) :
 - **Oublier `CGO_ENABLED=0`** puis déployer sur `scratch` → le binaire réclame `libc` et
   refuse de démarrer.
 - **`scratch` sans CA** → toutes les requêtes HTTPS échouent par « certificat inconnu ».
+- **`COPY . .` avec `.git`** dans un Dockerfile → `go build` peut échouer (« VCS status:
+  exit status 128 », propriété « dubious » du dépôt) ; exclure `.git` via `.dockerignore`
+  ou passer `-buildvcs=false`.
 
 ## ⚡ Performance & taille
 
@@ -373,6 +413,8 @@ fichiers système indispensables) :
 - `embed` ne coûte rien à l'exécution (les octets sont déjà en mémoire/mappés) et **supprime**
   les I/O disque au démarrage pour charger templates/config.
 - Image `distroless`/`scratch` : démarrage et _pull_ plus rapides, empreinte mémoire moindre.
+- Dockerfile multi-stage avec `go.mod`/`go.sum` copiés à part : le cache de layers Docker
+  évite de retélécharger les dépendances à chaque build CI, seul le code change.
 
 ## 🧪 À tester soi-même
 
@@ -395,6 +437,8 @@ go version -m /tmp/app | head             # relit les BuildInfo du binaire
 2. Renommez `version.txt` : la **compilation** échoue immédiatement (`pattern ... no matching
 files found`).
 3. Comparez la taille du binaire avec et sans `-ldflags="-s -w"`.
+4. Compilez avec `go build -buildvcs=false -o /tmp/app ./ch46-embed-build` puis exécutez-le :
+   la ligne `commit :` n'apparaît plus (`vcsRevision()` renvoie `""`).
 
 ---
 

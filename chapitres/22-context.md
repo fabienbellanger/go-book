@@ -37,10 +37,31 @@ type Context interface {
 Le cœur est **`Done()`** : un canal qu'on **ferme** pour signaler l'annulation — exactement le patron
 du [Ch. 19](19-goroutines.md), mais **unifié** et **propagé**.
 
+> 💡 Un `Context` est **sûr pour un usage concurrent** : plusieurs goroutines peuvent appeler ses
+> méthodes (`Done()`, `Err()`, `Value()`…) **simultanément**, sans synchronisation supplémentaire de
+> votre part. C'est même tout l'intérêt : un même contexte se partage librement entre toutes les
+> goroutines lancées pour traiter une même requête.
+
 ## Dériver un contexte
 
 On part d'une **racine** (`context.Background()` dans `main`/les tests) et on **dérive** des contextes
-enfants. Annuler un parent annule **tous** ses descendants.
+enfants. Annuler un parent annule **tous** ses descendants — la propagation descend dans tout le
+sous-arbre, jamais vers le parent :
+
+```
+      context.Background()                    racine : jamais annulée, Done() == nil
+              |
+              | ctx1, cancel1 := WithTimeout(parent, 2*time.Second)
+              v
+            ctx1 -------------------------------+
+              |                                 |
+              | WithCancel(ctx1)                | WithCancel(ctx1)
+              v                                 v
+            ctx2                              ctx3
+
+  cancel1() (ou expiration des 2 s)  -->  ctx1.Done() se ferme
+                                      -->  ctx2.Done() ET ctx3.Done() se ferment AUSSI
+```
 
 | Fonction                  | Annulé quand…                            |
 | ------------------------- | ---------------------------------------- |
@@ -139,7 +160,10 @@ defer stop() // stop() annule l'association si le nettoyage n'est plus utile
 - **Ne le stockez pas** dans une struct ; **passez-le** explicitement le long de la chaîne d'appels.
   (Exception cadrée : `http.Request` le transporte — projet 2.)
 - **Racines** : `context.Background()` en haut (main, init, tests) ; `context.TODO()` quand on ne sait
-  pas encore quel contexte passer (marqueur temporaire).
+  pas encore quel contexte passer (marqueur temporaire). Ni l'une ni l'autre n'a de deadline ni de
+  cause d'annulation : `Done()` y renvoie `nil` (un canal **qui ne se ferme jamais**, donc ne se
+  déclenche jamais dans un `select` — 🔁 [Ch. 20](20-channels-select.md)) et `Err()` y renvoie
+  toujours `nil`.
 - **Ne passez jamais `nil`** comme contexte.
 
 ---
@@ -165,8 +189,21 @@ defer stop() // stop() annule l'association si le nettoyage n'est plus utile
 
 - `ctx.Done()` renvoie un canal ; le surveiller dans un `select` est **bon marché**. Le seul coût
   notable est de **réveiller** les goroutines en attente à l'annulation.
-- `WithValue` construit une **liste chaînée** : `Value(k)` la **parcourt** (coût linéaire en
-  profondeur). Gardez les chaînes **courtes** ; ne l'utilisez pas comme une `map`.
+- `WithValue` construit une **liste chaînée** : chaque appel enveloppe le parent dans un maillon
+  `{clé, valeur, parent}`. `Value(k)` la **parcourt** maillon par maillon jusqu'à trouver `k` (coût
+  linéaire en **profondeur**, pas en nombre de clés distinctes) :
+
+  ```
+  ctx1 := WithValue(ctx0, keyA, "a")   // ctx1 -> {keyA:"a"} -> ctx0
+  ctx2 := WithValue(ctx1, keyB, "b")   // ctx2 -> {keyB:"b"} -> ctx1 -> {keyA:"a"} -> ctx0
+  ctx3 := WithValue(ctx2, keyC, "c")   // ctx3 -> {keyC:"c"} -> ctx2 -> {keyB:"b"} -> ctx1 -> {keyA:"a"} -> ctx0
+
+  ctx3.Value(keyA) :
+    ctx3{keyC} --pas trouvé--> ctx2{keyB} --pas trouvé--> ctx1{keyA} --TROUVÉ--> "a"
+  ```
+
+  Gardez les chaînes **courtes** ; ne l'utilisez pas comme une `map`.
+
 - `WithCancel`/`WithTimeout` allouent un peu d'état (et un minuteur pour les variantes temporisées),
   libéré par `cancel()` — d'où l'importance de l'appeler.
 

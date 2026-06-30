@@ -47,8 +47,25 @@ lengths := Map([]string{"go", "rust"}, func(s string) int { return len(s) })
 // E=string, R=int inférés -> lengths == []int{2, 4}
 ```
 
+L'inférence regarde les **types des arguments fournis** et les **unifie** avec la signature :
+`s []E` reçoit un `[]string` → `E=string` ; `f func(E) R` reçoit une fonction qui renvoie `int`
+→ `R=int`. C'est une inférence **locale**, fondée uniquement sur les arguments — contrairement à
+Rust ou Haskell, elle ne tient compte **ni** du contexte d'appel (le type attendu par
+l'appelant) **ni** du corps de la fonction.
+
 > 💡 On **peut** instancier explicitement (`Map[string, int](...)`) mais l'inférence suffit
-> presque toujours. On l'écrit surtout quand l'inférence échoue (aucun argument ne porte le type).
+> presque toujours. On l'écrit surtout quand l'inférence **échoue** — typiquement quand un
+> paramètre de type n'apparaît **que dans le type de retour**, donc dans aucun argument :
+>
+> ```go
+> func Zero[T any]() T {
+> 	var z T
+> 	return z
+> }
+>
+> Zero()       // ❌ "cannot infer T" : aucun argument ne porte T
+> Zero[int]()  // ✅ instanciation explicite obligatoire ici
+> ```
 
 ## Les contraintes **sont** des interfaces
 
@@ -87,6 +104,21 @@ Le `~` est crucial : `~int` accepte aussi un type **défini** sur `int`, comme
    string         ❌  hors de l'union
 ```
 
+> 📌 Vocabulaire de la spec : l'ensemble des types qui satisfont une contrainte s'appelle son
+> **type set**. Une interface classique (méthodes seules) a un type set implicite — « tous les
+> types qui implémentent ces méthodes », jamais énuméré. Des **éléments de type** restreignent
+> ce type set à une liste fermée et explicite :
+>
+> ```
+>    CONTRAINTE (interface)                 TYPE SET (ce que ça autorise)
+>    interface {
+>        ~int | ~int64 | ~float64     -->   { int, int64, float64, Celsius, ... }
+>    }                                       (tout type DÉRIVÉ via ~, en plus des types exacts)
+> ```
+>
+> C'est cette fermeture qui permet au compilateur de garantir que `+` est applicable à `T` :
+> il vérifie que **chaque** type du type set supporte l'opération, une fois pour toutes.
+
 > 💡 La contrainte **`any`** (= `interface{}`) n'autorise **aucune** opération particulière : on
 > peut seulement passer la valeur, la stocker, la comparer à `nil`. Pour `+`, `<`, `==`, il faut
 > une contrainte plus précise.
@@ -94,7 +126,11 @@ Le `~` est crucial : `~int` accepte aussi un type **défini** sur `int`, comme
 ## `comparable` : les types qui supportent `==`
 
 `comparable` est une contrainte **prédéclarée** : elle regroupe les types utilisables avec `==` /
-`!=` (donc valides comme **clés de map**, [Ch. 7](07-maps-strings.md)).
+`!=` (donc valides comme **clés de map**, [Ch. 7](07-maps-strings.md)). Elle ne s'exprime pas
+avec `|`/`~` comme une union ordinaire, car son type set n'est **pas une liste fermée** : il
+couvre tous les types de base comparables (numériques, `string`, `bool`, pointeurs, channels…)
+**et** tout struct ou array **dont tous les champs/éléments sont eux-mêmes comparables** — une
+règle récursive, pas une énumération qu'on pourrait écrire à la main.
 
 ```go
 func Index[T comparable](s []T, target T) int {
@@ -196,6 +232,12 @@ un **dictionnaire** (table décrivant le type réel) en argument caché.
    Stack[*Conn]    /
 ```
 
+| Approche                     | Code généré                               | Coût binaire                                                            | Coût runtime                                                   |
+| ---------------------------- | ----------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **C++** (templates)          | à la compilation, par unité de traduction | une copie **par type** instancié (le linker dédoublonne les identiques) | quasi nul — code entièrement spécialisé, inlinable             |
+| **Java** (type erasure)      | une seule fois, types primitifs effacés   | minimal — un seul bytecode pour tous les types                          | **boxing** des primitifs + cast caché à chaque accès           |
+| **Go** (GC-shape stenciling) | à la compilation, par **forme mémoire**   | une copie par forme valeur ; pointeurs mutualisés en un seul sténcile   | dictionnaire passé en argument caché pour les formes partagées |
+
 Conséquence pratique : **type-safe et sans dispatch dynamique**, mais le partage par forme a un
 coût (le dictionnaire). Détails et stratégie d'optimisation au
 [Ch. 39](39-compilation-inlining-pgo.md).
@@ -219,7 +261,10 @@ Les génériques ne remplacent **ni** les interfaces **ni** les types concrets :
 - **1.18** — naissance des génériques : paramètres de type, contraintes, éléments de type
   (`~T`, unions `|`), `any` alias de `interface{}`.
 - **1.21** — packages **`slices`**, **`maps`**, **`cmp`** ; builtins génériques `min`/`max`/`clear`
-  ([Ch. 3](03-variables-constantes-types.md)). Inférence de type sensiblement améliorée.
+  ([Ch. 3](03-variables-constantes-types.md)). Inférence de type sensiblement améliorée. Avant
+  cette version, seul le module externe `golang.org/x/exp/constraints` fournissait des
+  contraintes comme `constraints.Ordered` — si vous le croisez encore dans du code existant ou
+  un tutoriel, préférez désormais `cmp.Ordered` (stdlib, strictement équivalent).
 - **1.24** — **alias de type génériques** : `type Set[T comparable] = map[T]struct{}` est désormais
   légal (un alias peut porter des paramètres de type).
 - **1.26** — **contraintes auto-référentielles** : une contrainte peut se nommer elle-même, ce qui
@@ -252,6 +297,10 @@ func SumAll[A Adder[A]](xs []A) A {
   illisible. Préférez le concret tant que la duplication n'existe pas.
 - **`comparable` avec des interfaces** : autorisé depuis 1.20, mais `==` **panique** si les types
   dynamiques ne sont pas comparables.
+- **Alias générique sans méthode propre** : `type Set[T comparable] = map[T]struct{}` (1.24)
+  reste un **alias**, pas un type distinct. Lui attacher une méthode est refusé à la
+  compilation (`cannot define new methods on generic alias type`). Pour des méthodes propres,
+  il faut une **définition** (`type Set[T comparable] struct{ ... }`), pas un alias.
 
 ## ⚡ Performance
 
@@ -266,8 +315,11 @@ func SumAll[A Adder[A]](xs []A) A {
                                                       un dispatch indirect par élément)
 ```
 
-- Le partage par **forme** (pointeurs) ajoute un **dictionnaire** : marginal, mais réel. Pour le
-  code ultra-chaud sur un seul type, le concret reste imbattable ([Ch. 39](39-compilation-inlining-pgo.md)).
+- Le partage par **forme** (pointeurs) ajoute un **dictionnaire** : marginal, mais réel. À
+  l'inverse, chaque forme **valeur** distincte (`Stack[int]` et `Stack[string]` ne partagent
+  rien) duplique le code généré — un coût de compilation et de taille de binaire qui n'existe
+  pas avec une unique implémentation par interface. Pour le code ultra-chaud sur un seul type,
+  le concret reste imbattable ([Ch. 39](39-compilation-inlining-pgo.md)).
 - Génériques **vs** interface : choisissez les génériques quand le **type** varie mais la **logique**
   est identique ; l'interface quand le **comportement** varie ([Ch. 33](33-interfaces-profondeur.md)).
 
@@ -287,6 +339,8 @@ go test -bench=. -benchmem ./ch11-generics/...
 2. Ajoutez une méthode `func (s *Stack[T]) Map[R any](...)` et constatez le refus du compilateur
    (les méthodes ne sont pas paramétrables).
 3. Réécrivez `Index` avec `slices.Index` et vérifiez que le test passe toujours.
+4. Écrivez `func Zero[T any]() T { var z T; return z }` puis appelez `Zero()` sans préciser `T` :
+   observez le message `cannot infer T`, puis corrigez avec `Zero[int]()`.
 
 ---
 

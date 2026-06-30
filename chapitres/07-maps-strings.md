@@ -35,6 +35,21 @@ suppression sont en **O(1) amorti**.
    - ordre d'itération : RANDOMISÉ à dessein -> ne jamais en dépendre.
 ```
 
+La contrainte de comparabilité (`comparable`, la même contrainte que celle utilisée en
+généricité au [Ch. 11](11-genericite.md)) explique aussi pourquoi `slice`, `map` et `func` sont
+exclus comme clés : ces trois types ne définissent pas `==` entre deux valeurs (seule la
+comparaison à `nil` est autorisée) — c'est d'ailleurs pour ça que le package `maps` fournit
+`maps.Equal` plutôt que de pouvoir écrire `m1 == m2`. À l'inverse, un **struct** ou un
+**array** est une clé valide dès lors que **tous ses champs/éléments le sont** — exactement la
+règle de `==` sur les structs (voir [Ch. 8](08-structs-methodes.md)) :
+
+```go
+type Point struct{ X, Y int }
+
+cache := map[Point]string{}
+cache[Point{1, 2}] = "B2"   // OK : Point ne contient que des champs int (comparables)
+```
+
 ### Créer une map
 
 ```go
@@ -89,6 +104,15 @@ for k, v := range m {
 }
 ```
 
+> 💡 **Pourquoi randomiser ?** Si l'ordre suivait simplement l'agencement interne (ordre
+> d'insertion, position dans les buckets de hachage), du code finirait presque inévitablement
+> par s'y fier implicitement — un test qui compare une sortie formatée, un affichage qui
+> « semble » stable en pratique. Ce code casserait alors silencieusement au moindre changement
+> interne du runtime (réorganisation des buckets, ré-hachage lors d'une croissance, migration
+> vers les Swiss Tables en 1.24…). En randomisant volontairement le point de départ de chaque
+> itération, Go transforme cette dépendance fragile en bug **immédiatement visible** en
+> développement, plutôt qu'en régression silencieuse après une mise à jour du runtime.
+
 **Parade** quand un ordre stable est requis (affichage, tests) : extraire les clés et les
 trier. L'idiome moderne tient en une ligne (🆕 1.21/1.23) :
 
@@ -116,7 +140,10 @@ delete(seen, "go")            // retirer
 
 > 💡 `struct{}` (zéro octet) signale clairement « la valeur ne porte aucune information ». On
 > verra `map[T]bool` comme alternative plus lisible quand on a besoin de `m[x]` directement en
-> condition — au prix d'un octet par entrée.
+> condition — au prix d'un octet par entrée. Sur une map à plusieurs millions de clés, cet
+> octet supplémentaire n'est pas anecdotique : c'est souvent l'argument qui tranche en faveur
+> de `struct{}` en mémoire contrainte (détail des coûts réels de stockage — buckets, padding —
+> au [Ch. 32](32-maps-hachage.md)).
 
 ### Le package `maps` (🆕 1.21)
 
@@ -128,6 +155,7 @@ maps.Equal(a, b)     // égalité clé par clé
 maps.Copy(dst, src)  // fusionne src dans dst
 maps.DeleteFunc(m, func(k string, v int) bool { return v == 0 })
 maps.Keys(m)         // itérateur sur les clés (1.23) — cf. slices.Sorted ci-dessus
+maps.Values(m)       // itérateur sur les valeurs (1.23)
 ```
 
 ---

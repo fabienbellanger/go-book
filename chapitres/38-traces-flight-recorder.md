@@ -11,11 +11,15 @@
 
 ## Introduction
 
-Un **profil** ([Ch. 37](37-profiling-pprof.md)) agrège : il dit **où** part le temps, mais pas **quand**
-ni **pourquoi** une requête a mis 200 ms. Pour ça, il faut une **trace d'exécution** : un journal
-**horodaté à la nanoseconde** de tout ce que fait le runtime — création/blocage/réveil de goroutines,
-syscalls, cycles de GC, démarrage/arrêt des P. La trace **reconstitue la chronologie**, indispensable
-pour diagnostiquer une **latence** ou une **contention**. Code dans
+Un **profil** ([Ch. 37](37-profiling-pprof.md)) **échantillonne** : il interrompt le programme à
+intervalles réguliers (~100 Hz pour le CPU) et construit une **distribution statistique** — il dit **où**
+part le temps **en moyenne**, mais ignore l'ordre et l'instant précis de chaque évènement individuel. Un
+échantillon raté entre deux interruptions est perdu pour toujours ; le profil ne répond donc ni à
+**quand** ni à **pourquoi** une requête précise a mis 200 ms. La **trace d'exécution** prend le problème à
+l'envers : c'est un journal **exhaustif et horodaté à la nanoseconde** de **chaque** évènement émis par le
+runtime — création/blocage/réveil de goroutines, syscalls, cycles de GC, démarrage/arrêt des P — sans
+échantillonnage ni perte. La trace **reconstitue la chronologie exacte**, indispensable pour diagnostiquer
+une **latence** ou une **contention** ; c'est la distinction qui structure tout ce chapitre. Code dans
 [`code/ch38-traces-flightrecorder/`](../code/ch38-traces-flightrecorder/).
 
 ---

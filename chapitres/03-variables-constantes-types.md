@@ -30,6 +30,21 @@ age := 30        // 3. déclaration courte := (type inféré)
 - `:=` ne fonctionne **que dans une fonction** (jamais au niveau package), et exige
   qu'**au moins une** variable à gauche soit nouvelle.
 
+`:=` est une **instruction exécutable** : il n'a de sens que dans un flux séquentiel.
+Au niveau package, les déclarations ne s'exécutent pas dans l'ordre du fichier — le
+compilateur résout d'abord les **dépendances entre elles** (une variable peut être
+initialisée à partir d'une autre déclarée plus bas) ; `var` est donc la seule forme
+valide à cet endroit.
+
+La règle « au moins une nouvelle variable » permet de **mélanger** réaffectation et
+déclaration sur une même ligne :
+
+```go
+x := 1
+x, y := 2, 3 // x est RÉAFFECTÉE (pas redéclarée), y est nouvelle -> OK
+x, y := 4, 5 // ERREUR : no new variables on left side of := (aucune des deux n'est neuve)
+```
+
 On **regroupe** les déclarations dans un bloc `var ( … )` :
 
 ```go
@@ -70,6 +85,17 @@ fmt.Printf("i=%d f=%g b=%t s=%q\n", i, f, b, s)
 > 💡 Concevez vos types pour que **la zero value soit utile**. Par exemple, un
 > `bytes.Buffer` vide est directement utilisable, un `sync.Mutex` à zéro est déverrouillé.
 
+Ce choix élimine toute une classe de bugs présents en C : là où une variable locale non
+initialisée contient des **octets indéterminés** (ce qui reste de la pile à cet endroit —
+un comportement non défini, parfois exploitable comme faille de sécurité), Go garantit
+qu'une variable se lit **toujours** de façon prévisible, dès sa déclaration.
+
+> ⚠️ La zero value n'est utile **qu'en lecture**. Un slice ou une map valant `nil` se
+> comporte comme vide en lecture (`len(s) == 0`, une recherche dans une map nil renvoie la
+> zero value de l'élément sans paniquer), mais **écrire** dans une map `nil` panique :
+> `m["k"] = 1` sur une map non initialisée provoque `panic: assignment to entry in nil
+map`. Il faut l'initialiser avec `make` au préalable (détail au [Ch. 7](07-maps-strings.md)).
+
 ## Les types de base
 
 ### Entiers
@@ -96,18 +122,32 @@ b := byte('A') // byte (uint8) = 65
 > ailleurs. Pour un format de fichier, un protocole réseau ou une sérialisation, utilisez
 > un type **de taille explicite** (`int32`, `int64`), jamais `int`.
 
+> 💡 Cela dit, dans le code « courant » (compteurs, indices, boucles), utilisez `int` par
+> défaut : c'est le type **idiomatique**, et c'est ce que renvoient `len`, `cap` et les
+> index de slice/array — y mélanger un `int32` ou `uint` obligerait à convertir à chaque
+> usage. Réservez les types de taille fixe aux cas où la taille **doit** être garantie.
+
 ### Flottants & complexes
 
 - `float64` (par défaut) et `float32` — norme IEEE 754.
 - `complex128` et `complex64` — nombres complexes natifs (`complex`, `real`, `imag`).
+
+`float64` offre environ **15 à 17 chiffres décimaux significatifs** contre **6 à 9** pour
+`float32` — c'est pourquoi c'est le type **par défaut** dès qu'un littéral flottant n'est
+pas explicitement typé. Préférez `float32` seulement quand la mémoire compte (gros
+volumes de données, interopérabilité avec du C ou du matériel graphique) et que la perte
+de précision est acceptable.
 
 ```go
 var x float64 = 3.14
 c := complex(1, 2) // 1+2i (complex128)
 ```
 
-> ⚠️ Les flottants sont **approximatifs** : `0.1 + 0.2 != 0.3`. Ne comparez jamais deux
-> flottants avec `==` ; comparez `math.Abs(a-b) < epsilon`.
+> ⚠️ Les flottants sont **approximatifs** : `0.1 + 0.2 != 0.3`. Ce n'est pas un défaut de
+> Go : la norme IEEE 754 représente les nombres en **base 2**, et la plupart des fractions
+> décimales (0,1 = 1/10) n'ont pas de représentation binaire exacte — le même résultat
+> apparaît en C, Java, Python ou JavaScript. Ne comparez jamais deux flottants avec `==` ;
+> comparez `math.Abs(a-b) < epsilon`.
 
 ### Booléens & chaînes
 
@@ -133,7 +173,20 @@ var b int64 = a // ERREUR : cannot use a (int32) as int64 value
 ```
 
 C'est verbeux, mais **intentionnel** : aucune perte ou promotion silencieuse ne se
-glisse dans votre dos.
+glisse dans votre dos. Go évite ainsi une classe de bugs bien connue en C, où comparer un
+`int` signé et un `unsigned int` **convertit implicitement** le signé vers le non signé :
+
+```go
+// En C : if (i < u) où i est int (-1) et u est unsigned int (1)
+// convertit -1 en unsigned -> une très grande valeur positive -> comparaison fausse.
+var i int = -1
+var u uint = 1
+// if i < u {}              // ERREUR de compilation en Go : type mismatch
+if int64(i) < int64(u) {}   // il faut convertir explicitement, dans un type commun
+```
+
+En Go, ce mélange est **rejeté à la compilation** : la conversion doit être écrite, donc
+relue et assumée par l'auteur du code.
 
 > 💡 Le séparateur `_` est autorisé dans les littéraux numériques pour la lisibilité :
 > `1_000_000`, `0xFF_FF`, `0b1010_0101`.
@@ -149,7 +202,19 @@ const Max int = 32_767 // typée : c'est un int, point.
 ```
 
 Une constante **non typée** possède une **précision arbitraire** et un **type par
-défaut** (`int`, `float64`, `string`…) qui ne s'applique que si le contexte l'exige :
+défaut**, qui ne s'applique que si le contexte n'impose rien d'autre — par exemple un
+`fmt.Println(Pi)` sans variable cible affiche `Pi` avec son type par défaut :
+
+| Genre de littéral non typé | Type par défaut  |
+| -------------------------- | ---------------- |
+| Entier (`42`)              | `int`            |
+| Flottant (`3.14`)          | `float64`        |
+| Caractère (`'é'`)          | `rune` (`int32`) |
+| Chaîne (`"go"`)            | `string`         |
+| Booléen (`true`)           | `bool`           |
+
+Quand le contexte impose un type différent — une affectation, un paramètre de
+fonction —, c'est ce type-là qui s'applique, à condition que la valeur y tienne :
 
 ```go
 const big = 1 << 62  // non typée : aucun débordement à la compilation
@@ -161,6 +226,15 @@ var g float32 = Pi   // … et là de float32, sans nouvelle déclaration
 > ⚠️ Une constante **hors limites** du type cible est rejetée **à la compilation** (elle
 > ne « déborde » jamais silencieusement) :
 > `var x int8 = 128` → _cannot use 128 … as int8 value (overflows)_.
+
+> ⚠️ La précision arbitraire ne change pas les **règles d'opérateurs** : diviser deux
+> constantes entières reste une **division entière**, même non typées :
+>
+> ```go
+> const third = 1 / 3   // 0 : les deux opérandes sont des constantes ENTIÈRES
+> const thirdF = 1.0 / 3 // 0.333333333333333333333... (précision arbitraire, un seul
+>                         // opérande suffit à rendre l'expression flottante)
+> ```
 
 ### `iota` : compteur de constantes
 
@@ -177,6 +251,20 @@ const (
 	West                   // 3
 )
 ```
+
+> 💡 Idiome courant : décaler avec `iota + 1` pour que la **zero value** du type reste un
+> état « non défini » plutôt qu'une valeur métier valide — utile pour détecter une variable
+> oubliée à sa zero value :
+>
+> ```go
+> type Weekday int
+>
+> const (
+> 	Sunday Weekday = iota + 1 // 1 : la zero value (0) ne désigne aucun jour
+> 	Monday                    // 2
+> 	// …
+> )
+> ```
 
 Quand une ligne **omet** son expression, elle **répète celle de la ligne précédente**
 (en réévaluant `iota`). On exploite ça pour des multiples binaires (tiré de
@@ -262,7 +350,12 @@ Quelques fonctions sont **intégrées au langage** (pas besoin d'import) :
   ```
 
   Avant 1.26, il fallait écrire `x := 7; p := &x`. Le `new(expr)` condense ce motif très
-  courant (obtenir un `*T` à partir d'une valeur).
+  courant (obtenir un `*T` à partir d'une valeur). Une **valeur littérale** n'est pas
+  adressable directement (`&7` est une erreur de compilation : il faut d'abord la stocker
+  dans une variable) — c'est précisément ce détour que de nombreux projets contournaient
+  avec une petite fonction maison du genre `func Ptr[T any](v T) *T { return &v }`
+  (souvent nommée `Ptr`, `ToPtr` ou via des helpers comme `aws.String`). `new(expr)`
+  rend ce générique-maison inutile pour le cas simple.
 
 ## ⚠️ Pièges récapitulés
 

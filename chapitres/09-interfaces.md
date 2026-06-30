@@ -30,6 +30,12 @@ type Shape interface {
 }
 ```
 
+> 💡 **Convention de nommage** : une interface à **une seule méthode** se nomme souvent en
+> suffixant le nom de la méthode par `-er` (`Reader` pour `Read`, `Writer` pour `Write`,
+> `Stringer` pour `String`, `Closer` pour `Close`). Une interface à plusieurs méthodes décrit
+> plutôt un **rôle** (`Shape`, `Handler`). Rien d'imposé par le compilateur, mais largement
+> suivi dans la stdlib et le code idiomatique.
+
 ## Satisfaction **implicite**
 
 Un type satisfait une interface **dès qu'il en possède toutes les méthodes** — il n'y a **aucun
@@ -44,6 +50,15 @@ func (c Circle) Perimeter() float64 { return 2 * math.Pi * c.Radius }
 
 var s Shape = Circle{Radius: 2} // OK : Circle a Area + Perimeter
 ```
+
+Cette absence de déclaration n'est pas un détail cosmétique : `Circle` n'a même pas besoin de
+**connaître** ni d'**importer** le paquet où `Shape` est défini. C'est l'inverse d'un
+`implements` Java/C# (lien explicite et bilatéral, déclaré côté type) : ici le lien est
+**unilatéral et a posteriori**. Un paquet `geo` peut définir `Circle` sans la moindre interface
+en tête, et un paquet `render` totalement indépendant peut définir `Shape` et l'utiliser avec
+`Circle` sans que `geo` en sache rien. C'est ce qui permet de découpler les paquets et de définir
+une interface **côté consommateur**, taillée a posteriori sur ses propres besoins plutôt
+qu'anticipée côté producteur.
 
 > 💡 **Assertion à la compilation** : pour garantir qu'un type satisfait une interface (et
 > obtenir une erreur claire sinon), ajoutez `var _ Shape = Circle{}` ou
@@ -103,6 +118,18 @@ func totalArea(shapes []Shape) float64 {
 }
 ```
 
+La stdlib applique systématiquement la seconde moitié de l'idiome : `bytes.NewReader` renvoie un
+`*bytes.Reader` **concret**, pas un `io.Reader`, bien qu'il soit le plus souvent utilisé comme
+tel ailleurs. Renvoyer le type concret laisse l'appelant profiter de **toutes** ses méthodes
+(`Len()`, `Seek()`...), pas seulement du sous-ensemble imposé par l'interface, et évite une
+indirection inutile (⚡ voir plus bas).
+
+> 💡 **Exception assumée** : `error` est le contre-exemple de cette règle — les fonctions
+> renvoient systématiquement l'interface `error`, jamais un type d'erreur concret, car
+> l'appelant ne doit pas avoir à connaître **laquelle** des erreurs possibles a été produite
+> (détail [Ch. 10](10-erreurs.md)). La règle par défaut reste « renvoyer un type concret » ; on
+> s'en écarte quand cacher le type est précisément le but recherché.
+
 ## Type assertion : retrouver le type concret
 
 `x.(T)` extrait la valeur concrète `T` d'une interface. **Deux formes** :
@@ -113,7 +140,12 @@ c, ok := s.(Circle)  // forme comma-ok : ok=false (et c = zero value) si échec,
 ```
 
 Préférez **toujours** la forme `comma-ok`, sauf si une erreur de type est un bug que vous voulez
-voir paniquer.
+voir paniquer. Dans ce cas, le message de panique nomme les deux types en cause, ce qui en fait
+un diagnostic directement exploitable :
+
+```
+panic: interface conversion: main.Shape is main.Circle, not main.Rect
+```
 
 On peut aussi asserter vers **une autre interface** (« ce type sait-il aussi faire ceci ? ») :
 
@@ -148,6 +180,11 @@ func classify(x any) string {
 > `error`) : le **premier** cas qui correspond gagne, et un type concret peut satisfaire
 > plusieurs interfaces.
 
+> 💡 Un `case` peut lister **plusieurs types** séparés par des virgules (`case int, int64:`).
+> Dans ce cas précis, `v` garde le type **statique** de l'expression switchée (`any` ici) plutôt
+> que le type qui a matché — contrairement à un `case` à un seul type, où `v` prend exactement
+> ce type.
+
 ## Interfaces idiomatiques de la stdlib
 
 Quelques interfaces que l'on croise et implémente sans cesse :
@@ -158,6 +195,7 @@ Quelques interfaces que l'on croise et implémente sans cesse :
 | `error`        | `Error() string`             | valeur d'erreur ([Ch. 10](10-erreurs.md))     |
 | `io.Reader`    | `Read([]byte) (int, error)`  | source d'octets                               |
 | `io.Writer`    | `Write([]byte) (int, error)` | destination d'octets                          |
+| `io.Closer`    | `Close() error`              | libération de ressource (fichier, connexion)  |
 
 Implémenter `String()` suffit à ce que `fmt` l'utilise **automatiquement** :
 
@@ -168,7 +206,8 @@ fmt.Println(Circle{Radius: 2}) // -> Circle(r=2)
 
 > 💡 **Petites interfaces** : les meilleures interfaces Go ont **une ou deux** méthodes
 > (`io.Reader`, `Stringer`). Plus une interface est petite, plus elle est facile à satisfaire et
-> à composer. On peut d'ailleurs **composer** des interfaces par embedding :
+> à composer. On peut d'ailleurs **composer** des interfaces par embedding — c'est ainsi que la
+> stdlib construit `io.ReadWriteCloser` à partir de `io.Reader`, `io.Writer` et `io.Closer` :
 > `type ReadWriter interface { io.Reader; io.Writer }`.
 
 ## ⚠️ Le piège : interface `nil` vs pointeur `nil`
@@ -209,6 +248,14 @@ var _ error = ValidationError{}  // ERREUR de compilation :
 // ValidationError does not implement error (method Error has pointer receiver)
 ```
 
+**Pourquoi cette restriction ?** Sur une variable **adressable**, `v.M()` est réécrit
+silencieusement en `(&v).M()` quand `M` a un récepteur pointeur (🔁 Ch. 8). Mais une fois `v`
+rangé dans une interface, seule la **copie** stockée dans l'interface subsiste : il n'y a plus
+de variable adressable à laquelle prendre l'adresse (la valeur d'origine a pu disparaître,
+être un élément de map, un retour de fonction...). Le compilateur ne peut donc pas garantir que
+prendre l'adresse de cette copie a un sens, et exclut ces méthodes du method set de `T`. Stocker
+directement un `*T` dans l'interface contourne le problème : l'adresse existe déjà.
+
 ---
 
 ## 🆕 Go 1.2x
@@ -230,6 +277,10 @@ var _ error = ValidationError{}  // ERREUR de compilation :
   Découpez.
 - **Récepteur pointeur oublié** : `T` (valeur) ne satisfait pas une interface dont une méthode
   est sur `*T`.
+- **Comparer deux interfaces dont le type dynamique est incomparable** (slice, map, fonction)
+  → panique à l'exécution, y compris via `==` ou comme clé de `map[any]...` :
+  `panic: runtime error: comparing uncomparable type []int`. Le compilateur ne peut pas le
+  détecter à l'avance puisque le type dynamique n'est connu qu'à l'exécution.
 
 ## ⚡ Performance
 
@@ -237,6 +288,9 @@ var _ error = ValidationError{}  // ERREUR de compilation :
   empêche certaines optimisations d'inlining (détail [Ch. 33](33-interfaces-profondeur.md)).
 - Convertir une valeur concrète en interface peut **allouer** (boxing) si elle s'échappe sur le
   tas ([Ch. 26](26-allocation-escape.md)).
+- Une **assertion de type** (`x.(T)`) est bon marché : une comparaison de pointeur de type (ou
+  d'itab), pas une réflexion — sans rapport avec le coût du package `reflect`
+  ([Ch. 34](34-reflexion.md)). Ne l'évitez pas par excès de prudence.
 - Dans le code **chaud**, préférez un type concret ou les **génériques** (résolus à la
   compilation, sans dispatch) quand c'est possible.
 
@@ -256,6 +310,8 @@ go test ./ch09-interfaces/...
    dans `totalArea` et `biggest` (puissance de la satisfaction implicite).
 3. Écrivez `func describe(x any) string` qui distingue `fmt.Stringer` des autres types via une
    assertion.
+4. Comparez deux valeurs `any` contenant chacune un `[]int` avec `==` et observez la panique
+   `comparing uncomparable type`.
 
 ---
 
@@ -268,6 +324,8 @@ go test ./ch09-interfaces/...
 - `any` (= `interface{}`) accepte tout mais fait perdre le typage : à réserver aux vrais cas.
 - ⚠️ Une interface contenant un **pointeur nil typé** n'est **pas** `nil` — renvoyez `nil`
   littéral.
+- Le **method set** détermine qui satisfait quoi : un récepteur pointeur exclut le type valeur
+  de la satisfaction (utilisez `*T`).
 
 ## 🔁 Pour aller plus loin
 

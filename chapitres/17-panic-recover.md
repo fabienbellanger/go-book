@@ -47,6 +47,39 @@ func mustPositive(n int) int {
 }
 ```
 
+À l'inverse, méfiez-vous du réflexe « ça ne devrait jamais arriver » dès que la valeur vient de
+**l'extérieur** (requête HTTP, argument CLI, fichier de configuration fourni par l'utilisateur) :
+l'appelant peut alors **réagir**, donc c'est une erreur, pas une panique — même si la validation
+ressemble trait pour trait à celle de `mustPositive` :
+
+```go
+// Tentant mais FAUX : la donnée vient d'un client externe, pas d'un invariant interne.
+// Une entrée malformée d'UN client ferait planter TOUT le serveur.
+func parseAge(raw string) int {
+	age, err := strconv.Atoi(raw)
+	if err != nil || age < 0 {
+		panic("âge invalide")
+	}
+	return age
+}
+
+// Bon choix : même validation, mais en erreur — l'appelant décide (400, message au client...).
+func parseAge(raw string) (int, error) {
+	age, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("âge invalide %q : %w", raw, err)
+	}
+	if age < 0 {
+		return 0, fmt.Errorf("âge invalide %q : doit être positif", raw)
+	}
+	return age, nil
+}
+```
+
+La différence ne tient pas à la **forme** du contrôle (`if ... { panic / return }`) mais à
+**qui** peut corriger le problème : un bug interne se corrige en changeant le code (panic) ; une
+entrée externe invalide se corrige en changeant l'entrée (erreur).
+
 ## `recover` : toujours dans un `defer`
 
 `recover` n'a d'effet **que** s'il est appelé **directement dans une fonction différée**, pendant
@@ -72,6 +105,12 @@ safeCall(func() { _ = divide(10, 0) })
 
 Même les **paniques du runtime** (déréférencement de pointeur nil, index hors bornes, division
 entière par zéro) sont des paniques ordinaires : `recover` les rattrape aussi.
+
+> 💡 `recover()` renvoie `any` : `panic` accepte n'importe quelle valeur (chaîne, struct, erreur).
+> Mais les paniques du **runtime**, elles, satisfont toujours l'interface `error` (type concret
+> `runtime.Error`). D'où l'idiome `if err, ok := r.(error); ok { ... }` pour conserver l'erreur
+> d'origine telle quelle plutôt que de la refondre en chaîne avec `%v` — utile si l'appelant veut
+> ensuite l'inspecter avec `errors.As` ([Ch. 10](10-erreurs.md)).
 
 ### Déroulement de pile
 
@@ -161,6 +200,32 @@ func main() {
 > 📌 Chaque goroutine qui peut paniquer doit gérer **sa propre** frontière de recover. C'est pourquoi
 > les pools de workers ([Ch. 23](23-patterns-concurrence.md)) enveloppent la fonction de tâche.
 
+En pratique, une frontière dans la goroutine ne suffit pas à elle seule : un `recover()` muet
+fait juste taire le problème. Le patron courant **propage** la panique convertie en erreur sur un
+`channel`, que l'appelant relit normalement avec son propre `select`/`range` — la goroutine ne
+meurt plus en silence, et l'erreur suit le chemin habituel des erreurs Go :
+
+```go
+func worker(job Job, errc chan<- error) {
+	defer func() {
+		if r := recover(); r != nil {
+			errc <- fmt.Errorf("goroutine paniquée : %v", r) // recover ICI, dans la goroutine
+		}
+	}()
+	job.Run()
+	errc <- nil
+}
+
+errc := make(chan error, 1)
+go worker(job, errc)
+if err := <-errc; err != nil { // lu côté appelant, comme n'importe quelle erreur
+	log.Println(err)
+}
+```
+
+🔁 C'est la base des pools de workers résilients du [Ch. 23](23-patterns-concurrence.md) : chaque
+tâche est enveloppée ainsi, et une panique isolée ne fait perdre **que** cette tâche.
+
 ---
 
 ## 🆕 Go 1.2x
@@ -223,7 +288,8 @@ go test ./ch17-panic-recover/...
 - `recover` ne marche que **dans un `defer`** et seulement dans la **goroutine** qui panique.
 - Une panique **déroule la pile** en exécutant les `defer` ; sans `recover`, le programme s'arrête.
 - Ne rattrapez que l'**attendu** ; **re-paniquez** le reste pour ne pas masquer les vrais bugs.
-- Une panique de **goroutine** est **fatale** : chaque goroutine pose sa propre frontière.
+- Une panique de **goroutine** est **fatale** : chaque goroutine pose sa propre frontière, en
+  propageant l'erreur via un `channel` si l'appelant doit la connaître.
 
 ## 🔁 Pour aller plus loin
 

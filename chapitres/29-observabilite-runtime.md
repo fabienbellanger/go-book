@@ -25,7 +25,10 @@ Les plus simples sont dans le package `runtime` :
 
 - **`runtime.NumGoroutine()`** — nombre de goroutines **utilisateur**.
 - **`runtime.ReadMemStats(&m)`** — un `MemStats` **complet** (tas, pile, GC, allocs). ⚠️ Il fige
-  brièvement le monde pour figer les compteurs : à **ne pas** appeler en boucle serrée.
+  brièvement le monde pour figer les compteurs : à **ne pas** appeler en boucle serrée. Ce court
+  arrêt n'est pas un caprice de l'API : les compteurs sont tenus **par P** (pour éviter toute
+  contention), et le seul moyen de les agréger en une photo cohérente est de geler leur progression
+  le temps de les sommer.
 
 ```go
 // code/ch29-observabilite-runtime/metrics.go
@@ -39,8 +42,13 @@ func LegacyHeapAlloc() uint64 {
 ## `runtime/metrics` : l'API moderne
 
 Depuis Go 1.16, **`runtime/metrics`** est l'API **recommandée** : stable, extensible (~112 métriques en
-1.26), histogrammes inclus, et **plus légère** que `ReadMemStats`. On déclare les noms voulus, on
-appelle `Read` :
+1.26), histogrammes inclus, et **plus légère** que `ReadMemStats`. Chaque nom suit un format fixe,
+**chemin:unité** (ex. `/memory/classes/heap/objects:bytes`) — le chemin situe la métrique dans une
+famille (`/gc/`, `/sched/`, `/memory/`...), l'unité après `:` précise ce qui est compté (`bytes`,
+`objects`, `gc-cycles`, `seconds`...). `metrics.All()` renvoie la liste complète avec sa description
+et son **type** (`KindUint64`, `KindFloat64`, ou `KindFloat64Histogram` pour des distributions comme
+les pauses GC) : c'est le moyen de **découvrir** les métriques disponibles sans dépendre d'une liste
+figée, utile après une montée de version. On déclare les noms voulus, on appelle `Read` :
 
 ```go
 // code/ch29-observabilite-runtime/metrics.go
@@ -111,7 +119,33 @@ if bi, ok := debug.ReadBuildInfo(); ok {
 
 ## Les sondes `GODEBUG` (récapitulatif)
 
-Sans toucher au code, `GODEBUG` ouvre des fenêtres sur le runtime :
+`GODEBUG` n'est pas qu'une liste de drapeaux de debug : c'est **le** mécanisme générique par lequel
+le runtime et la bibliothèque standard exposent un comportement réglable **sans recompiler**, pour
+deux usages bien distincts :
+
+1. **Diagnostics** — déclencher une trace texte sur `stderr` (GC, ordonnanceur, init...) sans rien
+   changer au comportement du programme. C'est l'usage qui nous occupe ici.
+2. **Bascules de compatibilité** — revenir temporairement à un **ancien comportement** quand une
+   nouvelle version de Go a changé un défaut. Exemple réel : Go 1.22 a changé le routage de
+   `http.ServeMux` (méthodes et wildcards dans les patterns) ; `GODEBUG=httpmuxgo121=1` restaure
+   l'ancien routage. C'est ce filet qui rend la « Go 1 promise » tenable malgré des changements de
+   défaut : on monte de version sans rien casser **immédiatement**, le temps de migrer.
+
+Les deux usages se pilotent de la même façon : une liste **séparée par des virgules**, lue **une
+seule fois au démarrage** du programme — on peut donc combiner plusieurs sondes en un seul lancement :
+
+```bash
+GODEBUG=gctrace=1,schedtrace=1000 ./binaire   # GC et ordonnanceur tracés simultanément sur stderr
+```
+
+Pour une bascule de compatibilité, fixer la valeur **dans le module** évite de devoir penser à
+repositionner la variable à chaque déploiement : `go mod edit -godebug=httpmuxgo121=1` ajoute une
+ligne `godebug` à `go.mod` (alternative : une directive `//go:debug` en tête d'un fichier du
+`package main`). Implicitement, la ligne `go 1.26` de `go.mod` fixe déjà **tous** les défauts de
+compatibilité tels qu'ils étaient en 1.26 — c'est ce mécanisme qui permet aux défauts de changer
+d'une version à l'autre sans rompre le code existant.
+
+Diagnostics les plus utiles pour ce chapitre :
 
 | `GODEBUG=...`       | Ce que ça montre                                  | Détail                            |
 | ------------------- | ------------------------------------------------- | --------------------------------- |
@@ -119,6 +153,11 @@ Sans toucher au code, `GODEBUG` ouvre des fenêtres sur le runtime :
 | `schedtrace=N`      | **photo de l'ordonnanceur** toutes les N ms       | [Ch. 28](28-ordonnanceur-gmp.md)  |
 | `inittrace=1`       | coût d'**init** de chaque package                 | [Ch. 24](24-runtime-bootstrap.md) |
 | `checkfinalizers=1` | diagnostique finalizers/cleanups (1.25)           | [Ch. 27](27-garbage-collector.md) |
+
+> 💡 Chaque bascule de compatibilité est aussi un compteur **`runtime/metrics`** :
+> `/godebug/non-default-behavior/<nom>:events` (ex. `httpmuxgo121`, `panicnil`) s'incrémente à chaque
+> fois que l'ancien comportement est réellement exercé. En production, c'est le moyen de vérifier
+> qu'une bascule héritée n'est **plus utilisée** avant de l'enlever du code.
 
 ## Exposer en production
 
@@ -151,6 +190,23 @@ import (
 // go http.ListenAndServe("localhost:6060", nil) // /debug/vars + /debug/pprof/
 ```
 
+## Quel outil pour quel besoin ?
+
+Le chapitre a montré cinq familles de sondes ; elles ne se concurrencent pas, elles répondent à des
+besoins différents :
+
+| Outil                  | Coût                      | Fréquence d'usage typique              | À utiliser pour                                                            |
+| ---------------------- | ------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
+| `GODEBUG=...`          | nul à faible              | ponctuel (debug, incident, migration)  | une trace texte lisible, ou une bascule de compatibilité                   |
+| `expvar`               | faible (sauf `memstats`)  | dashboard maison, debug rapide         | quelques compteurs JSON, zéro dépendance                                   |
+| `runtime/metrics`      | très faible, **sans STW** | scrape **continu** (Prometheus, agent) | la **source** d'un exporter de monitoring en production                    |
+| `runtime.ReadMemStats` | STW bref                  | rare, ponctuel                         | un snapshot complet ; compatibilité avec du code déjà existant             |
+| `net/http/pprof`       | élevé pendant la capture  | à la demande, sur une anomalie repérée | profils détaillés (CPU, tas, goroutines) — [Ch. 37](37-profiling-pprof.md) |
+
+En pratique, trois de ces outils s'enchaînent souvent dans un incident : **`runtime/metrics`** (déjà
+scrapé en continu) signale l'anomalie, **`GODEBUG`** ou **`pprof`** la creusent ponctuellement pour en
+trouver la cause.
+
 ---
 
 ## 🆕 Go 1.2x
@@ -159,8 +215,10 @@ import (
   anonymes (VMA) : dans `/proc/PID/maps` et les outils, on lit `[anon: Go: heap]`, `[anon: Go: stacks]`…
   L'attribution mémoire devient lisible. (Non visible sous macOS/Windows.)
 - **1.26** — la famille **`/sched/*`** est enrichie (`goroutines-created`, ventilation
-  `running`/`runnable`/`waiting`, `threads/total`) — vérifié sur 1.26.4. Le profil **`goroutineleak`**
-  ([Ch. 23](23-patterns-concurrence.md)) est aussi exposé via `/debug/pprof/goroutineleak`.
+  `running`/`runnable`/`waiting`, `threads/total`) — vérifié sur 1.26.4. Le profil expérimental
+  **`goroutineleak`** ([Ch. 23](23-patterns-concurrence.md)) est exposé via
+  `/debug/pprof/goroutineleak`, mais **gated** par `GOEXPERIMENT=goroutineleakprofile` : sans cette
+  variable au build, le profil n'existe simplement pas (🔁 [Ch. 37](37-profiling-pprof.md)).
 - **1.26** — l'UI web de **pprof** passe au **flame graph par défaut** ([Ch. 37](37-profiling-pprof.md)).
 
 ## ⚠️ Pièges
@@ -173,12 +231,25 @@ import (
   l'écart (~6) est attendu.
 - **`FreeOSMemory()` par réflexe** — forcer la restitution à l'OS provoque un GC complet ; laissez le
   runtime gérer, sauf besoin précis.
+- **`expvar` n'est pas gratuit pour autant** — la variable `memstats`, publiée automatiquement sur
+  `/debug/vars`, appelle en interne `runtime.ReadMemStats`. Scraper `/debug/vars` souvent revient donc
+  à payer le **même** court arrêt du monde que l'appel direct : un piège classique quand on choisit
+  `expvar` « parce que c'est plus simple à brancher » sans réaliser qu'il embarque l'ancienne API.
+- **Une métrique introuvable échoue en silence** — si le nom passé à `metrics.Read` n'existe pas
+  (faute de frappe, métrique renommée entre deux versions de Go), `Value.Kind()` vaut `KindBad` ; notre
+  `readUint` (`code/ch29-observabilite-runtime/metrics.go`) renvoie alors `0` sans erreur, comme si la
+  valeur réelle était nulle. Vérifiez les noms avec `metrics.All()` après toute montée de version
+  majeure plutôt que de les recopier depuis une doc figée.
 
 ## ⚡ Performance
 
 - **`runtime/metrics`** est conçu pour être échantillonné **fréquemment** : coût faible, pas de STW.
   C'est la bonne source pour un exporter.
 - Réutilisez le **slice de `Sample`** entre les lectures plutôt que d'en réallouer un à chaque scrape.
+- Les métriques **histogrammes** (`/gc/pauses:seconds`, `/sched/latencies:seconds`...) coûtent un peu
+  plus cher à lire qu'un simple `uint64` : chaque échantillon transporte un jeu de **buckets**. Pour un
+  exporter à haute fréquence, ciblez les histogrammes réellement exploités plutôt que `metrics.All()`
+  en boucle.
 - Surveiller `/gc/cycles/total` et `/sched/latencies` ([Ch. 27](27-garbage-collector.md),
   [Ch. 28](28-ordonnanceur-gmp.md)) suffit souvent à détecter une régression avant les utilisateurs.
 - 🔁 Pour aller au-delà des compteurs : profils ([Ch. 37](37-profiling-pprof.md)) et traces
@@ -198,6 +269,9 @@ go doc runtime/metrics            # parcourir les ~112 métriques disponibles
 1. Listez **toutes** les métriques avec `metrics.All()` et affichez celles de la famille `/gc/`.
 2. Branchez `net/http/pprof` + `expvar` sur `localhost:6060` et ouvrez `/debug/vars`.
 3. Lancez un flux de goroutines éphémères et observez `/sched/goroutines-created` grimper sans fin.
+4. Combinez deux sondes en un seul lancement sur un de vos programmes qui tourne plus longtemps que
+   la démo : `GODEBUG=gctrace=1,schedtrace=1000 ./votre-binaire`, et confrontez les deux traces sur
+   la même fenêtre de temps.
 
 ---
 
@@ -209,6 +283,9 @@ go doc runtime/metrics            # parcourir les ~112 métriques disponibles
 - Les métriques **`/sched/*`** (enrichies en **1.26**) diagnostiquent la concurrence : ventilation
   `running`/`runnable`/`waiting`, cumul `goroutines-created` (fuites).
 - **`runtime/debug`** : `ReadBuildInfo` (version/VCS), réglage du GC, `FreeOSMemory`, `Stack`.
+- **`GODEBUG`** a un double rôle : **diagnostics** (`gctrace`, `schedtrace`, `inittrace`...) et
+  **bascules de compatibilité** (`httpmuxgo121`, `panicnil`...), ces dernières comptabilisées dans
+  `runtime/metrics` via `/godebug/non-default-behavior/*:events`.
 - **Exposez** via **`expvar`** (`/debug/vars`), **`net/http/pprof`** (`/debug/pprof/`) ou **Prometheus** —
   jamais sur un port public.
 

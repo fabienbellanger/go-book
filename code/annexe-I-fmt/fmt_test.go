@@ -43,6 +43,11 @@ func TestVerbes(t *testing.T) {
 		{"largeur '*'", fmt.Sprintf("[%*d]", 6, 42), "[    42]"},
 		{"index args", fmt.Sprintf("%[2]d %[1]d", 7, 9), "9 7"},
 		{"verbe inadapté", describeBadVerb(), "%!d(string=texte)"},
+		{"%v ptr struct", fmt.Sprintf("%v", &p), "&{3 4}"},
+		{"%v nil slice", fmt.Sprintf("%v", []int(nil)), "[]"},
+		{"%v slice vide", fmt.Sprintf("%v", []int{}), "[]"},
+		{"%v nil map", fmt.Sprintf("%v", map[string]int(nil)), "map[]"},
+		{"%v map triée", fmt.Sprintf("%v", map[string]int{"b": 2, "a": 1, "c": 3}), "map[a:1 b:2 c:3]"},
 	}
 	for _, c := range cases {
 		if c.got != c.want {
@@ -57,5 +62,28 @@ func TestErrorfW(t *testing.T) {
 	wrapped := fmt.Errorf("écriture du cache : %w", base)
 	if !errors.Is(wrapped, base) {
 		t.Errorf("errors.Is devrait retrouver l'erreur enveloppée par %%w")
+	}
+}
+
+// TestErrorfMultiW vérifie que fmt.Errorf accepte plusieurs %w (Go 1.20) et que
+// chaque erreur enveloppée reste inspectable indépendamment.
+func TestErrorfMultiW(t *testing.T) {
+	errA := errors.New("erreur réseau")
+	errB := errors.New("erreur disque")
+	both := fmt.Errorf("échec combiné : %w / %w", errA, errB)
+	if !errors.Is(both, errA) || !errors.Is(both, errB) {
+		t.Errorf("errors.Is devrait retrouver les deux erreurs enveloppées par %%w")
+	}
+}
+
+// TestStringerReceveurPointeur vérifie que %v n'invoque String() que lorsque le
+// récepteur (pointeur) figure dans le method set de l'opérande (🔁 Ch. 09).
+func TestStringerReceveurPointeur(t *testing.T) {
+	c := celsius(21.5)
+	if got, want := fmt.Sprintf("%v", c), "21.5"; got != want {
+		t.Errorf("%%v sur la valeur : got %q, want %q", got, want)
+	}
+	if got, want := fmt.Sprintf("%v", &c), "21.5°C"; got != want {
+		t.Errorf("%%v sur le pointeur : got %q, want %q", got, want)
 	}
 }

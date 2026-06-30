@@ -24,24 +24,38 @@ plusieurs modules. L'exemple est dans [`code/ch12-packages/`](../code/ch12-packa
 
 ## Le fichier `go.mod`
 
-`go.mod` déclare le **chemin du module** (préfixe de tous ses packages), la **version de Go**
+Avant les modules (Go 1.11, généralisés en 1.13), tout le code source vivait sous un unique
+`$GOPATH/src`, organisé en miroir du chemin d'import : un seul exemplaire de chaque dépendance
+sur la machine, partagé par **tous** les projets — impossible de figer deux versions
+différentes d'une même bibliothèque selon le projet en cours (`GOPATH`, réduit aujourd'hui au
+rôle de cache, est détaillé au [Ch. 1](01-installation-toolchain.md)). `go.mod` règle ce
+problème en déplaçant le versionnage **dans le module lui-même** : chaque projet fige ses
+propres dépendances, indépendamment des autres présents sur la machine — d'où des builds
+**reproductibles** et **isolés**.
+
+Le fichier déclare le **chemin du module** (préfixe de tous ses packages), la **version de Go**
 minimale, et les **dépendances** :
 
 ```
 module github.com/alice/billing   // chemin d'import racine
 
-go 1.26                            // version de langage minimale
+go 1.26                            // version de langage minimale, vérifiée strictement
 
 require (
-	github.com/google/uuid v1.6.0  // dépendance directe
-	golang.org/x/text v0.20.0      // (in)directe
+	github.com/google/uuid v1.6.0  // dépendance directe : importée par votre code
+	golang.org/x/text v0.20.0      // indirect : importée par une dépendance, pas par vous
 )
 ```
 
 - **`go mod init <chemin>`** crée le fichier ; **`go mod tidy`** ajoute les dépendances
-  réellement importées et **retire** les inutilisées (à lancer avant chaque commit).
-- **`go.sum`** enregistre les **empreintes** cryptographiques des versions téléchargées
-  (intégrité). On le **commit**, on ne l'édite pas à la main.
+  réellement importées, **retire** les inutilisées, et tient à jour l'étiquette `// indirect`
+  (à lancer avant chaque commit).
+- **`go.sum`** enregistre, pour chaque version retenue, deux **empreintes** SHA-256 (le contenu
+  du module et son `go.mod`) : `go build`/`go mod verify` les recontrôlent et refusent de
+  continuer en cas de divergence. On le **commit**, on ne l'édite **jamais** à la main.
+- La ligne **`go 1.26`** n'est pas qu'indicative : depuis Go 1.21, elle est **vérifiée
+  strictement**. Un module qui l'exige refuse de compiler avec une toolchain plus ancienne, sauf
+  bascule automatique pilotée par `GOTOOLCHAIN` (🔁 [Ch. 1](01-installation-toolchain.md)).
 
 ## Versions : SemVer & sélection
 
@@ -49,14 +63,42 @@ Go utilise le **versionnage sémantique** (`vMAJEUR.MINEUR.CORRECTIF`) et la **s
 version minimale** (MVS) : la version retenue est la **plus petite** qui satisfait toutes les
 exigences — résultat **reproductible**, sans « dernière en date » surprise.
 
+Concrètement, chaque dépendance exige une version _minimale_ des siennes ; Go assemble toutes
+ces exigences en un **graphe** puis retient, pour chaque module présent plusieurs fois, le
+**maximum des minimums demandés** — qui reste la plus petite version satisfaisant tout le monde
+**à la fois** (d'où « minimale ») :
+
+```
+   billing (votre module)
+     --requiert--> A >= v1.2.0  --requiert--> C >= v1.0.0
+     --requiert--> B >= v1.5.0  --requiert--> C >= v1.3.0
+
+   build list retenue : A v1.2.0, B v1.5.0, C v1.3.0
+   (pour C : max(v1.0.0, v1.3.0) = v1.3.0 -- la plus petite version qui
+    satisfait À LA FOIS l'exigence de A et celle de B)
+```
+
+> 💡 Contrairement à des résolveurs comme celui de npm (qui retiennent souvent la **plus
+> récente** version satisfaisant un intervalle), MVS ne fait **jamais** monter une version sans
+> qu'une exigence explicite du graphe ne le demande. Pas de solveur à contraintes : un seul
+> passage du graphe suffit, donc un résultat déterministe. Pour monter délibérément une version,
+> il faut un `go get` explicite.
+
 ```bash
 go get github.com/google/uuid@v1.6.0   # version précise
 go get github.com/google/uuid@latest   # dernière version stable
 go get -u ./...                        # met à jour les dépendances (mineures/correctifs)
 ```
 
+> 💡 Un commit sans tag de version reçoit un **pseudo-version** déduit de l'historique Git :
+> `v0.0.0-20240115120000-abcdef123456` (horodatage UTC + hash court). Go les ordonne
+> chronologiquement comme de vraies versions ; vous les croiserez dans `go.sum` dès qu'une
+> dépendance n'a jamais publié de tag.
+
 > ⚠️ **Major version = chemin d'import.** À partir de `v2`, le suffixe fait **partie** du chemin :
 > `github.com/foo/bar/v2`. Deux versions majeures peuvent ainsi coexister dans un même build.
+> En dessous de `v2` (y compris **`v0`**, qui signale une API **instable**, sans garantie de
+> compatibilité), le chemin d'import ne change jamais.
 
 ## `internal/` : la visibilité à l'échelle du projet
 
@@ -75,6 +117,16 @@ exporté/non-exporté.
    github.com/bob/autre-projet/  ...      -> NE PEUT PAS importer billing/internal/... ❌
 ```
 
+Ce n'est **pas une notion du langage** (pas de mot-clé) mais une règle de **chemin d'import**,
+appliquée par l'outillage (`go build`, `go vet`, `golang.org/x/tools`) à la compilation : dès
+qu'un segment du chemin s'appelle littéralement `internal`, seul le code dont le chemin **part
+du parent** de ce segment a le droit de l'importer ; tout autre import échoue avec « use of
+internal package … not allowed ». La règle est purement **positionnelle** et s'applique
+indépendamment à chaque `internal/` : un module peut en contenir plusieurs, à des profondeurs
+différentes — `billing/internal/store` est visible depuis tout `billing/...`, mais un autre
+`billing/api/internal/cache` ne serait visible que depuis `billing/api/...`, pas depuis
+`billing/cmd/...`.
+
 > 💡 `internal/` est l'outil pour exposer une API **stable aux yeux de vos utilisateurs** tout en
 > gardant **toute liberté** de réorganiser l'intérieur : personne d'extérieur ne peut s'y
 > accrocher.
@@ -84,7 +136,11 @@ exporté/non-exporté.
 - **Nommez par responsabilité**, pas par couche technique : `store`, `billing`, `auth` — pas
   `models`, `utils`, `helpers`. Un package `util` finit en fourre-tout et crée des cycles.
 - **`cmd/<nom>/`** pour chaque binaire (`package main`) ; la logique réutilisable vit dans des
-  packages importables (souvent sous `internal/`).
+  packages importables (souvent sous `internal/`). Raison concrète : un `package main` ne peut
+  pas être **importé** par un test ou un autre programme — tout ce qui reste dedans n'est
+  testable qu'en exécutant le binaire. Un `main()` réduit à l'assemblage (lire la config, câbler
+  les dépendances, appeler la logique) garde le gros du code dans des packages `go test`-ables
+  isolément.
 - **Plat tant que possible.** N'introduisez une hiérarchie que lorsqu'elle clarifie. Un petit
   projet peut tenir en un seul package.
 - Le **nom du package** doit être court et sans redondance : `package money`, appelé
@@ -104,8 +160,24 @@ go work init ./billing ./billing-lib   # crée go.work
 go work use ./nouveau-module           # ajoute un module
 ```
 
+```
+go.work :
+   go 1.26
+
+   use (
+   	./billing
+   	./billing-lib
+   )
+```
+
 Le `go.work` (non commité en général) prend le pas sur les `go.mod` : les imports croisés
-pointent vers le code **local**.
+pointent vers le code **local**, sans toucher au contenu d'aucun `go.mod`.
+
+> 💡 **`go work` vs `replace`** — les deux redirigent un import vers du code local, mais
+> `replace` vit **dans** `go.mod` : oublié au moment de publier, il casse le build de tous les
+> autres utilisateurs (⚠️ ci-dessous). `go work` vit dans un fichier **séparé**, propre à votre
+> poste, qui ne part jamais dans un commit ou une release : c'est l'option à préférer pour du
+> développement multi-modules au quotidien.
 
 ## Dépendances d'outils dans `go.mod` (🆕 1.24)
 
@@ -150,6 +222,18 @@ func ExampleAmount_String() {
 Le commentaire `// Output:` est **vérifié** par `go test` : si la sortie change, le test échoue.
 La doc et le code restent ainsi toujours d'accord.
 
+Le **nom** n'est pas libre : `go doc` l'analyse pour rattacher l'exemple au bon symbole.
+
+| Nom                        | Rattaché à                                                   |
+| -------------------------- | ------------------------------------------------------------ |
+| `Example`                  | le package entier (doc en tête de page)                      |
+| `ExampleAmount`            | le type `Amount`                                             |
+| `ExampleAmount_String`     | la méthode `String` du type `Amount`                         |
+| `ExampleAmount_String_neg` | variante supplémentaire (suffixe libre après le dernier `_`) |
+
+Un nom qui ne correspond à aucun identifiant exporté du package reste un test exécuté, mais
+n'apparaît **rattaché à rien** dans la documentation générée.
+
 ---
 
 ## 🆕 Go 1.2x
@@ -172,15 +256,33 @@ go.mod :
 - **Suffixe `/v2` manquant** après un changement de version majeure : les imports ne se résolvent
   pas.
 - **Cycle d'imports** : refactorez vers une interface ou un package commun de plus bas niveau.
+  Signe avant-coureur fréquent : deux packages « métier » qui s'appellent mutuellement parce
+  qu'aucun des deux n'est clairement en dessous de l'autre — c'est souvent qu'un troisième
+  package (types/interfaces partagés) doit être extrait.
 - **Package `utils`/`common`** : aimant à dépendances et à cycles. Nommez par domaine.
 - **Ne pas commiter `go.sum`** → builds non vérifiables. Toujours le versionner.
+- **Tout mettre sous `internal/` par réflexe** : pratique au départ, mais si une partie de ce
+  code doit un jour devenir une bibliothèque publique (la vôtre, ou partagée avec un autre
+  module du même dépôt), il faut **déplacer** les fichiers — donc changer leur chemin d'import
+  partout où ils sont utilisés. `internal/` doit protéger des **détails d'implémentation**
+  réellement instables, pas servir de position par défaut pour tout ce qui n'est pas `main`.
+- **Package trop gros** (un seul `internal/core` qui concentre toute la logique) : il devient le
+  nœud que **tout** importe, donc celui qui invalide le plus de cache à chaque modification
+  (⚡ ci-dessous), et il est impossible à tester par sous-domaine (`go test ./core/...` retombe
+  toujours sur l'ensemble). Un signe qu'il faut le scinder : des noms de fonctions préfixés par
+  thème (`UserCreate`, `UserDelete`, `OrderCreate`…) qui annoncent des sous-packages.
 
 ## ⚡ Performance (de build)
 
-- Go **met en cache** les packages compilés (`go env GOCACHE`) : seul le code modifié est
-  recompilé. Découper en packages **cohérents** améliore l'incrémental.
+- Go **met en cache** les packages compilés (`go env GOCACHE`) : seul le code modifié — et tout
+  ce qui en **dépend en amont dans le graphe** — est recompilé. Un package importé par la moitié
+  du projet invalide la moitié du cache à chaque changement ; découper en packages **cohérents
+  et peu interdépendants** améliore l'incrémental bien plus qu'un découpage par couche.
 - Un **graphe de dépendances** plus plat et sans cycles compile plus vite et se teste par morceaux
   (`go test ./store/...`).
+- `go test` **met aussi en cache** les résultats : un test dont le code et les dépendances n'ont
+  pas changé depuis la dernière exécution réussie n'est pas relancé (`go test -count=1` force la
+  réexécution). Des packages plus petits et plus stables profitent davantage de ce cache en CI.
 
 ## 🧪 À tester soi-même
 

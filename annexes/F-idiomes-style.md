@@ -19,14 +19,28 @@ Conventions de nommage :
   **majuscule** est exporté hors du paquet ; minuscule = privé. Pas de mot-clé
   `public`/`private`.
 - **Pas de getters préfixés `Get`** : on écrit `u.Name()`, pas `u.GetName()`. Le
-  setter, lui, garde le verbe : `u.SetName(...)`.
+  préfixe n'ajoute aucune information : au point d'appel, `u.Name()` se lit déjà
+  comme un accès, et Go n'a pas de syntaxe de propriété qui imposerait de le
+  distinguer d'un champ. Le setter, lui, garde le verbe : `u.SetName(...)`.
 - **Interfaces à une méthode en `-er`** : `Reader`, `Writer`, `Stringer`,
   `Formatter`.
+- **Nom de récepteur court et constant** : une ou deux lettres (`p` pour
+  `Point`), jamais `this` ni `self` — Go n'a pas de mot-clé dédié au récepteur —
+  et **la même lettre** réutilisée sur toutes les méthodes d'un même type. 🔁 Voir
+  Ch. 8.
 - **Noms de paquets courts, en minuscules, sans souligné ni mixedCaps** : `http`,
   `strconv`, `io`. Le nom du paquet préfixe ses symboles à l'usage — évitez donc
   la redondance (`http.Server`, pas `http.HTTPServer`).
 - **Acronymes en casse uniforme** : `URL`, `ID`, `HTTP` → `userID`, `parseURL`,
   `ServeHTTP` (pas `userId` ni `parseUrl`).
+- **Identifiant court dans une portée courte, descriptif dans une portée large** :
+  `i`, `r`, `err` conviennent pour une boucle de trois lignes ; plus une variable
+  vit longtemps ou s'éloigne de sa déclaration, plus son nom doit être explicite.
+  Un nom long ne rend pas un code plus lisible si la portée est minuscule — il
+  ajoute du bruit que l'œil doit filtrer.
+- **Commentaire de doc juste avant la déclaration, sans ligne vide, commençant
+  par le nom de l'élément documenté** : c'est ce que `go doc` et pkg.go.dev
+  affichent tel quel. 🔁 Voir Ch. 12.
 
 ```go
 package user
@@ -41,6 +55,19 @@ type User struct {
 func (u User) ID() int { return u.id }
 ```
 
+```go
+// Moins idiomatique : noms longs sur une portée de trois lignes.
+for index := 0; index < len(items); index++ {
+	currentItem := items[index]
+	process(index, currentItem)
+}
+
+// Idiomatique : la portée est courte, le nom peut l'être aussi.
+for i, item := range items {
+	process(i, item)
+}
+```
+
 > 💡 `go vet` et `staticcheck` repèrent beaucoup d'écarts de style ; intégrez-les
 > tôt plutôt que de débattre en revue.
 
@@ -51,11 +78,16 @@ func (u User) ID() int { return u.id }
 🔁 Voir Ch. 10. Les règles d'or :
 
 - **L'erreur est une valeur** renvoyée **en dernière position**, gérée
-  explicitement — pas d'exceptions.
+  explicitement — pas d'exceptions. Le chemin d'échec reste donc **visible dans
+  le code lui-même** : pas de saut implicite vers un handler distant que le
+  lecteur devrait deviner en remontant la pile d'appels.
 - **Envelopper avec `%w`** pour conserver la chaîne de causes, puis interroger
   avec `errors.Is` (valeur sentinelle) et `errors.As` (type concret).
 - **Erreurs sentinelles** : `var ErrNotFound = errors.New("...")`, comparées via
   `errors.Is`, jamais avec `==` à travers des couches d'enveloppement.
+- **Message d'erreur en minuscules, sans point final** : il est fait pour être
+  concaténé dans une chaîne plus longue via `%w`, où une majuscule ou un point au
+  milieu de la phrase détonnerait.
 - **Ne pas paniquer dans une bibliothèque** : `panic` est pour les invariants
   rompus (bug du programmeur), pas pour un fichier absent ou une entrée invalide.
 
@@ -86,7 +118,7 @@ if errors.Is(err, os.ErrNotExist) {
   `io.Writer` en `io.ReadWriter`, on ne déclare pas une interface géante par
   avance.
 - **Définir l'interface côté consommateur**, pas côté producteur : c'est celui
-  qui appelle qui sait de quel sous-ensemble il dépend.
+  qui appelle qui sait de quel sous-ensemble il dépend. 🔁 Voir Ch. 9.
 - **La valeur zéro doit être utile** : `bytes.Buffer`, `sync.Mutex`,
   `sync.WaitGroup` s'emploient sans constructeur. Visez la même chose pour vos
   types.
@@ -97,6 +129,30 @@ func countLines(r io.Reader) (int, error) { /* ... */ }
 
 // Et on renvoie un type concret, pas une interface fourre-tout.
 func NewBuffer() *bytes.Buffer { return &bytes.Buffer{} }
+```
+
+```go
+// Moins idiomatique : le paquet producteur impose une interface large ; tout
+// consommateur doit la satisfaire en entier, même s'il n'utilise qu'une méthode.
+package store
+
+type Repository interface {
+	Get(id string) (Item, error)
+	Save(Item) error
+	Delete(id string) error
+	List() ([]Item, error)
+}
+
+// Idiomatique : le consommateur déclare juste ce dont IL a besoin, ici une
+// seule méthode — et n'importe quel Repository (ou autre type) la satisfait
+// sans le savoir.
+package report
+
+type itemGetter interface {
+	Get(id string) (store.Item, error)
+}
+
+func Summarize(g itemGetter, id string) (string, error) { /* ... */ }
 ```
 
 ---
@@ -199,7 +255,11 @@ func TestAdd(t *testing.T) {
 
 ## Composition plutôt qu'héritage
 
-Go n'a **ni classes ni héritage**. On réutilise par **composition** :
+Go n'a **ni classes ni héritage**. Ce choix évite le **problème de la classe de
+base fragile** : dans une hiérarchie d'héritage profonde, modifier une classe
+parente peut casser silencieusement des enfants distants qui dépendaient d'un
+détail de son implémentation. La composition rend cette dépendance **explicite
+et locale** — on réutilise par composition :
 
 - **Incorporation de struct** (`embedding`) : un type contient un autre type
   anonymement et **promeut** ses champs et méthodes.
@@ -263,6 +323,22 @@ type Service struct {
   go func() { ch <- 1 }() // ⚠️ bloque pour toujours → fuite
   ```
 
+- **`defer` dans une boucle** — un `defer` ne s'exécute qu'à la **sortie de la
+  fonction**, pas à la fin de l'itération : dans une boucle qui traite des
+  milliers de fichiers, leurs descripteurs s'accumulent au lieu d'être libérés
+  au fur et à mesure. Encapsulez le corps de la boucle dans une fonction pour
+  que chaque `defer` se déclenche à chaque itération. 🔁 Voir Ch. 16.
+
+  ```go
+  for _, path := range paths {
+      f, err := os.Open(path)
+      if err != nil {
+          return err
+      }
+      defer f.Close() // ⚠️ s'accumule : fermé seulement à la fin de la fonction appelante
+  }
+  ```
+
 - **`range` copie l'élément** — `for _, v := range gros` copie chaque `v`. Pour
   muter en place ou éviter la copie d'un gros struct, indexez : `for i := range s { s[i].X = ... }`.
 
@@ -291,9 +367,11 @@ type Service struct {
 ## 📌 À retenir
 
 - `gofmt` n'est pas négociable ; la casse de la première lettre décide de
-  l'export ; on nomme court et en `MixedCaps`.
+  l'export ; on nomme court (y compris les récepteurs) et en `MixedCaps`, sans
+  préfixe `Get` ; le commentaire de doc commence par le nom qu'il documente.
 - L'erreur est une valeur en dernière position : envelopper avec `%w`, tester avec
-  `errors.Is`/`As`, ne pas paniquer dans une bibliothèque.
+  `errors.Is`/`As`, message en minuscules sans point final, ne pas paniquer dans
+  une bibliothèque.
 - Accepter des interfaces (petites, côté consommateur), renvoyer des structs ; la
   valeur zéro doit être utile.
 - En concurrence : l'émetteur ferme le channel, `ctx` en premier paramètre, toute

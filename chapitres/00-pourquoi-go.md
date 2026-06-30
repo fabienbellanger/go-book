@@ -19,10 +19,16 @@ inhabituel, et c'est ce qui fait sa force comme ses limites.
 ## Une histoire courte
 
 Go naît chez **Google en 2007** (annonce publique fin **2009**, version **1.0 en 2012**).
-Ses auteurs — **Robert Griesemer, Rob Pike et Ken Thompson** — partent d'un constat :
-la compilation des énormes services C++ de Google était lente, et le langage devenu
-complexe. Leur réponse : un langage **qui compile vite**, **se lit facilement**, et
-**gère la concurrence** sans douleur.
+Ses auteurs — **Robert Griesemer, Rob Pike et Ken Thompson** — partent d'un constat très
+concret : la compilation des plus gros binaires C++ de Google pouvait prendre des dizaines
+de minutes. La cause est **structurelle**, pas anecdotique : le modèle de compilation de
+C/C++ repose sur l'**inclusion textuelle** (`#include`) — chaque fichier source réimporte et
+reparse l'intégralité des en-têtes dont il dépend, à chaque compilation, sans mémoire d'une
+fois sur l'autre. Sur un graphe de dépendances de plusieurs milliers de fichiers, ce coût
+explose. Plutôt que d'ajuster l'outillage existant, le trio choisit de concevoir un langage
+dont la compilation est **rapide par construction** : imports explicites et résolus une
+seule fois, pas de préprocesseur textuel. Leur réponse : un langage **qui compile vite**,
+**se lit facilement**, et **gère la concurrence** sans douleur.
 
 ```
   1972  C            (Thompson, Ritchie)
@@ -47,8 +53,10 @@ Go fait des choix **assumés**, parfois à contre-courant :
   tout vient avec `go`, sans dépendances externes.
 - **Compatibilité** — le code écrit pour Go 1.0 compile encore aujourd'hui
   (la _« Go 1 promise »_, voir plus bas).
-- **Pragmatisme** — pas d'exceptions (les erreurs sont des valeurs), pas d'héritage
-  (composition à la place), pas de surcharge d'opérateurs.
+- **Pragmatisme** — pas d'exceptions (les erreurs sont des valeurs, 🔁 Ch. 10), pas
+  d'héritage de classes (composition de structs et interfaces à la place, 🔁 Ch. 8-9), pas
+  de surcharge d'opérateurs (un `+` ne cache jamais un appel de méthode arbitraire — ce que
+  vous lisez est ce qui s'exécute).
 
 > 💡 Ce que Go **n'a pas** est aussi important que ce qu'il a : pas d'héritage de classes,
 > pas d'exceptions, pas de génériques avant 1.18, pas de surcharge. Chaque absence est un
@@ -82,6 +90,13 @@ Trois caractéristiques structurantes :
 Go vise le **point d'équilibre** : presque aussi rapide que C, presque aussi simple
 que Python, avec une concurrence que peu de langages égalent.
 
+> 💡 La ligne « Déploiement : 1 fichier » cache un autre atout : la **compilation croisée**
+> est native et gratuite. Produire un binaire Linux/ARM64 depuis un Mac se résume à deux
+> variables d'environnement : `GOOS=linux GOARCH=arm64 go build`. Pas de toolchain tierce ni
+> de machine virtuelle à installer — le compilateur sait cibler n'importe quelle plateforme
+> qu'il connaît, depuis n'importe quelle machine de développement (détail au
+> [Ch. 46](46-embed-build-deploiement.md)).
+
 ## Cycle de release & la « Go 1 promise »
 
 Go suit un **rythme semestriel** : une version mineure tous les ~6 mois
@@ -91,6 +106,14 @@ La **Go 1 promise** (« promesse de compatibilité ») garantit que du code vali
 pour Go 1.x continuera de compiler et de fonctionner avec les versions ultérieures de
 Go 1.x. En pratique : **on met à jour la toolchain sans réécrire son code**. Les
 évolutions du langage sont donc **incrémentales et rétrocompatibles**.
+
+> ⚠️ La promesse porte sur le **langage** et l'**API publique de la bibliothèque standard** —
+> pas sur tout le reste. Restent explicitement hors promesse : les paquets `internal/`
+> (jamais importables hors de leur propre module, 🔁 Ch. 12), le comportement précis du GC et
+> de l'ordonnanceur, qui évoluent à chaque version (Parties IV à VI), les correctifs de
+> sécurité (qui peuvent légitimement changer un comportement jugé non sûr), et les nouveaux
+> avertissements de `go vet`. Une mise à jour de version reste donc silencieuse pour le
+> compilateur tout en pouvant mériter un nouveau passage de `go vet ./...`.
 
 > 🆕 Tout au long du livre, un encart **🆕** signale ce qui a été introduit récemment
 > (1.21 → 1.26), pour distinguer le Go « classique » des ajouts récents.
@@ -108,19 +131,34 @@ Un aperçu de ce qui a marqué les versions récentes (détail en **annexe C**) 
 | **1.25** | `testing/synctest` (GA) ; `GOMAXPROCS` conscient des cgroups ; `FlightRecorder` ; GC **Green Tea** (expérimental) |
 | **1.26** | **Green Tea GC par défaut** ; `go fix` (modernizers) ; cgo plus rapide ; `errors.AsType`                          |
 
-Ne cherchez pas à tout retenir maintenant : chaque point est expliqué le moment venu.
+Le fil conducteur de ces six versions : moins de **code répétitif** (packages `slices`/
+`maps`/`cmp`, itérateurs, `for range N`), un runtime plus **honnête envers son
+environnement d'exécution** (`GOMAXPROCS` conscient des limites cgroups, donc des
+conteneurs), et un GC qui réduit encore son **empreinte mémoire et ses pauses** (Swiss
+Tables pour les maps, GC Green Tea). Ne cherchez pas à tout retenir maintenant : chaque
+point est expliqué le moment venu.
 
 ## Comment lire ce livre
 
 Le livre suit une progression **top-down** : on apprend d'abord à **utiliser** Go
 (Parties 0 à III), puis on **ouvre le capot** pour comprendre comment il fonctionne
-(Parties IV à VI), avant de **mettre en pratique** (Partie VII — projets).
+(Parties IV à VI), avant de passer à la **bibliothèque standard et la mise en production**
+(Partie VII) et de **consolider par la pratique** (Partie VIII — sept projets complets, du
+CLI au service réseau).
 
-Choisissez votre **parcours** selon votre objectif (détail dans le `README`) :
+Choisissez votre **parcours** selon votre objectif :
 
-- 🟢 **Débutant Go** : lisez dans l'ordre les Parties 0 → I → II → III.
-- 🔵 **Vous connaissez Go** : sautez aux internals (Parties IV → V → VI).
-- 🟣 **Focus concurrence** ou 🟠 **focus performance** : voir les parcours dédiés.
+| Parcours                                    | Chemin conseillé                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 🟢 Débutant Go                              | Parties 0 → I → II → III, puis projets 1 et 2                                      |
+| 🟡 Lecture intégrale                        | dans l'ordre — c'est le parcours conçu pour ce livre                               |
+| 🔵 Vous connaissez déjà Go, focus internals | Parties IV → V → VI, en suivant les renvois 🔁                                     |
+| 🟣 Focus concurrence                        | Partie III → Ch. 28 (ordonnanceur) → Ch. 25 (modèle mémoire) → Annexe H → Projet 3 |
+| 🟠 Focus performance                        | Partie VI → Ch. 26-27 (allocation/GC) → Projet 7                                   |
+| 🟤 Focus production / stdlib                | Partie VII (lisible dès la fin de la Partie I) → projets 2 et 5                    |
+
+Rien n'empêche de zigzaguer : chaque chapitre rappelle ses **prérequis** en en-tête et
+pointe, via 🔁, vers les chapitres connexes.
 
 Repères visuels utilisés partout :
 
@@ -151,5 +189,5 @@ façon d'apprendre.
 ## 🔁 Pour aller plus loin
 
 - Chapitre suivant : [Ch. 1 — Installation, toolchain & premier programme](01-installation-toolchain.md).
-- Annexe C — Carte complète des nouveautés Go 1.21 → 1.26.
+- [Annexe C — Carte complète des nouveautés Go 1.21 → 1.26](../annexes/C-nouveautes-1.21-1.26.md).
 - [Effective Go](https://go.dev/doc/effective_go) et le [blog officiel](https://go.dev/blog/).

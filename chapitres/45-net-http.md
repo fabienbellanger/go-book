@@ -69,7 +69,6 @@ var h http.Handler = http.HandlerFunc(hello) // la fonction DEVIENT un Handler
 une **méthode** et des **wildcards nommés** :
 
 ```go
-// code/ch45-http/main.go
 mux := http.NewServeMux()
 mux.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")        // valeur du wildcard nommé
@@ -88,18 +87,38 @@ mux.HandleFunc("POST /items", createItem)
 
 **Précédence** : le motif le **plus spécifique** gagne, indépendamment de l'ordre d'enregistrement
 (`/items/{id}` l'emporte sur `/items/`). Si une route existe pour le chemin mais pas pour la méthode,
-le mux répond **`405 Method Not Allowed`** automatiquement — plus besoin de le coder à la main.
+le mux répond **`405 Method Not Allowed`** automatiquement — plus besoin de le coder à la main. Si
+deux motifs se **chevauchent sans que l'un soit strictement plus spécifique** (ex. `GET /` et
+`/index.html`, qui matchent tous deux `GET /index.html`), ils sont **ambigus** : `Handle`/`HandleFunc`
+**paniquent à l'enregistrement**, pas au routage d'une requête — l'erreur apparaît donc au démarrage,
+jamais en production sur une URL précise.
 
-> 🆕 **Avant 1.22**, `ServeMux` ne connaissait ni les méthodes ni les variables de chemin : on
-> utilisait un routeur tiers (chi, gorilla/mux). Pour beaucoup de services, la stdlib **suffit
-> désormais**. Le [Projet 2](../projets/2-api-rest/) en fait sa base.
+Avant 1.22, router une méthode ou capturer un segment de chemin demandait du code à la main
+(`strings.HasPrefix`, découpage de `r.URL.Path`) ou une dépendance tierce qui réimplémentait ce
+travail. Le routage enrichi déplace cette logique **dans la stdlib** : pour une API qui reste une
+liste **plate** de routes, `ServeMux` suffit désormais. La limite reste la **composition** :
+`ServeMux` ne sait ni grouper des routes sous un middleware commun (« tout `/admin/...` passe par
+`auth` ») ni déclarer de sous-routeur imbriqué — c'est précisément ce que chi ou gorilla/mux ajoutent
+encore, et ce qui justifie d'y recourir quand les groupes de routes se multiplient.
+
+> 🆕 **Avant 1.22**, `ServeMux` ne connaissait ni les méthodes ni les variables de chemin. Le
+> [Projet 2](../projets/2-api-rest/) construit son routage sur la version enrichie.
 
 ---
 
 ## Les middlewares : `func(http.Handler) http.Handler`
 
 Un **middleware** enveloppe un `Handler` pour ajouter un comportement transverse (journalisation,
-récupération de panique, authentification, CORS). Sa signature idiomatique :
+récupération de panique, authentification, CORS). C'est la troisième pièce du triptyque côté
+serveur, après `Handler` et `HandlerFunc` :
+
+| Concept            | Nature                          | Signature                         | Rôle                                                                 |
+| ------------------ | ------------------------------- | --------------------------------- | -------------------------------------------------------------------- |
+| `http.Handler`     | interface à une méthode         | `ServeHTTP(w, r)`                 | le seul contrat que savent appeler `ServeMux` et `http.Server`       |
+| `http.HandlerFunc` | adaptateur fonction → `Handler` | `func(w, r)`                      | écrire un handler comme une fonction simple, sans déclarer de struct |
+| middleware         | fonction d'ordre supérieur      | `func(http.Handler) http.Handler` | enveloppe un `Handler` pour ajouter un comportement transverse       |
+
+Sa signature idiomatique :
 
 ```go
 // code/ch45-http/main.go
@@ -136,6 +155,13 @@ sens inverse :
 ```go
 handler := logging(log.Printf)(recover(auth(mux))) // mux est le cœur, logging la peau
 ```
+
+`net/http` ne laisse de toute façon jamais une panique de handler **arrêter tout le process** :
+chaque connexion est servie sous un `recover` **interne** au serveur, qui journalise la pile puis
+**ferme la connexion**. Mais sans middleware `recover` applicatif, le client ne reçoit **aucune
+réponse propre** — juste une connexion coupée, ou un corps tronqué si l'écriture avait déjà commencé.
+C'est tout l'intérêt d'un `recoverMiddleware` : transformer la panique en un `500` net, **avant** que
+`net/http` ne referme quoi que ce soit.
 
 > 💡 Mettez `recover` **à l'extérieur** des middlewares susceptibles de paniquer, et la
 > journalisation encore plus à l'extérieur pour mesurer le temps **total**. (Le pattern « frontière de
@@ -201,6 +227,12 @@ tout ce qui n'est pas un script jetable, **créez et réutilisez** un `http.Clie
 ```go
 client := &http.Client{Timeout: 5 * time.Second} // timeout GLOBAL par requête
 ```
+
+« Global » signifie que ce délai borne **tout** : connexion, redirections suivies, et **lecture du
+corps de la réponse**. Le chronomètre continue de tourner après le retour de `Get`/`Do` et peut
+interrompre un `io.ReadAll(resp.Body)` en cours — un téléchargement volumineux peut donc échouer en
+plein milieu si `Timeout` est trop court pour sa taille, alors même que les en-têtes sont arrivés
+sans problème.
 
 > ⚠️ Le `http.Client` est **conçu pour être réutilisé** (et il est sûr en concurrence). En recréer un
 > par requête gaspille le **pool de connexions** du `Transport` sous-jacent.

@@ -100,14 +100,22 @@ Analyse statique : signale du code qui compile mais est probablement faux
 (formats `Printf` erronés, copies de mutex, balises de struct mal formées,
 boucles douteuses…). À lancer en CI.
 
-| Drapeau             | Effet                         |
-| ------------------- | ----------------------------- |
-| `-printf=false`     | Désactive un analyseur précis |
-| (un analyseur seul) | `go vet -copylocks ./...`     |
+| Drapeau              | Effet                                                          |
+| -------------------- | -------------------------------------------------------------- |
+| `-<analyseur>`       | Ne lance que cet analyseur (ex. `-copylocks`)                  |
+| `-<analyseur>=false` | Désactive un analyseur précis (ex. `-printf=false`)            |
+| `-json`              | Sortie structurée JSON (intégration outillage/CI)              |
+| `-fix`               | Applique directement le premier correctif de chaque diagnostic |
+| `-vettool <prog>`    | Utilise un analyseur tiers (ex. `shadow`, absent par défaut)   |
 
 ```bash
 go vet ./...
-go tool vet help          # liste des analyseurs disponibles
+go vet -copylocks ./...                 # un seul analyseur
+go tool vet help                        # liste des analyseurs disponibles
+go tool vet help printf                 # détail d'un analyseur précis
+
+go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
+go vet -vettool=$(which shadow) ./...   # détecte le masquage de variables
 ```
 
 ---
@@ -134,12 +142,30 @@ go doc -src io.Copy            # avec le source
 
 ## `go fix`
 
-Réécrit du code pour suivre les évolutions des API (migrations automatiques entre
-versions). À lancer après une montée de version, puis relire le diff.
+🆕 Entièrement refondu en Go 1.26 : repose désormais sur le même moteur
+d'analyse que `go vet` et embarque des dizaines de « modernizers » qui
+réécrivent le code vers les idiomes récents du langage et de la
+bibliothèque standard. À lancer après une montée de version, puis relire
+le diff.
+
+| Drapeau           | Effet                                           |
+| ----------------- | ----------------------------------------------- |
+| `-diff`           | Affiche le correctif sans modifier les fichiers |
+| `-<fixer>=false`  | Désactive un fixer précis (ex. `-any=false`)    |
+| `-fixtool <prog>` | Utilise un outil de fixers alternatif/maison    |
 
 ```bash
-go fix ./...
+go fix ./...                # applique tous les fixers, modifie les fichiers
+go fix -diff ./...          # prévisualise sans modifier (utile en CI)
+go tool fix help            # liste des fixers enregistrés
+go tool fix help hostport   # détail d'un fixer précis
 ```
+
+> 💡 Quelques fixers notables : `any` (`interface{}` → `any`), `minmax`
+> (`if`/`else` → `min`/`max`), `rangeint` (boucle 3 clauses → `range` sur
+> entier), `slicessort` (`sort.Slice` → `slices.Sort`), `newexpr` (🆕 1.26,
+> syntaxe `new(expr)`). La directive `//go:fix inline` sur une fonction
+> permet de définir ses propres migrations automatiques.
 
 ---
 
@@ -166,6 +192,20 @@ go tool cover -func=cover.out      # couverture par fonction
 
 > 💡 Dans `pprof` interactif : `top` (postes les plus coûteux), `list Fn` (coût
 > ligne à ligne), `web` (graphe de flamme, nécessite Graphviz). 🔁 Voir Ch. 37–38.
+
+🆕 Depuis Go 1.24, `go tool` exécute aussi les outils déclarés par une
+directive `tool` dans `go.mod` : version épinglée par le module, sans
+polluer les dépendances applicatives — pratique pour `govulncheck`
+(scanner de vulnérabilités officiel) ou un linter d'équipe.
+
+```bash
+go get -tool golang.org/x/vuln/cmd/govulncheck   # ajoute la directive `tool` au go.mod
+go tool govulncheck ./...                        # l'exécute, version fixée par le module
+go tool                                          # liste les outils disponibles (builtin + déclarés)
+```
+
+> 💡 Sans tooling de module, `go install golang.org/x/vuln/cmd/govulncheck@latest`
+> puis `govulncheck ./...` fonctionne aussi (installation classique, hors `go.mod`).
 
 ---
 
@@ -203,12 +243,15 @@ Gère le module courant et son graphe de dépendances.
 | `verify`      | Vérifie que le cache n'a pas été altéré                   |
 | `why <pkg>`   | Explique pourquoi un module est requis                    |
 | `graph`       | Affiche le graphe des dépendances                         |
+| `vendor`      | Copie les dépendances dans `vendor/` (builds hors-ligne)  |
 | `edit`        | Édite `go.mod` par script (`-require`, `-replace`, `-go`) |
 
 ```bash
 go mod init example.com/monapp
 go mod tidy                       # LE réflexe après avoir ajouté/retiré un import
 go mod why golang.org/x/sync/errgroup
+go mod graph | grep example.com   # qui dépend de quoi, brut
+go mod vendor                     # peuple vendor/ (puis go build -mod=vendor)
 go mod edit -go=1.26              # change la version de langage cible
 ```
 
@@ -318,26 +361,29 @@ go clean -cache
 
 ## Variables d'environnement utiles
 
-| Variable       | Rôle                                                                    |
-| -------------- | ----------------------------------------------------------------------- |
-| `GOFLAGS`      | Drapeaux ajoutés à toutes les commandes (ex. `-mod=readonly`)           |
-| `GOOS`         | Système cible de compilation (`linux`, `darwin`, `windows`…)            |
-| `GOARCH`       | Architecture cible (`amd64`, `arm64`…)                                  |
-| `CGO_ENABLED`  | `0` désactive cgo → binaire statique, pur Go                            |
-| `GOMAXPROCS`   | Nombre max d'OS threads exécutant du Go simultanément                   |
-| `GOGC`         | Agressivité du GC (défaut `100` ; plus haut = moins de GC, plus de RAM) |
-| `GOMEMLIMIT`   | Limite mémoire douce du runtime (ex. `512MiB`)                          |
-| `GODEBUG`      | Drapeaux de debug du runtime (`gctrace=1`, `schedtrace=1000`…)          |
-| `GOEXPERIMENT` | Active des fonctionnalités expérimentales de la toolchain               |
-| `GOPATH`       | Racine héritée (cache modules, `bin/`) ; défaut `~/go`                  |
-| `GOBIN`        | Destination des binaires de `go install`                                |
-| `GOMODCACHE`   | Emplacement du cache des modules (défaut `$GOPATH/pkg/mod`)             |
-| `GOPROXY`      | Proxy(s) de modules (ex. `https://proxy.golang.org,direct`, ou `off`)   |
+| Variable       | Rôle                                                                            |
+| -------------- | ------------------------------------------------------------------------------- |
+| `GOFLAGS`      | Drapeaux ajoutés à toutes les commandes (ex. `-mod=readonly`)                   |
+| `GOOS`         | Système cible de compilation (`linux`, `darwin`, `windows`…)                    |
+| `GOARCH`       | Architecture cible (`amd64`, `arm64`…)                                          |
+| `CGO_ENABLED`  | `0` désactive cgo → binaire statique, pur Go                                    |
+| `GOMAXPROCS`   | Nombre max d'OS threads exécutant du Go simultanément                           |
+| `GOGC`         | Agressivité du GC (défaut `100` ; plus haut = moins de GC, plus de RAM)         |
+| `GOMEMLIMIT`   | Limite mémoire douce du runtime (ex. `512MiB`)                                  |
+| `GODEBUG`      | Drapeaux de debug du runtime (`gctrace=1`, `schedtrace=1000`…)                  |
+| `GOEXPERIMENT` | Active des fonctionnalités expérimentales de la toolchain                       |
+| `GOPATH`       | Racine héritée (cache modules, `bin/`) ; défaut `~/go`                          |
+| `GOBIN`        | Destination des binaires de `go install`                                        |
+| `GOMODCACHE`   | Emplacement du cache des modules (défaut `$GOPATH/pkg/mod`)                     |
+| `GOPROXY`      | Proxy(s) de modules (ex. `https://proxy.golang.org,direct`, ou `off`)           |
+| `GOTOOLCHAIN`  | Toolchain `go` à utiliser : `auto`, `local`, ou une version exacte (`go1.26.4`) |
 
 ```bash
 GODEBUG=gctrace=1 ./app                 # une ligne par cycle de GC sur stderr
 GODEBUG=schedtrace=1000 ./app           # état de l'ordonnanceur chaque seconde
 GOFLAGS=-mod=readonly go build ./...     # interdit la modif implicite de go.mod
+GOTOOLCHAIN=local go version             # ignore go.mod, force la toolchain installée
+go get go@1.26.4                         # relève go.mod -> bascule (et télécharge) la toolchain
 ```
 
 > 🔁 `GOGC`, `GOMEMLIMIT` et `GODEBUG=gctrace=1` sont détaillés au Ch. 27 (GC) ;
@@ -384,3 +430,7 @@ go tool dist list          # toutes les paires GOOS/GOARCH supportées
   chaîne d'outils externe nécessaire.
 - `GODEBUG=gctrace=1` et `GOMAXPROCS`/`GOGC`/`GOMEMLIMIT` ouvrent une fenêtre sur
   le runtime sans recompiler.
+- `go fix` (🆕 1.26) modernise le code via des fixers analysables ; `go tool`
+  exécute aussi les outils déclarés par `tool` dans `go.mod` (ex.
+  `govulncheck`) ; `GOTOOLCHAIN`/la ligne `toolchain` de `go.mod` pilotent la
+  version de l'outil `go` utilisée.

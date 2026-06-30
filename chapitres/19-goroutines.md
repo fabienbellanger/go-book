@@ -33,6 +33,13 @@ go func() { ... }()      // souvent une fonction littérale (closure)
 fmt.Println("continue")  // s'exécute sans attendre doWork
 ```
 
+> 💡 Les arguments d'un appel `go f(x)` sont évalués **immédiatement**, à l'instruction `go` —
+> exactement comme pour `defer` ([Ch. 16](16-defer.md)). C'est différent d'une **closure** qui
+> capture une variable sans la passer en paramètre : `go func() { use(x) }()` lit `x` **au moment
+> de l'exécution réelle** de la goroutine, pas à son lancement. Cette distinction est au cœur du
+> piège historique de capture de boucle (voir plus bas) : passer la variable en paramètre
+> (`go func(x int) { ... }(x)`) l'évitait déjà avant Go 1.22.
+
 > ⚠️ `main` est elle-même une goroutine. Quand `main` **retourne**, le programme s'arrête **sans
 > attendre** les autres goroutines. Lancer `go work()` puis sortir de `main` peut ne **rien** exécuter.
 > Il faut donc une **synchronisation** explicite pour attendre la fin.
@@ -65,10 +72,39 @@ donc **pas de course** — `go test -race` le confirme. Et grâce à la **porté
 1.22 ([Ch. 15](15-closures.md)), capturer `i` et `item` dans la closure est **sûr** ; avant 1.22, ce
 code était le bug de concurrence n°1.
 
+> ⚠️ Le **deuxième** piège classique du trio `Add`/`Done`/`Wait` : appeler `Add(1)` **depuis** la
+> goroutine plutôt qu'**avant** le `go`, comme dans `parallelMap` ci-dessus. `Wait()` ignore les
+> `Add` à venir : si l'ordonnanceur fait tourner `wg.Wait()` avant que la goroutine ait eu la main
+> pour s'enregistrer, il peut **retourner trop tôt**, compteur encore à zéro. Go 1.25 supprime le
+> risque avec **`WaitGroup.Go`**, qui lance la goroutine et l'enregistre **atomiquement**
+> ([Ch. 21](21-synchronisation.md)) ; l'analyzer `go vet waitgroup` détecte aussi l'erreur.
+
 ## Goroutine vs thread OS
 
 Une goroutine **n'est pas** un thread du système. Le runtime **multiplexe** des milliers de
-goroutines sur une poignée de threads OS (le modèle **G-M-P**, [Ch. 28](28-ordonnanceur-gmp.md)).
+goroutines sur une poignée de threads OS (le modèle **G-M-P**, [Ch. 28](28-ordonnanceur-gmp.md)) :
+
+```
+  des centaines de milliers de goroutines (G)      quelques threads OS (M, ~ GOMAXPROCS)
+
+   G G G G G G G G G G G G G G G G G G G G G G
+    \   \   \    \    |    |    |    /   /   /
+     \   \   \    \   |    |    |   /   /   /
+      v   v   v    v  v    v    v  v   v   v
+         +-------+       +-------+       +-------+
+         |  M 0  |       |  M 1  |       |  M 2  |     <- exécutent du code Go
+         +-------+       +-------+       +-------+
+             |               |               |
+          cœur 0          cœur 1          cœur 2
+
+  Le runtime choisit à tout instant QUELLES goroutines tournent sur QUELS threads, suspend
+  celles qui bloquent, en réveille d'autres à leur place. Mécanique complète (files
+  d'exécution locales, work-stealing, préemption) : Ch. 28.
+```
+
+C'est ce multiplexage **M:N** (M threads pour N goroutines, au lieu d'un thread OS par tâche comme
+dans le modèle 1:1 traditionnel) qui rend les goroutines abondantes : le nombre de threads M reste
+proche de `GOMAXPROCS`, **quel que soit** le nombre de goroutines lancées.
 
 | Critère                | Goroutine                                      | Thread OS                   |
 | ---------------------- | ---------------------------------------------- | --------------------------- |
@@ -77,6 +113,15 @@ goroutines sur une poignée de threads OS (le modèle **G-M-P**, [Ch. 28](28-ord
 | Ordonnancement         | par le **runtime Go** (coopératif + préemptif) | par le **noyau**            |
 | Nombre réaliste        | **centaines de milliers**                      | quelques milliers           |
 | Changement de contexte | très bon marché (en espace user)               | coûteux (passage noyau)     |
+
+Cet écart tient à un choix structurel, pas à un simple réglage. Créer un thread est un **appel
+système** (`clone`/`pthread_create`) : le noyau lui réserve une pile dont la taille est figée **une
+fois pour toutes**, car cette pile ne peut **jamais être déplacée** — un pointeur brut vers son
+intérieur peut exister ailleurs (y compris en C via cgo). Le système la dimensionne donc largement
+(1 à 8 Mo) par prudence. Une goroutine, elle, est une structure gérée entièrement par le runtime Go
+en espace utilisateur : sa pile peut être **copiée** vers un nouvel emplacement plus grand quand
+elle déborde, car le compilateur connaît précisément chaque pointeur qui y pointe et peut tous les
+réajuster ([Ch. 26](26-allocation-escape.md)) — d'où une pile de départ minuscule, sans gaspillage.
 
 Mesuré sur go1.26.4 (arm64), lancer **100 000** goroutines bloquées :
 
@@ -126,6 +171,21 @@ func leak() {
 	// la fonction retourne, mais la goroutine survit, inutile et invisible
 }
 ```
+
+La fuite la plus fréquente en production prend la forme **inverse** : un **envoi** bloqué parce que
+plus personne ne lit.
+
+```go
+// FUITE : si l'appelant a abandonné (timeout, erreur ailleurs), l'envoi reste bloqué à vie.
+func produce(results chan<- int) {
+	v := compute()
+	results <- v // si plus personne ne lit results, cette ligne ne retourne JAMAIS
+}
+```
+
+Le correctif est le même dans les deux sens : donner à la goroutine un moyen de **renoncer** — un
+`select` avec un second cas sur un canal d'arrêt ou `ctx.Done()` ([Ch. 22](22-context.md)), ou un
+canal **bufferisé** d'une capacité suffisante pour que l'envoi n'ait jamais besoin d'attendre.
 
 Les fuites ne plantent pas le programme : elles le font **enfler** lentement (mémoire, et parfois
 descripteurs). On les traque avec `runtime.NumGoroutine()` qui **monte sans redescendre**, ou avec le
@@ -192,10 +252,18 @@ Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29]
 
 - **Sortir de `main` sans attendre** : les goroutines lancées peuvent ne jamais s'exécuter. Synchronisez
   (`WaitGroup`, canal, `context`).
-- **Fuite de goroutine** : toute goroutine bloquée sur un canal/verrou sans issue **fuit**. Donnez
-  toujours un chemin de sortie (canal d'arrêt, `context`, timeout).
-- **Capturer une variable de boucle** (avant Go 1.22) : les goroutines partageaient la même variable.
-  Réglé en 1.22, mais vérifiez la ligne `go` du `go.mod` ([Ch. 15](15-closures.md)).
+- **Fuite de goroutine** : toute goroutine bloquée sur un canal/verrou sans issue **fuit**, que ce
+  soit en réception ou en **envoi**. Donnez toujours un chemin de sortie (canal d'arrêt, `context`,
+  timeout).
+- **Capturer une variable de boucle** (avant Go 1.22) : toutes les goroutines lisaient la **même**
+  variable, souvent sa valeur finale. Réglé en 1.22 (chaque itération a sa propre variable,
+  [Ch. 15](15-closures.md)), mais vérifiez la ligne `go` du `go.mod` — un module resté en `go 1.21`
+  garde l'ancien comportement même compilé avec Go 1.26. La parade pré-1.22, toujours valable :
+  passer la variable en **paramètre** plutôt que la capturer (voir le 💡 plus haut).
+- **Panique non rattrapée dans une goroutine** : elle fait planter **tout le programme**, même si
+  `main` a son propre `recover`. `recover` ne fonctionne que dans la **même** chaîne d'appel ; un
+  `recover` qui protège `main` ne protège **pas** les goroutines qu'elle lance. Chaque goroutine
+  susceptible de paniquer doit avoir son **propre** `defer`/`recover` ([Ch. 17](17-panic-recover.md)).
 - **Croire que `go` = parallèle** : avec `GOMAXPROCS=1`, tout est concurrent mais **pas** parallèle.
 - **Supposer un ordre d'exécution** : l'ordonnancement n'est **pas** déterministe. Ne dépendez jamais
   de « quelle goroutine part en premier ».
@@ -204,6 +272,9 @@ Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29]
 
 - Lancer une goroutine coûte **quelques nanosecondes** et **~2 Ko** de pile initiale (contre des
   micro-secondes et des méga-octets pour un thread). C'est conçu pour être **abondant**.
+- `GOMAXPROCS` borne le nombre de threads qui **exécutent** du code Go en parallèle, pas le nombre de
+  goroutines qu'on peut **créer** : rien n'empêche de lancer un million de goroutines avec
+  `GOMAXPROCS=1` — elles s'entrelacent simplement sur un seul cœur, sans la moindre erreur.
 - La pile **croît et décroît** par copie à la demande ([Ch. 26](26-allocation-escape.md)) : pas besoin
   de la dimensionner.
 - Mais une goroutine n'est **pas gratuite** : 100 k goroutines, c'est ~200 Mo rien qu'en piles.
@@ -225,6 +296,8 @@ go test -race ./ch19-goroutines/...   # -race : prouve l'absence de course dans 
 2. Écrivez la version **qui fuit** (goroutine bloquée sur un canal) et observez le compteur monter ;
    réparez-la avec un canal d'arrêt.
 3. Compilez avec `GOEXPERIMENT=goroutineleakprofile` et dumpez le profil `goroutineleak`.
+4. Écrivez la variante **qui fuit par envoi** (`produce` ci-dessus, appelée sans jamais lire
+   `results`) ; ajoutez un `select` avec un canal d'arrêt pour la réparer.
 
 ---
 

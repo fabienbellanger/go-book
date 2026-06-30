@@ -63,6 +63,15 @@ fmt.Println(c2()) // 1
 > charge. Si une variable locale est capturée par une closure qui lui survit, il la déplace sur le
 > **tas** (voir le schéma plus bas).
 
+Ce choix n'est pas arbitraire. Si Go capturait **par valeur** — une copie de `n` figée au moment de
+la création de la closure — `counter` serait inutilisable : chaque appel travaillerait sur sa propre
+copie repartant de 0, et aucun état ne pourrait s'accumuler d'un appel à l'autre. La capture par
+référence est précisément ce qui permet à une closure de **partager** un état mutable avec sa fonction
+englobante, ou avec d'autres closures qui capturent la même variable. Contrairement à C++, où chaque
+lambda choisit explicitement `[=]` (capture par valeur) ou `[&]` (capture par référence), Go ne laisse
+pas le choix : **toute** capture est par référence. Pour obtenir l'équivalent d'une copie, il faut la
+faire soi-même — c'est tout l'objet de l'idiome `i := i` détaillé plus bas.
+
 ## Durée de vie & échappement sur le tas
 
 Normalement, une variable locale meurt à la fin de sa fonction. Mais si une closure renvoyée y
@@ -97,6 +106,13 @@ $ go build -gcflags='-m' -o /dev/null ./ch15-closures
 ... func literal escapes to heap
 ```
 
+Ces deux lignes décrivent deux allocations **distinctes**. La valeur d'une closure (ce que contient
+une variable de type `func() int`) n'est pas le code lui-même : c'est un **pointeur** vers une petite
+structure interne au runtime (parfois appelée _funcval_) qui regroupe l'adresse du code et un
+pointeur vers chaque variable capturée. `moved to heap: n` signale que la variable `n` elle-même est
+promue sur le tas ; `func literal escapes to heap` signale que cette structure funcval l'est aussi.
+Une fonction littérale qui ne capture rien n'a besoin ni de l'une ni de l'autre.
+
 ## Portée par itération (le piège historique, disparu en 1.22)
 
 Avant Go 1.22, **toutes** les itérations d'une boucle partageaient **la même** variable de boucle.
@@ -110,6 +126,33 @@ for i := 0; i < 3; i++ {
 }
 // fns[0]() == fns[1]() == fns[2]() == 3   (et non 0, 1, 2 !)
 ```
+
+```
+  AVANT 1.22 : une seule variable i, réutilisée          DEPUIS 1.22 : une variable par tour,
+  partagée par les 3 closures                            indépendante pour chaque closure
+
+  tour 0 : i=0 --+                                        tour 0 : i0=0  -> closure 0 capture &i0
+  tour 1 : i=1   |--> closures 0,1,2 capturent TOUTES &i   tour 1 : i1=1  -> closure 1 capture &i1
+  tour 2 : i=2 --+    (la MÊME adresse mémoire)            tour 2 : i2=2  -> closure 2 capture &i2
+
+  fin de boucle : i vaut 3                                 chaque ik garde SA valeur, jamais
+  les 3 closures lisent la valeur FINALE : 3, 3, 3          réécrite par le tour suivant : 0, 1, 2
+```
+
+> ⚠️ Avant 1.22, l'idiome correctif consistait à **recopier** la variable de boucle à chaque
+> itération, en la masquant par une nouvelle variable locale de même nom :
+>
+> ```go
+> for i := 0; i < 3; i++ {
+> 	i := i // copie FRAÎCHE de i, locale à cette itération, capturée séparément
+> 	fns = append(fns, func() int { return i })
+> }
+> // fns[0]() == 0, fns[1]() == 1, fns[2]() == 2
+> ```
+>
+> Ce `i := i` crée, à chaque tour, une nouvelle variable qui meurt à la fin de l'itération — sauf
+> si une closure la capture, auquel cas elle échappe sur le tas comme toute variable capturée (cf.
+> section précédente). Depuis 1.22, le compilateur fait exactement cela **pour vous**, implicitement.
 
 Depuis **Go 1.22**, chaque itération a **sa propre** variable de boucle. Le même code donne
 désormais `0, 1, 2` — le piège a **disparu** :
@@ -133,6 +176,12 @@ for i := range 3 {
 	go func() { fmt.Println(i) }() // 1.22+ : 0,1,2 (ordre quelconque). Avant : souvent 3,3,3.
 }
 ```
+
+Avant 1.22, une seconde correction, équivalente à `i := i` mais plus visible, consistait à **passer
+`i` en paramètre** de la fonction lancée : `go func(i int) { fmt.Println(i) }(i)`. L'argument est
+**évalué et copié immédiatement**, au moment de l'appel — indépendamment de toute capture (🔁 [Ch.
+19](19-goroutines.md) détaille ce même piège côté goroutines, ainsi que la fuite de goroutine quand
+une closure lancée reste bloquée pour toujours).
 
 > ⚠️ Ce changement est **silencieux** et dépend de la **version `go` du `go.mod`**. Un module
 > déclarant `go 1.21` garde l'ancienne sémantique même compilé avec Go 1.26 — la compatibilité
@@ -175,6 +224,25 @@ func memoize(fn func(int) int) func(int) int {
 }
 ```
 
+> ⚠️ **Cas limite : mémoïser une fonction récursive.** Une closure ne peut pas se référencer
+> **elle-même** quand elle est déclarée avec `:=` : son propre nom n'existe pas encore pendant
+> l'évaluation de son corps. Mémoïser un `fib` récursif demande donc de **séparer la déclaration
+> de l'affectation** :
+>
+> ```go
+> var fib func(int) int // déclarée d'abord, avec sa valeur zéro (nil)
+> fib = memoize(func(n int) int {
+> 	if n < 2 {
+> 		return n
+> 	}
+> 	return fib(n-1) + fib(n-2) // capture fib : la variable existe déjà
+> })
+> ```
+>
+> `fib := memoize(func(n int) int { ...fib(n-1)... })` ne compile **pas** (`undefined: fib`) : avec
+> `:=`, `fib` n'entre en portée qu'**après** l'évaluation complète du membre de droite, donc le corps
+> de la fonction anonyme ne peut pas encore la voir.
+
 ### Middleware (chaînage)
 
 Un middleware est une closure qui **enveloppe** un handler et se **compose** avec d'autres — le cœur
@@ -188,10 +256,27 @@ h := chain(baseHandler, tagged("api"), upper) // tagged enveloppe upper envelopp
 h("go") // "api:HELLO GO"
 ```
 
+> 💡 `chain` parcourt les middlewares **à l'envers** (`mws[i](h)` en partant de la fin) : c'est ce qui
+> fait de `tagged("api")` l'enveloppe la plus **externe** et de `upper` la plus **interne**. Mais
+> l'**exécution**, elle, part du handler de base et **remonte** — l'ordre de construction et l'ordre
+> d'exécution sont inverses :
+>
+> ```
+>   construction (chain)                 exécution (appel de h("go"))
+>   tagged("api")  <- le plus externe     1. baseHandler("go")  -> "hello go"
+>      upper                              2. upper(...)         -> "HELLO GO"
+>         baseHandler <- le plus interne  3. tagged("api")(...) -> "api:HELLO GO"
+> ```
+>
+> Chaque middleware **doit appeler `next`** pour que la chaîne se poursuive ; celui qui s'en abstient
+> **court-circuite** les suivants — utile pour une authentification qui refuse une requête sans
+> jamais atteindre le handler de base.
+
 ### Functional options
 
-Des closures qui **configurent** un objet à la construction. L'API reste stable même quand on
-ajoute des champs ([Ch. 5](05-fonctions.md) l'a esquissé) :
+Des closures qui **configurent** un objet à la construction — l'idiome compense l'absence, en Go, de
+paramètres par défaut et de surcharge de fonctions ([Ch. 5](05-fonctions.md) détaille le compromis
+face à un simple `struct` de configuration). L'API reste stable même quand on ajoute des champs :
 
 ```go
 type Option func(*Server)
@@ -200,6 +285,12 @@ func WithPort(p int) Option { return func(s *Server) { s.port = p } } // capture
 
 srv := NewServer("localhost", WithPort(9090)) // le reste prend ses défauts
 ```
+
+Chaque `WithXxx(...)` renvoie une closure qui capture son argument ; comme elle est passée à
+`NewServer` puis appelée à l'intérieur de la boucle `for _, opt := range opts`, elle **échappe** sur
+le tas (cf. plus haut) — une option « coûte » donc une allocation. Pour un constructeur appelé en
+boucle chaude avec un grand nombre d'options, préférez un `struct` de configuration ([Ch. 5](05-fonctions.md)
+compare les deux approches).
 
 ---
 
@@ -214,13 +305,29 @@ srv := NewServer("localhost", WithPort(9090)) // le reste prend ses défauts
 ## ⚠️ Pièges
 
 - **Capturer la variable, pas la valeur** : une closure différée voit la valeur **au moment de
-  l'exécution**, pas de la capture. C'est l'inverse des arguments de `defer` ([Ch. 16](16-defer.md)).
+  l'exécution**, pas de la capture. C'est l'inverse des arguments de `defer` ([Ch. 16](16-defer.md)),
+  qui sont évalués **immédiatement**, à l'enregistrement :
+
+  ```go
+  n := 0
+  defer func() { fmt.Println("closure:", n) }() // lit n à la FIN de la fonction
+  defer fmt.Println("valeur immédiate:", n)      // lit n MAINTENANT (figé)
+  n++
+  n++
+  // au retour (ordre LIFO) : "valeur immédiate: 0" puis "closure: 2"
+  ```
+
 - **Supposer l'ancienne sémantique de boucle** sous Go ≥ 1.22 (ou l'inverse dans un vieux module) :
   vérifiez la ligne `go` du `go.mod`.
+- **Référencer une closure récursive avant sa déclaration** : `fib := func(n int) int { ...fib...}`
+  ne compile pas (`undefined: fib`) — il faut un `var` séparé (cas détaillé dans la mémoïsation
+  ci-dessus).
 - **Cache non borné** dans une mémoïsation : il grandit indéfiniment. En concurrence, une `map`
   capturée n'est **pas** sûre sans `sync.Mutex` ([Ch. 21](21-synchronisation.md)).
 - **Fuite mémoire par capture** : une closure qui capture un gros objet le **maintient en vie** tant
-  qu'elle existe. Ne capturez que ce qui est nécessaire.
+  qu'elle existe — par exemple un handler enregistré une fois pour toute la durée du programme
+  (routeur HTTP, callback global) qui capture par erreur toute une `struct` de requête au lieu du
+  seul champ utile : cette `struct` ne sera jamais collectée. Ne capturez que ce qui est nécessaire.
 
 ## ⚡ Performance
 
@@ -246,6 +353,10 @@ go build -gcflags='-m' -o /dev/null ./ch15-closures 2>&1 | grep -E "heap|escapes
 1. Réécrivez `makeAdders` avec `go 1.21` dans un `go.mod` à part : observez `[3 3 3]`.
 2. Ajoutez un middleware `timed` qui mesure la durée d'un handler.
 3. Rendez `memoize` sûr en concurrence avec un `sync.Mutex` ([Ch. 21](21-synchronisation.md)).
+4. Mémoïsez un `fib` récursif en suivant le patron `var fib func(int) int ; fib = memoize(...)`.
+5. Écrivez un benchmark comparant un appel direct `fn(x)` à un appel via une closure stockée dans
+   une variable : mesurez le surcoût de l'indirection ([Ch. 36](36-tests-benchmarks-fuzzing.md)
+   détaille `go test -bench`).
 
 ---
 

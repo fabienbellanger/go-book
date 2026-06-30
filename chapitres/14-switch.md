@@ -18,6 +18,15 @@ fondamentales :
 - les **cas peuvent être des expressions** non constantes, pas seulement des constantes ;
 - il remplace élégamment une **cascade de `if/else if`**.
 
+Le choix n'est pas arbitraire : en C, `switch` est un **goto calculé** — les `case` sont de
+simples **étiquettes** à l'intérieur d'un seul bloc, pas des branches isolées (c'est précisément
+ce que détourne le fameux « Duff's device », une optimisation de boucle qui imbrique délibérément
+un `while` dans un `switch` en exploitant cette mécanique). Oublier un `break` n'est donc pas une
+erreur de syntaxe : l'exécution continue silencieusement dans le cas suivant — une classe de bug
+récurrente en C et Java, invisible à la relecture. Go inverse la valeur par défaut : chaque `case`
+est un bloc **borné**, et « continuer dans le cas suivant » exige le mot-clé explicite
+`fallthrough` (voir plus bas).
+
 Le [Ch. 4](04-flux-controle.md) l'a introduit ; ce chapitre en fait le tour complet, jusqu'au code
 machine généré. L'exemple est dans [`code/ch14-switch/`](../code/ch14-switch/).
 
@@ -42,6 +51,12 @@ default: // optionnel, n'importe où, exécuté si aucun cas ne correspond
 > 💡 Plusieurs valeurs dans un même cas se séparent par des **virgules** — c'est l'équivalent d'un
 > « OU ». Pas besoin d'empiler des cas vides comme en C.
 
+**Ordre d'évaluation** : l'expression du `switch` (`day` ci-dessus) est évaluée **une seule fois**,
+puis les cas sont testés de **haut en bas** ; dès qu'un cas correspond, les suivants ne sont **pas
+évalués**. C'est ce qui rend sûr l'usage de **cas non constants** (appels de fonction, expressions
+avec effets de bord, annoncé en intro) : contrairement à une chaîne `if cond1() {} else if cond2()
+{}`, aucune fonction n'est appelée plus d'une fois ni inutilement après le premier match.
+
 ## Switch sans condition (_tagless_)
 
 Un `switch` **sans expression** équivaut à `switch true` : chaque cas est une **condition
@@ -63,6 +78,21 @@ func grade(score int) string {
 }
 ```
 
+Le **gain de lisibilité** sur une cascade `if/else if` tient à ce que chaque condition n'est écrite
+**qu'une fois**, alignée verticalement, sans répéter `else if` ni imbriquer les blocs :
+
+```
+   switch { ... }                      if / else if équivalent
+   ----------------------------------  ----------------------------------
+   case score >= 90: "A"               if score >= 90 { "A" }
+   case score >= 80: "B"               else if score >= 80 { "B" }
+   case score >= 70: "C"               else if score >= 70 { "C" }
+   default: "F"                        else { "F" }
+
+   -> chaque condition écrite UNE fois,  -> `if`/`else if` répété à chaque cas,
+      indentation CONSTANTE                 indentation qui CROÎT à chaque niveau
+```
+
 ## Switch avec instruction d'initialisation
 
 Comme `if`, `switch` accepte un **`init;`** dont la portée est limitée au switch — pratique pour
@@ -78,6 +108,11 @@ default:
 	return "ok"
 }
 ```
+
+`n` est visible dans **tous** les corps de cas (y compris `default`), mais disparaît dès la fin du
+switch — exactement le même principe de portée que `if init; cond`. Rien n'impose la forme
+_tagless_ : `switch v := compute(); v { case 1: … }` combine tout aussi bien `init` et un switch
+d'**expression** classique.
 
 ## `fallthrough` : enchaîner explicitement
 
@@ -109,6 +144,14 @@ func capabilities(role string) []string {
 > **dernier** cas et dans un **type switch**. Surtout : il **n'évalue pas** la condition du cas
 > suivant — il y saute **inconditionnellement**. À utiliser avec parcimonie ; il est rare.
 
+Ces deux interdictions tiennent à la même logique : `fallthrough` saute au cas **suivant dans le
+texte**, sans passer par sa condition. Dans le dernier cas, il n'y a par construction rien après où
+sauter. Dans un type switch, le cas suivant peut porter sur un **type différent** : la variable
+typée (`x := v.(type)`) n'aurait plus de sens cohérent une fois transférée sans revérification.
+Et puisque `default` peut être placé n'importe où (rappel ci-dessous), un `fallthrough` peut très
+bien vous faire atterrir dans un `default` **situé au milieu** du switch — pas seulement dans le
+tout dernier cas listé.
+
 ## Type switch (rappel du Ch. 9)
 
 Le **type switch** branche sur le **type dynamique** d'une interface ([Ch. 9](09-interfaces.md)).
@@ -122,6 +165,8 @@ func describe(v any) string {
 		return fmt.Sprintf("entier : %v", x)
 	case string: // un seul type -> x est un string, len(x) est permis
 		return fmt.Sprintf("texte de %d octets", len(x))
+	case nil: // interface VRAIMENT nil (type ET valeur nuls)
+		return "nil"
 	default:
 		return fmt.Sprintf("autre : %T", x)
 	}
@@ -130,6 +175,13 @@ func describe(v any) string {
 
 > 💡 Mettez les cas **concrets** avant les cas **interface** : le premier qui correspond gagne, et
 > un type concret peut satisfaire plusieurs interfaces ([Ch. 9](09-interfaces.md)).
+
+> ⚠️ `case nil` ne capture que l'interface **réellement** nil — type **et** valeur nuls. Un
+> pointeur concret nil rangé dans `any` (`var p *T; describe(p)`) ne tombe **pas** dedans :
+> l'interface porte un type non nil (`*T`), elle atterrit dans `default`, et `%T` affiche `*T`.
+> C'est exactement le piège **interface nil vs pointeur nil** détaillé au
+> [Ch. 9](09-interfaces.md) : un type switch ne fait que **révéler** la distinction, il ne la
+> contourne pas.
 
 ## Ce que le compilateur génère
 
@@ -153,12 +205,34 @@ d'un **saut indirect**, là où un `if/else if` ferait jusqu'à 8 comparaisons. 
 « déplier » un switch à la main pour la performance. Détails du backend au
 [Ch. 39](39-compilation-inlining-pgo.md).
 
+Le **type switch** échappe à cette optimisation : un type n'est pas un petit entier dense, donc
+**jamais** de jump table. Le compilateur génère une **cascade ordonnée** : un test de nil en
+premier (l'interface a-t-elle un type ?), puis pour chaque cas concret un test rapide sur le
+**hash** du type, confirmé par une comparaison de **pointeur** exacte en cas de correspondance —
+vérifié sur `describe` (go1.26.4) :
+
+```
+   describe(v any) — structure générée :
+       interface nil ?                                       -> case nil
+       hash(type)==hash(int) ?    puis pointeur==type:int     -> case int, int64
+       hash(type)==hash(int64) ?  puis pointeur==type:int64   -> case int, int64
+       hash(type)==hash(string) ? puis pointeur==type:string  -> case string
+       (aucun match)                                          -> default
+```
+
+Le coût croît donc avec la **position** du cas qui correspond, comme une cascade de `if` :
+placez les types les plus fréquents en premier. Comparer à une **interface** (`case Shape:`,
+[Ch. 9](09-interfaces.md)) coûte encore plus cher qu'à un type concret : le runtime doit vérifier
+la **satisfaction d'interface** (recherche dans l'_itab_), pas une simple égalité de pointeur.
+
 ---
 
 ## 🆕 Go 1.2x
 
 - **1.19** — le compilateur génère des **_jump tables_** pour les `switch` d'entiers et de chaînes
-  suffisamment denses : la sélection devient O(1) au lieu d'un balayage linéaire.
+  suffisamment denses : la sélection devient O(1) au lieu d'un balayage linéaire. Disponible sur
+  **amd64 et arm64** uniquement ; sur les autres architectures, le compilateur retombe sur la
+  cascade de comparaisons (toujours correcte, juste moins rapide).
 - `switch` n'a pas évolué syntaxiquement depuis Go 1 (stabilité de la « Go 1 promise ») ; son
   cousin pour les canaux, **`select`**, est traité au [Ch. 20](20-channels-select.md).
 
@@ -191,6 +265,11 @@ d'un **saut indirect**, là où un `if/else if` ferait jusqu'à 8 comparaisons. 
 - Préférez une **`map`** quand l'ensemble est **grand**, **dynamique** (construit à l'exécution),
   ou quand les clés ne sont pas connues à la compilation. Le `switch` est pour les cas **fixes**
   connus à l'écriture ([Ch. 39](39-compilation-inlining-pgo.md)).
+- **`type switch`** n'a pas l'avantage O(1) du switch d'entiers dense : c'est une cascade de
+  comparaisons de type, en **O(n)** dans le nombre de cas testés avant le bon (détail dans
+  « Ce que le compilateur génère » ci-dessus). Pour distinguer un grand nombre de types, une
+  **méthode d'interface** (_double dispatch_, [Ch. 9](09-interfaces.md)) passe souvent mieux à
+  l'échelle qu'un type switch géant — et reste correcte si un nouveau type est ajouté ailleurs.
 
 ## 🧪 À tester soi-même
 
@@ -224,6 +303,9 @@ go build -gcflags='-S' -o /dev/null ./ch14-switch 2>&1 | grep -A12 'levelFromInt
   un switch « pour la perf ».
 - `switch` pour un ensemble **fixe** connu à la compilation ; `map` pour un ensemble **grand ou
   dynamique**.
+- Le **type switch** n'a jamais de jump table (cascade O(n), types les plus fréquents en premier) ;
+  `case nil` n'y capture que l'interface **vraiment** nil, pas un pointeur concret nil qu'elle
+  contiendrait.
 
 ## 🔁 Pour aller plus loin
 

@@ -40,11 +40,54 @@ Copier une string copie **16 octets** (le header), jamais les données — d'où
 bon marché. Deux chaînes peuvent **partager** le même backing en toute sécurité, justement parce qu'aucune
 ne peut le modifier.
 
+💡 Pour un **littéral** (`"héllo"` écrit dans le source), ce backing vit dans la section lecture seule
+du binaire (`.rodata`) : y écrire via `unsafe` ne corrompt pas juste une valeur logique, ça **segfault**
+au niveau matériel. Une string **construite à l'exécution** (conversion depuis `[]byte`, `fmt.Sprintf`…)
+vit, elle, sur le tas ou la pile ordinaires ; son immutabilité n'est garantie que par le **typage** — rien
+au niveau mémoire n'empêche `unsafe` de la modifier, d'où la prudence requise au [Ch. 35](35-unsafe-cgo.md).
+
+### Sous-chaînes : zéro copie, mais rétention possible
+
+`s[i:j]` ne copie **rien** : Go construit un **nouveau header** (pointeur décalé de `i`, `len = j-i`) qui
+vise le **même** backing — sûr uniquement parce que ce backing est immuable. C'est ce qui rend
+`strings.Cut`, `strings.TrimPrefix` ou un simple slicing **O(1)** en mémoire, quelle que soit la taille
+de `s` :
+
+```
+  s     := lireFichier()        // backing de 50 Mo
+  ligne := s[120:180]           // header DISTINCT, MEME backing
+
+  s      +-----+-----+              ligne  +-----+-----+
+         | ptr | len |                     | ptr | len |
+         +--|--+-----+                     +--|--+-----+
+            |                                  |
+            v                                  v
+  backing  [0 ............. 120 ........... 180 ............. 50 Mo]
+                              ^----- ligne (60 o) -----^
+```
+
+⚠️ Tant que `ligne` existe, les **50 Mo entiers** restent en mémoire, même si `ligne` ne fait que 60
+octets — exactement le piège de rétention des slices ([Ch. 30](30-slices-profondeur.md)). La parade est
+la même : forcer une **copie indépendante**. Pour les strings, c'est **`strings.Clone`** (1.18) :
+
+```go
+// code/ch31-strings-profondeur/strdeep.go
+func DetachSubstring(s string, start, end int) string {
+	return strings.Clone(s[start:end])
+}
+```
+
 ## Octets vs runes : l'UTF-8
 
 `len(s)` compte les **octets**, pas les caractères. Un point de code Unicode (une **rune**) occupe 1 à
 4 octets en UTF-8. `range` sur une string **décode** l'UTF-8 : il livre l'**index d'octet** et la
 **rune**.
+
+Ce choix de représentation n'est pas arbitraire : stocker un `[]rune` (4 octets fixes par caractère)
+gaspillerait 3 octets sur 4 pour du texte majoritairement ASCII — le cas le plus courant — alors que
+l'UTF-8 reste **compatible octet à octet** avec l'ASCII (les 128 premiers points de code s'encodent sur
+1 octet, identique à leur valeur ASCII). Le coût se déplace : indexer un caractère est O(1) avec
+`[]rune`, O(n) avec une string (il faut décoder depuis le début).
 
 ```go
 // code/ch31-strings-profondeur/strdeep.go
@@ -76,6 +119,19 @@ est **consommé sur place** :
 | `m[string(b)]` (lookup map)     | **non** | **0**    |
 | `string(b) == s` (comparaison)  | **non** | **0**    |
 | `for range string(b)`, `switch` | **non** | **0**    |
+
+Ces trois lignes « non » ne sont pas le fruit d'une analyse générale du flux de données : le compilateur
+reconnaît un **nombre fini de formes syntaxiques** précises, écrites **telles quelles** dans
+l'expression. Introduire une étape intermédiaire suffit à perdre l'optimisation :
+
+```go
+key := string(b)  // copie : la conversion est maintenant stockée dans une variable
+v := m[key]        // ce lookup ne « voit » plus le motif m[string(b)]
+```
+
+⚠️ Le motif doit apparaître **littéralement** au bon endroit (`m[string(b)]`, `string(b) == s`,
+`for range string(b)`, `switch string(b)`) — un refactoring anodin (extraire dans une variable, passer
+par une fonction intermédiaire) réintroduit silencieusement l'allocation.
 
 ```go
 // Modifier une string OBLIGE à passer par []byte : 2 copies (aller + retour).
@@ -144,8 +200,14 @@ Intern("event.created") x2 : handles == ? true ; taille handle = 8 o
 ```
 
 Gains : **mémoire** (un seul backing partagé par valeur distincte) et **vitesse** (comparer/hacher un
-pointeur, pas toute la chaîne). Idéal comme **clés de map** quand les mêmes chaînes reviennent en masse.
-Le package gère lui-même la collecte des valeurs devenues inutilisées (via des références faibles,
+pointeur, pas toute la chaîne). `unique.Make` n'est cependant **pas gratuit** : chaque appel hache le
+contenu et consulte une table d'internement globale (verrouillée) — un coût comparable à une écriture de
+map. L'opération ne se rentabilise que si le **même** handle sert ensuite **plusieurs fois**
+(comparaisons répétées, clé de map réutilisée) ; interner une chaîne qui ne sert qu'une fois coûte
+strictement plus cher qu'une comparaison directe.
+
+Idéal comme **clés de map** quand les mêmes chaînes reviennent en masse. Le package gère lui-même la
+collecte des valeurs devenues inutilisées (via des références faibles,
 [Ch. 27](27-garbage-collector.md)).
 
 ---
@@ -169,15 +231,22 @@ Le package gère lui-même la collecte des valeurs devenues inutilisées (via de
 - **`[]rune(s)` par réflexe** — alloue et copie tout ; n'en faites que si vous indexez vraiment par rune.
 - **`unsafe.String` pour gagner une copie** — ne le faites que si vous **garantissez** que le `[]byte`
   source ne sera plus jamais modifié ([Ch. 35](35-unsafe-cgo.md)).
+- **Garder une petite sous-chaîne d'un grand texte** — elle retient **tout** le backing en mémoire
+  (même piège que les slices, [Ch. 30](30-slices-profondeur.md)). `strings.Clone` pour détacher.
+- **Compter sur l'optimisation sans copie après un refactoring** — le motif (`m[string(b)]`...) doit
+  rester **syntaxiquement identique** ; le stocker dans une variable intermédiaire la fait disparaître.
 
 ## ⚡ Performance
 
 - **Préallouez** le `Builder` avec `Grow(n)` si vous connaissez (même approximativement) la taille finale.
 - Restez en **`[]byte`** sur le chemin chaud pour éviter les conversions ; convertissez en `string` une
   seule fois, au bout.
-- **Internez** (`unique`) les chaînes répétées massivement : moins de mémoire, comparaisons en O(1).
+- **Internez** (`unique`) les chaînes répétées **plusieurs fois** : moins de mémoire, comparaisons en
+  O(1) — mais seulement si le handle est réutilisé, sinon l'internement coûte plus qu'il ne rapporte.
 - Les conversions **consommées sur place** (lookup, comparaison, `range`) sont **gratuites** — le
   compilateur élide la copie. 🔁 [Ch. 35](35-unsafe-cgo.md) pour le zéro-copie explicite.
+- **`strings.Clone`** pour libérer un grand backing retenu par une petite sous-chaîne — symétrique de
+  `slices.Clone` ([Ch. 30](30-slices-profondeur.md)).
 
 ## 🧪 À tester soi-même
 
@@ -193,6 +262,9 @@ go test -bench=. -benchmem -run=^$ ./ch31-strings-profondeur/...
 1. Mesurez `JoinCSV` **avec** et **sans** `b.Grow(...)` (`-benchmem`) : combien d'allocations en moins ?
 2. Comparez `string(b) == s` (0 alloc) et `bytes.Equal(b, []byte(s))` (la 2ᵉ conversion alloue).
 3. Internez 1 million de chaînes tirées d'un petit ensemble et comparez la mémoire (`ReadMemStats`) avec/sans `unique`.
+4. Construisez une string de plusieurs Mo, gardez-en une sous-chaîne de quelques octets **avec** et
+   **sans** `strings.Clone`, forcez un `runtime.GC()` puis comparez `HeapAlloc` (`ReadMemStats`) : sans
+   `Clone`, le backing complet reste compté.
 
 ---
 
@@ -200,14 +272,17 @@ go test -bench=. -benchmem -run=^$ ./ch31-strings-profondeur/...
 
 - Une `string` = **header de 2 mots** (ptr/len, 16 o) sur un backing **immuable** ; pas de `cap`. Copier
   une string copie le header, jamais les octets.
+- **Slicer** (`s[i:j]`) ne copie rien — nouveau header, même backing. Pratique et gratuit, mais une
+  petite sous-chaîne **retient** tout un grand backing ; `strings.Clone` (1.18) détache.
 - `len` et l'indexation comptent des **octets** (UTF-8) ; `range` **décode** en runes (index d'octet +
   rune). `utf8` pour compter/valider.
 - Convertir `string`↔`[]byte` **copie** quand le résultat survit (**1 alloc**), mais est **gratuit**
-  quand il est consommé sur place (lookup, comparaison, `range`).
+  quand il est consommé sur place (lookup, comparaison, `range`) — à condition que le motif reste
+  **syntaxiquement** celui que le compilateur reconnaît.
 - **`strings.Builder`** rend la concaténation **O(n)** : ~30× plus rapide que `+` en boucle. `Grow` pour
   préallouer.
 - **`unique.Make`** (1.23) interne : handle canonique de 8 o, comparaison/hachage en O(1), mémoire
-  partagée.
+  partagée — rentable seulement si le handle est réutilisé.
 
 ## 🔁 Pour aller plus loin
 

@@ -34,7 +34,18 @@ type Writer interface { Write(p []byte) (n int, err error) }
 - **`Write(p)`** écrit `p` ; le contrat impose `n == len(p)` dès que `err == nil`.
 
 Leur force vient de leur petitesse : **une seule méthode** suffit à fabriquer un nouveau maillon
-qui s'insère dans tout l'écosystème. Voici un `Writer` qui met en majuscules à la volée :
+qui s'insère dans tout l'écosystème.
+
+> 💡 **Pourquoi une seule méthode ?** En Go, la satisfaction d'une interface est **implicite**
+> ([Ch. 9](09-interfaces.md)) : un type n'a rien à déclarer pour devenir un `io.Reader`, il lui
+> suffit d'avoir une méthode `Read` de la bonne signature. Plus un contrat a de méthodes, plus il
+> est dur à satisfaire — et plus il exclut de types qui auraient pu s'y prêter. En réduisant
+> `Reader`/`Writer` à un seul verbe (lire, ou écrire), Go maximise le nombre de types compatibles :
+> fichiers, sockets, buffers mémoire, compresseurs (`gzip`), chiffreurs (`crypto/cipher`),
+> `os.Stdin`… tous deviennent interchangeables derrière la même interface, sans rien connaître les
+> uns des autres.
+
+Voici un `Writer` qui met en majuscules à la volée :
 
 ```go
 type upperWriter struct{ dst io.Writer }
@@ -50,6 +61,50 @@ func (w upperWriter) Write(p []byte) (int, error) {
 > 💡 **« Accepter des interfaces, renvoyer des structs »** ([Ch. 9](09-interfaces.md)). Une fonction
 > qui prend un `io.Reader` accepte aussi bien un fichier qu'une chaîne (`strings.NewReader`),
 > un `bytes.Buffer`, une socket… et devient **triviale à tester**.
+
+### Composition : interfaces enrichies et décorateurs
+
+La bibliothèque standard compose des contrats plus riches en **embarquant** `Reader`/`Writer` dans
+d'autres interfaces — jamais en ajoutant de méthodes à `Reader`/`Writer` eux-mêmes :
+
+| Interface            | Définition                     | Exemple de type qui l'implémente       |
+| -------------------- | ------------------------------ | -------------------------------------- |
+| `io.Closer`          | `Close() error`                | `*os.File`, `net.Conn`, `*gzip.Reader` |
+| `io.ReadCloser`      | `Reader` + `Closer`            | `http.Response.Body`                   |
+| `io.WriteCloser`     | `Writer` + `Closer`            | `*gzip.Writer`, `net.Conn`             |
+| `io.ReadWriter`      | `Reader` + `Writer`            | `net.Conn`, `*os.File`                 |
+| `io.ReadWriteCloser` | `Reader` + `Writer` + `Closer` | `net.Conn`, `*os.File`                 |
+
+`io.Closer` est la pièce qui manquait aux exemples précédents : un `bytes.Buffer` n'a rien à
+fermer (pas de ressource OS), mais un `*os.File` ou un `net.Conn` **retiennent** un descripteur
+tant qu'on n'a pas appelé `Close` (voir ⚠️ Pièges).
+
+C'est aussi ce qui rend possible la **composition par décoration** : envelopper un `Reader` dans
+un autre qui ajoute un comportement — déchiffrement, décompression, tamponnage — sans connaître
+ni modifier le type d'origine :
+
+```
+  os.Open(path)         gzip.NewReader(f)         bufio.NewReader(gz)
+  *os.File         -->  *gzip.Reader         -->  *bufio.Reader
+  (io.Reader)            (décompresse f)           (tamponne gz)
+       |                       |                          |
+       v                       v                          v
+  octets bruts du disque  octets décompressés       octets servis par blocs
+
+  chaque étage ne connaît QUE l'interface io.Reader, jamais le type concret précédent
+```
+
+```go
+f, _ := os.Open("archive.log.gz")
+defer f.Close()
+gz, _ := gzip.NewReader(f) // *gzip.Reader est lui-même un io.Reader
+defer gz.Close()
+br := bufio.NewReader(gz)  // un troisième Reader, qui enveloppe le deuxième
+line, _ := br.ReadString('\n')
+```
+
+Chaque maillon **ignore tout** des maillons précédents : c'est le patron décorateur, rendu naturel
+par une interface à une seule méthode — n'importe quel `Reader` peut en envelopper un autre.
 
 ### Le streaming en image
 
@@ -68,6 +123,12 @@ func (w upperWriter) Write(p []byte) (int, error) {
 `io.Copy(dst, src)` est le couteau suisse : il lit `src` bloc par bloc et écrit dans `dst`
 jusqu'à `io.EOF`. Pas besoin de boucle manuelle.
 
+| Approche                                                 | Ce qu'il faut gérer soi-même                                                    |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| boucle manuelle (`for { n, err := src.Read(buf); ... }`) | `Read` partiel, ordre `n`/`err` (⚠️ ci-dessous), relance jusqu'à `io.EOF`       |
+| `io.Copy(dst, src)`                                      | rien — gère ces cas en interne, et peut être **zéro-copie** (⚡ Performance)    |
+| `io.ReadAll(r)`                                          | rien, mais charge **tout** en mémoire avant de pouvoir traiter quoi que ce soit |
+
 ```go
 func copyThrough(src io.Reader) (string, error) {
 	var sink bytes.Buffer
@@ -80,18 +141,19 @@ func copyThrough(src io.Reader) (string, error) {
 
 Les helpers du package `io`, à connaître :
 
-| Fonction              | Rôle                                                           |
-| --------------------- | -------------------------------------------------------------- |
-| `io.Copy(dst, src)`   | recopie tout un flux, par blocs                                |
-| `io.CopyBuffer`       | comme `Copy` mais avec un buffer fourni (réutilisable)         |
-| `io.ReadAll(r)`       | lit tout en mémoire (⚠️ taille non bornée)                     |
-| `io.WriteString(w,s)` | écrit une `string` sans conversion `[]byte` superflue          |
-| `io.MultiReader(...)` | concatène plusieurs `Reader` en un seul flux                   |
-| `io.MultiWriter(...)` | écrit simultanément vers plusieurs `Writer` (ex. log + écran)  |
-| `io.TeeReader(r, w)`  | renvoie un `Reader` qui **copie dans `w`** tout ce qu'on y lit |
-| `io.LimitReader(r,n)` | borne la lecture à `n` octets (anti-DoS sur un upload)         |
-| `io.SectionReader`    | vue sur une **tranche** d'un `io.ReaderAt` (offset + longueur) |
-| `io.Discard`          | un `Writer` puits : jette tout (utile pour mesurer/drainer)    |
+| Fonction              | Rôle                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `io.Copy(dst, src)`   | recopie tout un flux, par blocs                                                                                 |
+| `io.CopyBuffer`       | comme `Copy` mais avec un buffer fourni (réutilisable)                                                          |
+| `io.ReadAll(r)`       | lit tout en mémoire (⚠️ taille non bornée)                                                                      |
+| `io.ReadFull(r, buf)` | lit exactement `len(buf)` octets, ou erreur (`io.EOF` si rien lu, `io.ErrUnexpectedEOF` si lecture interrompue) |
+| `io.WriteString(w,s)` | écrit une `string` sans conversion `[]byte` superflue                                                           |
+| `io.MultiReader(...)` | concatène plusieurs `Reader` en un seul flux                                                                    |
+| `io.MultiWriter(...)` | écrit simultanément vers plusieurs `Writer` (ex. log + écran)                                                   |
+| `io.TeeReader(r, w)`  | renvoie un `Reader` qui **copie dans `w`** tout ce qu'on y lit                                                  |
+| `io.LimitReader(r,n)` | borne la lecture à `n` octets (anti-DoS sur un upload)                                                          |
+| `io.SectionReader`    | vue sur une **tranche** d'un `io.ReaderAt` (offset + longueur)                                                  |
+| `io.Discard`          | un `Writer` puits : jette tout (utile pour mesurer/drainer)                                                     |
 
 `io.TeeReader` permet de lire **une seule fois** tout en gardant une copie :
 
@@ -106,7 +168,7 @@ func teeAndCount(src io.Reader) (string, int64, error) {
 
 ### `io.Pipe` : producteur ↔ consommateur en mémoire
 
-`io.Pipe()` rend un couple `(*PipeReader, *PipeWriter)` connecté : ce qu'on écrit dans l'un, on
+`io.Pipe()` renvoie un couple `(*PipeReader, *PipeWriter)` connecté : ce qu'on écrit dans l'un, on
 le lit dans l'autre. **Synchrone** (l'écriture bloque tant qu'on ne lit pas), sans fichier ni
 buffer géant — idéal pour brancher une API « qui veut un `Reader` » sur une API « qui écrit dans
 un `Writer` ».
@@ -164,6 +226,14 @@ On change la stratégie de découpage avec `Split` :
 | `bufio.ScanRunes` | runes (caractères Unicode) |
 | `bufio.ScanBytes` | octets                     |
 
+D'autres façons de découper un flux, à choisir selon le besoin :
+
+| Outil                             | Délimiteur                    | Quand l'utiliser                                   |
+| --------------------------------- | ----------------------------- | -------------------------------------------------- |
+| `bufio.Reader.ReadString('\n')`   | **conservé** dans le résultat | besoin du séparateur, pas de limite de taille fixe |
+| `bufio.Scanner` (+ `Split`)       | **retiré** du résultat        | cas courant ; ⚠️ buffer plafonné (ci-dessous)      |
+| `strings.Lines`/`SplitSeq` (1.24) | selon la fonction             | une `string` déjà en mémoire, pas un flux à lire   |
+
 > ⚠️ **Lignes trop longues.** Le `Scanner` a un buffer **plafonné** (64 Kio par défaut). Une ligne
 > plus longue provoque **`bufio.ErrTooLong`** (renvoyée par `sc.Err()`, pas par `Scan`). Pour de
 > longues lignes : `sc.Buffer(make([]byte, 0, 64*1024), 1<<20)` augmente le plafond, ou passez à
@@ -206,12 +276,35 @@ for word := range strings.FieldsSeq(text) { use(word) }
 
 ## ⚠️ Pièges
 
+- **Oublier `Close()`** sur un `*os.File`, une connexion réseau ou tout type `io.Closer` : la
+  ressource sous-jacente (descripteur de fichier, socket) n'est jamais rendue au système
+  d'exploitation. Réflexe : `defer f.Close()` juste après un `Open`/`Dial` réussi — y compris pour
+  `resp.Body` en HTTP (🔁 [Ch. 45](45-net-http.md)), où il faut en plus **drainer** le corps avant
+  de le fermer pour permettre la réutilisation de la connexion.
 - **Oublier `Flush()`** sur un `bufio.Writer` : les derniers octets restent dans le tampon et
   n'atteignent jamais la destination. Réflexe : `defer bw.Flush()` (et vérifier son erreur).
 - **`Read` partiel** : `Read` peut renvoyer `0 < n < len(p)` **sans** erreur — il ne « remplit »
   pas forcément `p`. Ne bouclez jamais à la main : utilisez `io.Copy`, `io.ReadFull` ou un `Scanner`.
 - **`io.EOF` n'est pas une erreur** anormale : c'est la fin **normale** du flux. `io.Copy`/`ReadAll`
   le gèrent et ne le remontent pas.
+- **`io.EOF` peut accompagner des données valides, dans le même appel.** Le contrat de `Read`
+  autorise `n > 0` **et** `err == io.EOF` renvoyés ensemble — ou l'erreur seule, au tour suivant ;
+  les deux comportements sont légaux. Du code qui teste `err` **avant** de traiter `p[:n]` perd
+  silencieusement le dernier bloc :
+
+  ```go
+  n, err := r.Read(buf)
+  if n > 0 {
+      process(buf[:n]) // traiter D'ABORD les octets reçus, même si err != nil
+  }
+  if err != nil {
+      return err // ... puis seulement vérifier l'erreur
+  }
+  ```
+
+  `io.Copy`, `io.ReadAll` et `bufio.Scanner` respectent déjà cet ordre — une raison de plus de
+  leur préférer une boucle manuelle.
+
 - **`Scanner.Bytes()` est réutilisé** : le slice renvoyé pointe vers le buffer interne et change au
   prochain `Scan`. Pour le conserver, **copiez-le** (`append([]byte(nil), sc.Bytes()...)`) ou
   utilisez `sc.Text()` (qui alloue une `string`).
@@ -222,6 +315,10 @@ for word := range strings.FieldsSeq(text) { use(word) }
 
 - **Réutiliser le buffer.** `io.CopyBuffer(dst, src, buf)` évite de réallouer 32 Kio à chaque
   appel ; combinez avec un `sync.Pool` ([Ch. 21](21-synchronisation.md)) pour les chemins chauds.
+- **Taille du tampon `bufio`.** `bufio.NewReader`/`NewWriter` réservent **4 Kio** par défaut.
+  `bufio.NewReaderSize`/`NewWriterSize` permettent de l'ajuster à la charge réelle : plus grand
+  pour amortir des lectures réseau par paquets, plus petit pour limiter l'empreinte mémoire quand
+  des milliers de connexions tournent en parallèle.
 - **`io.Copy` peut être zéro-copie.** S'il détecte que `src` implémente `WriterTo` ou `dst`
   implémente `ReaderFrom`, il délègue et **n'alloue aucun buffer** intermédiaire (c'est le cas
   entre fichiers, sockets, `bytes.Buffer`).
@@ -246,7 +343,9 @@ sans `bufio.Writer` interposé — vous verrez l'amortissement.
 ## 📌 À retenir
 
 - **`io.Reader`/`io.Writer`** sont les deux interfaces pivots : une méthode chacune, composables à
-  l'infini. Acceptez-les en paramètre pour un code générique et testable.
+  l'infini — en chaîne par décoration (`gzip` sur un fichier, `bufio` sur le tout) et en contrats
+  enrichis par embedding (`io.Closer`, `io.ReadWriteCloser`). Acceptez-les en paramètre pour un
+  code générique et testable.
 - **`io.Copy`** streame par blocs ; les helpers (`Tee`, `Multi`, `Limit`, `Pipe`, `Discard`)
   couvrent l'essentiel des montages de flux.
 - **`bufio`** amortit les syscalls ; `Scanner` découpe un flux (⚠️ lignes trop longues, `Bytes()`

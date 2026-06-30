@@ -14,6 +14,14 @@ Go n'a **pas d'exceptions** pour le contrôle de flux. Une fonction qui peut éc
 choix rend les chemins d'échec visibles dans le code — verbeux, mais robuste et lisible. La
 devise : _les erreurs sont des valeurs_.
 
+> 💡 Ce n'est pas qu'une question de style. Une exception **déroule la pile** et a un coût au
+> moment où elle est levée (capture de la trace, recherche d'un handler) — même pour un échec
+> **attendu** (fichier absent, port invalide). Une `error` Go est une valeur ordinaire : la
+> renvoyer ne coûte pas plus cher qu'un retour normal, qu'il y ait échec ou non. Le `if err !=
+nil` répété est le prix payé pour cette absence de coût caché, et pour la visibilité : à
+> chaque appel, le lecteur voit qu'un échec est possible, sans avoir à remonter la pile
+> mentalement pour savoir quelles exceptions peuvent traverser une fonction.
+
 L'exemple complet est dans [`code/ch10-errors/`](../code/ch10-errors/).
 
 ---
@@ -42,6 +50,12 @@ err = fmt.Errorf("port invalide : %d", 99999)     // erreur formatée
 > (1 allocation), il n'y a donc plus de raison de préférer l'un à l'autre pour une erreur
 > formatée simple.
 
+> 💡 **Convention de message** : en **minuscules**, sans **point final**, et sans préfixe
+> redondant (« failed to… », « error: »…). Raison : un message d'erreur est fait pour être
+> **concaténé** dans une chaîne plus longue via `%w` (`"ouverture %q: %w"` donne
+> `ouverture "x": disque plein`) — une majuscule ou un point au milieu d'une phrase
+> détonneraient. `go vet` ne le vérifie pas, mais `staticcheck` (règle ST1005) le signale.
+
 ## Le motif idiomatique
 
 L'erreur est le **dernier** retour ; on la teste **immédiatement** (rappel
@@ -57,6 +71,19 @@ defer f.Close() // nettoyage déterministe (intro ; détail Ch. 16)
 
 > ⚠️ **Ne jamais ignorer une erreur** silencieusement (`f, _ := os.Open(...)`). Si vous l'ignorez
 > vraiment sciemment, rendez-le explicite et commentez pourquoi.
+
+> ⚠️ Quand `err != nil`, les **autres valeurs de retour ne sont pas fiables** : par convention
+> Go, elles valent leur zéro (ici `f == nil`), sauf documentation contraire explicite de la
+> fonction appelée. Ne testez/utilisez jamais une valeur associée à une erreur non nulle sans
+> avoir vérifié au préalable ce que la doc promet.
+
+Faut-il **renvoyer l'erreur telle quelle** ou l'**envelopper** ? La règle pratique : ajoutez du
+contexte quand l'appelant **ne peut pas deviner** d'où vient l'erreur (quel fichier, quelle
+ligne, quel paramètre) ; renvoyez-la telle quelle quand le contexte de l'appel n'apporte rien
+(une fonction qui ne fait que relayer l'appel à une seule sous-fonction, par exemple).
+N'empilez pas un contexte déjà présent en remontant plusieurs couches — un message du type
+`"ouverture: ouverture: ouverture: ..."` signale un wrapping ajouté par réflexe à chaque
+niveau plutôt qu'aux frontières utiles.
 
 ## Envelopper (`wrap`) avec `%w`
 
@@ -111,6 +138,12 @@ if errors.As(err, &pe) {
 > ⚠️ Comparez **toujours** avec `errors.Is`, pas avec `==` : `err == ErrEmptyKey` échoue dès que
 > l'erreur a été enveloppée. `errors.Is` traverse la chaîne.
 
+| Comparaison                                        | Traverse le wrapping ? | Compare quoi                                                             | À utiliser pour…                                                                                                                         |
+| -------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `==`                                               | Non                    | Identité de la valeur (pointeur/structure)                               | Quasiment jamais sur une `error` ; risque de faux négatif dès qu'il y a wrapping (ou faux positif inexistant, juste un échec silencieux) |
+| `errors.Is(err, cible)`                            | Oui                    | Égalité avec une **sentinelle** (ou méthode `Is` personnalisée)          | « Est-ce **cette** erreur précise (ou une déclarée équivalente) ? »                                                                      |
+| `errors.As(err, &cible)` / `errors.AsType[T](err)` | Oui                    | Le **type concret** d'un maillon (assignable à `cible`, ou méthode `As`) | « Y a-t-il, dans la chaîne, une erreur de **ce type**, pour en lire le contexte ? »                                                      |
+
 ## 🆕 `errors.AsType[E]` (Go 1.26)
 
 `errors.AsType` est la variante **générique** d'`errors.As` : plus besoin de déclarer une
@@ -129,6 +162,12 @@ if pe, ok := errors.AsType[*ParseError](err); ok { use(pe) }
 Signature : `func AsType[E error](err error) (E, bool)`. Plus typée (pas de `any`), plus directe,
 et le compilateur `go fix` peut migrer `As` → `AsType` automatiquement.
 
+> 💡 Bénéfice de plus que la concision : `errors.As` **panique** si la cible n'est pas un
+> pointeur vers un type implémentant `error` (voir ⚠️ Pièges) — une erreur qui ne se révèle
+> qu'à l'exécution. Avec `errors.AsType[E error]`, la contrainte `E error` est vérifiée par le
+> **compilateur** ; passer un type qui n'implémente pas `error` est un refus de compilation,
+> pas une panique en production.
+
 ## Sentinelles **vs** types d'erreur
 
 Deux façons de signaler une condition reconnaissable :
@@ -137,6 +176,13 @@ Deux façons de signaler une condition reconnaissable :
 | ----------------- | ----------------------------------- | ----------- | -------------------------------------- |
 | **Sentinelle**    | `var ErrNotFound = errors.New(...)` | `errors.Is` | condition simple, sans données         |
 | **Type d'erreur** | `type ParseError struct{ ... }`     | `errors.As` | besoin de **contexte** (ligne, champ…) |
+
+Cette distinction structure la bibliothèque standard : `io.EOF`, `sql.ErrNoRows`,
+`context.Canceled` sont des **sentinelles** (testées avec `errors.Is`) ; `*fs.PathError`,
+`*net.OpError`, `*strconv.NumError` sont des **types d'erreur** qui transportent l'opération et
+le chemin/la valeur en cause (récupérés avec `errors.As`/`AsType`). Reconnaître ces deux
+familles à l'usage aide à deviner, dans une nouvelle bibliothèque, quel outil utiliser sans
+relire toute la doc.
 
 Un **type d'erreur** porte des champs (numéro de ligne, nom de champ) et **enveloppe** sa cause
 via une méthode `Unwrap` :
@@ -165,7 +211,24 @@ err := errors.Join(err1, err2, err3) // ignore les nil ; renvoie nil si tout est
 // err.Error() = les messages, un par ligne
 ```
 
-`fmt.Errorf` accepte d'ailleurs **plusieurs `%w`** (1.20) : `fmt.Errorf("%w / %w", a, b)`.
+La chaîne **linéaire** du premier schéma (un `Unwrap() error` par maillon, un seul chemin
+possible) devient un **arbre** avec `errors.Join` : l'erreur agrégée implémente
+`Unwrap() []error` — plusieurs branches au lieu d'une seule cause :
+
+```
+   errors.Join(err1, err2, err3)        Unwrap() []error
+        |              |              |
+        v              v              v
+      err1            err2           err3   <- chacune peut elle-même être enveloppée
+```
+
+`errors.Is` et `errors.As` parcourent **chaque branche en profondeur** : il suffit qu'**une
+seule** contienne la cible pour que le test réussisse, même si l'erreur jointe en compte des
+dizaines.
+
+`fmt.Errorf` accepte d'ailleurs **plusieurs `%w`** (1.20) : `fmt.Errorf("%w / %w", a, b)`
+produit le **même genre d'arbre** (`Unwrap() []error`) qu'`errors.Join`, mais en une seule
+erreur formatée — pratique pour joindre deux causes sans perdre de message d'introduction.
 
 ## `panic` n'est **pas** une erreur
 
@@ -195,6 +258,10 @@ err := errors.Join(err1, err2, err3) // ignore les nil ; renvoie nil si tout est
 
 - **Ignorer l'erreur** (`_`) → bugs silencieux. Traitez ou propagez.
 - **`==` au lieu d'`errors.Is`** → faux négatif dès qu'il y a wrapping.
+- **`==` entre deux erreurs « au même message »**, même sans wrapping : `errors.New("clé vide")
+== errors.New("clé vide")` vaut **`false`**. Chaque appel à `errors.New` alloue un
+  `*errorString` distinct ; seule la comparaison à la **même variable sentinelle**, créée une
+  fois au niveau package, a un sens.
 - **`%v` au lieu de `%w`** quand on voulait propager → la chaîne est rompue, `Is`/`As`
   échouent.
 - **Exposer une sentinelle** (`var ErrFoo`) en fait une **partie de l'API publique** : les
@@ -210,6 +277,10 @@ err := errors.Join(err1, err2, err3) // ignore les nil ; renvoie nil si tout est
   allocation pour tout le programme.
 - N'enveloppez pas dans une **boucle chaude** par réflexe : ajoutez du contexte aux
   **frontières** (entrée/sortie d'une couche), pas à chaque appel.
+- `errors.Join` alloue **systématiquement** : une fois pour filtrer le slice (les `nil` sont
+  ignorés), une fois pour la structure qui porte `Unwrap() []error`. Sur un chemin chaud où une
+  seule erreur est possible à la fois, préférez un simple `return err` ou `fmt.Errorf(...%w...)`
+  à un `errors.Join(err)` à une seule entrée.
 
 ## 🧪 À tester soi-même
 

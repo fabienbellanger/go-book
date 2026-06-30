@@ -12,8 +12,9 @@ suivent la version courante du langage.
 
 ## Documentation officielle
 
-- **<https://go.dev>** — Portail principal du langage : téléchargements,
-  documentation, blog, outils.
+- **<https://go.dev>** — Portail principal du langage : le point d'entrée par
+  défaut pour les téléchargements, la documentation, le blog et les outils
+  officiels.
 - **<https://go.dev/doc/effective_go>** — _Effective Go_ : les idiomes
   fondateurs du style Go (nommage, interfaces, erreurs, concurrence). À lire une
   fois en entier. 🔁 voir Annexe F.
@@ -24,8 +25,9 @@ suivent la version courante du langage.
   des écritures entre goroutines (relation _happens-before_). 🔁 voir Ch. 25.
 - **<https://pkg.go.dev/std>** — Documentation de toute la **bibliothèque
   standard**, package par package, avec exemples exécutables.
-- **<https://go.dev/doc/>** — Index de la documentation : guides, tutoriels,
-  articles de référence (modules, generics, etc.).
+- **<https://go.dev/doc/>** — Index de la documentation : pratique pour
+  naviguer quand on ne sait pas par quel guide commencer (modules, generics,
+  etc.).
 
 ## Apprentissage
 
@@ -34,15 +36,18 @@ suivent la version courante du langage.
   notion isolée.
 - **<https://gobyexample.com>** — _Go by Example_ : recueil d'exemples courts et
   commentés, classés par thème. Parfait pour retrouver vite « comment on fait X ».
-- **<https://go.dev/doc/tutorial/>** — Tutoriels officiels guidés (premier
-  module, API web, generics, fuzzing).
+- **<https://go.dev/doc/tutorial/>** — Tutoriels officiels guidés pas à pas
+  (premier module, API web, generics, fuzzing) : pour pratiquer sur un petit
+  projet complet plutôt que sur des extraits isolés.
 
 ## Blog & notes de version
 
 - **<https://go.dev/blog/>** — _The Go Blog_ : annonces, plongées techniques
-  (GC, ordonnanceur, generics, itérateurs…) signées par l'équipe Go.
-- **<https://go.dev/doc/devel/release>** — Historique des **notes de version** :
-  ce qui change à chaque release. 🔁 voir Annexe C.
+  (GC, ordonnanceur, generics, itérateurs…) signées par l'équipe Go. À suivre
+  pour rester à jour et comprendre le contexte d'une nouveauté.
+- **<https://go.dev/doc/devel/release>** — Index de toutes les **notes de
+  version** : pratique pour retrouver le changelog d'une version précise,
+  passée ou future. 🔁 voir Annexe C.
 - **<https://go.dev/doc/go1.26>** — Notes de la version 1.26 (et, en remplaçant le
   numéro dans l'URL, de chaque version). À consulter à chaque montée de version.
 
@@ -52,7 +57,8 @@ suivent la version courante du langage.
   **ramasse-miettes**, l'**ordonnanceur** et la gestion mémoire ; cherchez les
   billets sur le GC et le scheduler. 🔁 voir Ch. 27, Ch. 28.
 - **<https://go.dev/blog/ismmkeynote>** — Exposé de référence sur la conception et
-  l'évolution du **GC** de Go (compromis latence/débit).
+  l'évolution du **GC** de Go (compromis latence/débit) ; niveau avancé, pour
+  comprendre les choix d'implémentation au-delà du guide pratique.
 - **<https://github.com/golang/go/tree/master/src/runtime>** — Le **code source
   du runtime**, abondamment commenté (fichiers `malloc.go`, `mgc.go`, `proc.go`,
   `map.go`…). La source ultime pour comprendre un comportement interne.
@@ -64,9 +70,11 @@ suivent la version courante du langage.
 ## Propositions & design
 
 - **<https://github.com/golang/go/issues>** — Le **suivi des problèmes** et des
-  propositions ; toute évolution du langage y est discutée publiquement.
+  propositions ; toute évolution du langage y est discutée publiquement. Utile
+  pour suivre l'avancement d'une fonctionnalité ou signaler un bug.
 - **<https://github.com/golang/proposal>** — Dépôt des **documents de
-  conception** (design docs) des fonctionnalités majeures.
+  conception** (design docs) des fonctionnalités majeures : pour comprendre le
+  raisonnement derrière une décision de langage.
 - **<https://go.dev/s/proposal-process>** — Description du **processus de
   proposition** : comment une idée devient une fonctionnalité du langage.
 
@@ -79,20 +87,24 @@ suivent la version courante du langage.
 - **<https://github.com/google/pprof>** — `pprof` : analyse et visualisation des
   profils (top, listes, graphes de flamme). 🔁 voir Ch. 37.
 - **<https://github.com/go-delve/delve>** — _Delve_ : le débogueur de référence
-  pour Go (`dlv`), conscient des goroutines.
+  pour Go (`dlv`), conscient des goroutines. Pour déboguer pas à pas un
+  programme, y compris concurrent.
 - **<https://pkg.go.dev/golang.org/x/tools>** — Modules outils officiels
   (`goimports`, `stringer`, analyseurs `go/analysis`…). 🔁 voir Projet 6.
 
 ## Communauté
 
 - **<https://go.dev/help>** — Page d'aide officielle pointant vers les canaux
-  d'entraide et les ressources d'apprentissage.
+  d'entraide et les ressources d'apprentissage. Point de départ si vous ne
+  savez pas par où commencer.
 - **<https://github.com/golang/go/wiki>** — Le **wiki** communautaire : FAQ,
-  guides, listes de bibliothèques et de retours d'expérience.
+  guides, listes de bibliothèques et de retours d'expérience. Pratique pour
+  trouver une bibliothèque tierce ou un retour d'usage.
 - **<https://reddit.com/r/golang>** — Communauté active (actualités, questions,
   retours d'expérience).
 - **Gophers Slack** (invitation via **<https://invite.slack.golangbridge.org>**) —
-  Discussions en temps réel, nombreux canaux thématiques.
+  Discussions en temps réel, nombreux canaux thématiques. Pour une question
+  urgente ou un échange direct avec la communauté.
 
 ---
 

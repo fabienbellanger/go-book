@@ -25,6 +25,12 @@ Un **pipeline** enchaîne des étapes reliées par des canaux : chaque étape li
 écrit en aval. Chaque maillon est **une goroutine**, et tout circule **en flux** — rien n'est
 matérialisé entre les étapes ([Ch. 18](18-iterateurs.md) pour la version paresseuse mono-goroutine).
 
+Pourquoi une goroutine par étape plutôt qu'une seule fonction qui enchaîne les transformations en
+séquence ? Parce que les étapes se **chevauchent** : pendant que `stage(+1)` traite l'élément 2,
+`stage(x2)` prépare déjà l'élément 3 — comme une chaîne de montage. Le **débit**, une fois le pipeline
+« plein », dépasse celui d'un traitement séquentiel, même si la **latence** d'un élément isolé (le
+temps pour traverser tous les maillons) ne change pas.
+
 ```
   source ----> stage(x2) ----> stage(+1) ----> sink
    <-chan        <-chan          <-chan        range/collect
@@ -51,7 +57,26 @@ func stage[A, B any](ctx context.Context, in <-chan A, f func(A) B) <-chan B {
 ```
 
 Le `select` sur `ctx.Done()` est **vital** : sans lui, si le consommateur arrête de lire, la goroutine
-se bloque sur `out <-` et **fuit** ([Ch. 19](19-goroutines.md)).
+se bloque sur `out <-` et **fuit** ([Ch. 19](19-goroutines.md)). Ce garde-fou doit être répété à
+**chaque** maillon, pas seulement au dernier : un seul `stage` qui s'en passe suffit à fuir dès que
+l'aval s'arrête plus haut dans la chaîne.
+
+```go
+// ❌ Sans select sur ctx.Done() : si plus personne ne lit out, la goroutine reste bloquée sur
+// `out <- f(v)` pour toujours. Elle n'est pas « plantée », juste bloquée à jamais — donc jamais
+// libérée par le GC : c'est exactement la fuite que GOEXPERIMENT=goroutineleakprofile détecte
+// (plus bas dans ce chapitre).
+func leakyStage[A, B any](in <-chan A, f func(A) B) <-chan B {
+	out := make(chan B)
+	go func() {
+		defer close(out)
+		for v := range in {
+			out <- f(v) // bloque indéfiniment si le consommateur a cessé de lire
+		}
+	}()
+	return out
+}
+```
 
 ## Fan-out / fan-in & worker pool
 
@@ -65,8 +90,15 @@ Quand une étape est **lente**, on la **parallélise** : plusieurs workers se pa
    fan-out : N workers tirent du MÊME canal   fan-in : on fusionne leurs sorties
 ```
 
-Mais « une goroutine par tâche » ne **borne** rien : un million de tâches = un million de goroutines.
-Le **worker pool** fixe un plafond — `n` workers, pas plus :
+Mais « une goroutine par tâche » ne **borne** rien : un million de tâches = un million de goroutines
+**simultanées**. Le coût n'est pas que la pile de chacune (~2 Ko, [Ch. 19](19-goroutines.md) — un
+million de goroutines, c'est « seulement » ~2 Go) : c'est surtout la pression sur l'**ordonnanceur**
+(un million de G à répartir sur quelques P, [Ch. 28](28-ordonnanceur-gmp.md)), sur le **GC** (qui doit
+scanner chaque pile vivante), et — le plus souvent décisif — sur la **ressource avale** que ces
+goroutines sollicitent toutes en même temps (connexions à une base de données, descripteurs de
+fichiers, quota d'une API tierce) : sans plafond, rien ne l'empêche d'être saturée. Le **worker pool**
+fixe un plafond explicite — `n` workers, pas plus — et c'est ce plafond qui borne le **parallélisme
+effectif**, indépendamment du nombre de tâches :
 
 ```go
 // code/ch23-patterns-concurrence/pipeline.go
@@ -93,6 +125,48 @@ func workerPool[T, U any](n int, items []T, f func(T) U) []U {
 > 💡 C'est le **parallélisme borné** : on dimensionne `n` selon les ressources (cœurs, connexions
 > réseau), au lieu de submerger la machine. Le projet 3 en fait son cœur.
 
+Le code ne comporte **aucune étape de fusion explicite** — c'est un fan-in « gratuit ». Chaque worker
+écrit `out[i] = f(items[i])` à un **indice qui lui est propre** (`idx` ne distribue jamais deux fois le
+même indice) ; comme `out` est pré-dimensionné, l'ordre du résultat final est celui de `items`, sans
+avoir à fusionner des flux qui arriveraient dans le désordre :
+
+```
+   idx <- 0 1 2 3 4 5 6 7        un seul canal `chan int`, alimenté par la boucle principale
+            |   |   |
+        +---+   |   +---+
+        v       v       v
+     worker1  worker2  worker3   n workers tirent CHACUN le prochain indice libre
+        |       |       |
+        v       v       v
+   out[i] = f(items[i])          écriture à un indice distinct : pas de course, pas de fusion à coder
+```
+
+Un vrai **fan-in en flux** (résultats consommés au fil de l'eau, ordre non garanti) demanderait à
+l'inverse un canal de sortie unique, fermé par une goroutine de fusion dédiée une fois tous les workers
+terminés — utile quand l'entrée n'est pas une slice connue d'avance mais un flux continu.
+
+Deux risques à anticiper pour les tâches d'un pool :
+
+- **Panique non isolée** : une `panic` dans `f` n'est **pas** confinée au worker qui l'a déclenchée —
+  elle fait planter **tout le programme** ([Ch. 17](17-panic-recover.md)). Chaque worker doit poser sa
+  propre frontière de `recover`, qui convertit la panique en erreur au lieu de tout faire tomber :
+  ```go
+  for i := range idx {
+      func() {
+          defer func() {
+              if r := recover(); r != nil {
+                  errs[i] = fmt.Errorf("tâche %d paniquée : %v", i, r) // isolée, pas de crash global
+              }
+          }()
+          out[i] = f(items[i])
+      }()
+  }
+  ```
+- **Erreur silencieuse** : `workerPool` suppose ici que `f` ne peut pas échouer (`U` seul, pas
+  `(U, error)`). Pour des tâches faillibles, on fait porter l'erreur par `U` (un type `Result[T]` avec
+  un champ `Err`), ou on bascule sur `errgroup` (section suivante), qui annule le reste du pool dès la
+  première erreur.
+
 ## `errgroup` : annuler à la première erreur
 
 Lancer N tâches et **abandonner toutes** dès que l'une échoue est si courant qu'il existe un outil
@@ -116,6 +190,11 @@ func (g *Group) Go(f func() error) {
 Les tâches **coopératives** (qui surveillent `ctx.Done()`, [Ch. 22](22-context.md)) s'arrêtent alors
 au plus tôt — inutile de finir un travail dont le résultat sera jeté.
 
+La version réelle de `x/sync/errgroup` va plus loin : `(*Group).SetLimit(n)` borne le nombre de tâches
+**actives en même temps** — `g.Go` se bloque alors jusqu'à ce qu'une place se libère. C'est un worker
+pool et un errgroup combinés en un seul outil : parallélisme **borné** et annulation à la **première
+erreur**.
+
 ## Rate limiting
 
 Pour ne pas saturer un service en aval, on **cadence** : au plus une action par intervalle. Un
@@ -137,6 +216,14 @@ func rateLimited(ctx context.Context, items []int, every time.Duration, f func(i
 }
 ```
 
+Le canal `tick.C` est **bufferisé à 1** : si `f` met plus longtemps que `every` à s'exécuter, les tops
+manqués sont **perdus**, pas mis en file — le rythme ne s'accélère jamais pour « rattraper » un retard
+(toujours `tick.Stop()`, comme ici en `defer` ; détail des timers au [Ch. 44](44-temps.md)). Ce ticker
+cadence à **intervalle fixe**, mais n'autorise aucune **rafale** : impossible de consommer trois jetons
+d'un coup même s'ils se sont accumulés. Pour un débit qui tolère des pics ponctuels, la référence est
+`golang.org/x/time/rate` — algorithme du **seau de jetons** (_token bucket_) — avec une limite **et**
+une capacité de rafale configurables séparément.
+
 ## Data races & le détecteur de courses
 
 Une **data race** survient quand **deux goroutines accèdent à la même mémoire en même temps**, qu'**au
@@ -145,11 +232,15 @@ moins un** accès est une **écriture**, et qu'**aucune synchronisation** ne les
 **imprévisible** — et souvent invisible en test.
 
 ```go
-// COURSE : deux goroutines écrivent n sans synchronisation.
+// COURSE : n++ est lecture + écriture ; deux goroutines y accèdent sans synchronisation.
 var n int
 go func() { n++ }()
 go func() { n++ }()
 ```
+
+Cela reste une course même avec `GOMAXPROCS=1` : la **préemption** peut interrompre une goroutine entre
+la lecture et l'écriture de `n`, exactement comme sur plusieurs cœurs. Limiter le parallélisme **masque**
+la probabilité d'observer la course, il ne la **supprime** pas ([Ch. 28](28-ordonnanceur-gmp.md)).
 
 On ne les repère pas à l'œil : on les **instrumente**. Le **détecteur de courses** (`-race`) signale
 tout accès concurrent non synchronisé **observé à l'exécution** :
@@ -207,7 +298,8 @@ func Transfer(from, to *Account, amount int64) {
 Tester un timeout, un _rate limiter_, un _retry_ avec backoff... implique d'**attendre** — tests
 **lents** et **instables**. `testing/synctest` (GA en 1.25) exécute le test dans une **bulle isolée**
 dotée d'une **horloge virtuelle** : le temps n'avance que lorsque **toutes** les goroutines de la bulle
-sont **durablement bloquées**, et il avance alors **instantanément**.
+sont **durablement bloquées**, et il avance alors **instantanément**. Aucun `GOEXPERIMENT` n'est requis
+depuis la GA — contrairement à `goroutineleak` un peu plus loin, qui en réclame toujours un.
 
 ```go
 // code/ch23-patterns-concurrence/synctest_test.go
@@ -268,6 +360,8 @@ Vérifié sur go1.26.4 : il pointe la **ligne exacte** du blocage. Sans `GOEXPER
 - **Fuite de pipeline** : un maillon bloqué sur `out <-` parce que l'aval a cessé de lire. Toujours un
   `select` avec `ctx.Done()` (ou un canal `done`).
 - **Worker pool non borné** : « une goroutine par tâche » n'est pas un pool. Fixez `n`.
+- **Panique non isolée dans un worker** : une tâche qui panique sans `recover` **propre à elle** ne
+  fait pas perdre qu'elle-même — elle arrête **tout le programme** ([Ch. 17](17-panic-recover.md)).
 - **Oublier `-race`** : une course peut passer 1000 tests verts puis casser en prod. `-race` en CI.
 - **Tester avec de vrais `time.Sleep`** : lent et instable. Préférez `synctest` (temps virtuel).
 - **`errgroup` sans coopération** : si les tâches n'écoutent pas `ctx.Done()`, l'annulation ne les
@@ -280,6 +374,10 @@ Vérifié sur go1.26.4 : il pointe la **ligne exacte** du blocage. Sans `GOEXPER
   [Ch. 28](28-ordonnanceur-gmp.md)). Mesurez.
 - Un **pipeline** non bufferisé synchronise à chaque valeur (~185 ns/maillon, [Ch. 20](20-channels-select.md)).
   Pour de gros volumes, **lotissez** (envoyez des slices) ou bufferisez les canaux.
+- `workerPool` pré-dimensionne `out` (`make([]U, len(items))`) plutôt que d'`append`-er sous mutex :
+  zéro réallocation, zéro contention d'écriture. La seule façon d'`append`-er en parallèle sans course
+  serait de protéger l'opération entière, ce qui **sérialiserait** ce que le pool cherche justement à
+  paralléliser.
 - **`-race`** ralentit l'exécution **2–10×** : outil de test, pas de production.
 - 🔁 Benchmarks et `benchstat` au [Ch. 36](36-tests-benchmarks-fuzzing.md).
 
@@ -304,7 +402,8 @@ go test -run TestRateLimitedVirtualTime -v ./ch23-patterns-concurrence/...
 ## 📌 À retenir
 
 - **Pipeline** = maillons reliés par canaux, en flux ; **fan-out/fan-in** parallélise une étape lente ;
-  un **worker pool** **borne** le parallélisme (`n` workers).
+  un **worker pool** **borne** le parallélisme (`n` workers) — chaque tâche doit isoler ses propres
+  erreurs et paniques.
 - `errgroup` (ou son équivalent) **annule** tout à la première erreur — à condition que les tâches
   **écoutent** `ctx.Done()`.
 - Une **data race** = accès concurrent non synchronisé, au moins une écriture = comportement
@@ -315,6 +414,8 @@ go test -run TestRateLimitedVirtualTime -v ./ch23-patterns-concurrence/...
 
 ## 🔁 Pour aller plus loin
 
+- [Ch. 17 — Panic & recover](17-panic-recover.md) : isoler la panique d'une tâche de pool, sans faire
+  tomber le programme entier.
 - [Ch. 25 — Modèle mémoire](25-modele-memoire.md) : ce que « non synchronisé » veut dire formellement.
 - [Ch. 28 — L'ordonnanceur](28-ordonnanceur-gmp.md) : pourquoi l'I/O permet bien plus de goroutines.
 - [Ch. 29 — Observabilité](29-observabilite-runtime.md) : profils `goroutine`/`goroutineleak`, métriques.

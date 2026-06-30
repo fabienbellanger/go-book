@@ -37,4 +37,8 @@ func main() {
 	if v, ok := recvWithTimeout(ready, time.Second); ok {
 		fmt.Println("recvWithTimeout : reçu", v)
 	}
+
+	// 5. select choisit au hasard parmi les cas prêts : aucune branche n'est favorisée.
+	a, b := selectFairness(10_000)
+	fmt.Printf("selectFairness(10000) : case A=%d, case B=%d (répartition équilibrée)\n", a, b)
 }

@@ -57,6 +57,18 @@ type Event struct {
 > ⚠️ **Seuls les champs exportés** (initiale majuscule) sont vus par `encoding/json`. Un champ
 > non exporté (`internal`) est ignoré **silencieusement** — pas d'erreur, juste un trou.
 
+**Pourquoi la réflexion, et pourquoi des tags ?** `Marshal`/`Unmarshal` acceptent un paramètre
+`any` : la fonction ne connaît le type concret de `v` qu'à l'**exécution**, pas à la compilation.
+Le seul moyen d'inspecter un type Go arbitraire — lister ses champs, lire leurs tags, lire ou
+écrire leurs valeurs — sans écrire un cas particulier par type, est le package `reflect` (🔁
+[Ch. 34](34-reflexion.md)). C'est la même contrainte qui justifie les tags : un identifiant Go
+exporté doit commencer par une majuscule, alors que les API JSON suivent souvent une autre
+convention (`snake_case`, `camelCase`). Le tag `json:"..."` découple le nom Go (imposé par le
+compilateur) du nom de la clé JSON (convention du format) ; `encoding/json` le lit via
+`reflect.StructTag.Get` et **met en cache** ces métadonnées par type pour ne pas reparcourir les
+tags à chaque appel — la même stratégie de cache que recommande le Ch. 34 pour tout usage
+réfléchi répété.
+
 ### `omitempty` vs `omitzero` (🆕 1.24)
 
 Le piège historique : `omitempty` considère « vide » selon la valeur zéro de **bas niveau**.
@@ -86,6 +98,11 @@ func (t *Temperature) UnmarshalJSON(data []byte) error { /* parse "21.5°C" */ }
 
 `Temperature(21.5)` s'encode alors en `"21.5°C"` au lieu de `21.5`.
 
+> 💡 `time.Time` implémente lui-même `Marshaler`/`Unmarshaler` : c'est ce qui explique pourquoi
+> le champ `CreatedAt` de `Event`, plus haut, s'encode en chaîne RFC 3339
+> (`"2023-11-14T22:13:20Z"`) plutôt qu'en nombre. Sans cette implémentation, la représentation
+> interne de `time.Time` (secondes, nanosecondes, fuseau) fuiterait telle quelle dans le JSON.
+
 ### Streaming : `Encoder` / `Decoder`
 
 Pour lire/écrire un **flux** (fichier, corps HTTP, connexion) sans tout charger en mémoire, on
@@ -110,6 +127,23 @@ valeurs, `[`, `{`…) pour les très gros documents.
 - **`json.Number`** — préserve le nombre **tel quel** (chaîne), sans le convertir en `float64` ;
   active-le via `dec.UseNumber()` pour éviter la perte de précision sur les grands entiers.
 
+Concrètement, le motif « champ discriminant » ressemble à ceci :
+
+```go
+type Envelope struct {
+	Kind string          `json:"kind"`
+	Data json.RawMessage `json:"data"` // décodage différé : dépend de Kind
+}
+
+var env Envelope
+json.Unmarshal(b, &env) // Data reste un fragment JSON brut à ce stade
+switch env.Kind {
+case "temperature":
+	var t Temperature
+	json.Unmarshal(env.Data, &t) // décodage déclenché une fois Kind connu
+}
+```
+
 ### Décoder vers `any`
 
 Sans type cible précis, JSON se décode vers des types **génériques** :
@@ -130,8 +164,19 @@ Sans type cible précis, JSON se décode vers des types **génériques** :
 - **Champ non exporté** non sérialisé — silence total. Exportez-le (et taguez-le).
 - **`any` décode un nombre en `float64`** — un `int64` > 2^53 perd des chiffres. Décodez vers un
   champ `int64` typé, ou activez `UseNumber()`.
-- **`nil slice` vs `[]`** — une slice `nil` s'encode `null`, une slice **vide** (`[]T{}`) s'encode
-  `[]`. Côté client, la différence compte ; choisissez et soyez constant.
+- **`nil` slice vs `[]`** (🔁 [Ch. 6](06-arrays-slices.md)) — une slice `nil` s'encode `null`, une
+  slice **vide** (`[]T{}`) s'encode `[]`. Côté client, la différence compte (un consommateur peut
+  faire `arr.length` sur `[]` mais planter sur `null`) ; choisissez et soyez constant. C'est un
+  défaut de `encoding/json` v1 — `json/v2` (plus bas) change cette règle.
+- **Correspondance de clé insensible à la casse en repli** — si aucun champ Go (nom exporté ou
+  tag) ne correspond **exactement** à une clé JSON, `Unmarshal` retente une correspondance
+  **insensible à la casse** avant d'abandonner. Un champ `Name` accepte donc `"name"`, `"NAME"`,
+  voire `"naMe"` — pratique en cas d'à-peu-près, mais ça masque une faute de frappe côté client
+  qui devrait plutôt produire un champ inconnu.
+- **`Unmarshal` ne réinitialise pas la cible** — décoder un JSON partiel dans une struct déjà
+  remplie **ne remet pas à zéro** les champs absents du document ; seuls les champs présents sont
+  écrasés. Pratique pour un PATCH partiel, piégeux si l'on s'attend à un remplacement complet
+  (repartez d'une valeur zéro explicite, ex. `e = Event{}`, avant de décoder).
 - **Ordre des clés** d'un objet décodé en `map` : non déterministe (🔁 [Ch. 32](32-maps-hachage.md)).
   Pour un ordre stable, décodez vers une **struct**.
 - **`Unmarshal` sans pointeur** → erreur `json: Unmarshal(non-pointer …)`.
@@ -143,20 +188,32 @@ Sans type cible précis, JSON se décode vers des types **génériques** :
 Go 1.25/1.26 embarquent une refonte majeure, **`encoding/json/v2`** (et son étage syntaxique
 `encoding/json/jsontext`). Elle n'existe **que** si l'on compile avec
 `GOEXPERIMENT=jsonv2` — c'est **expérimental**, hors promesse de compatibilité Go 1, et **non
-utilisé** dans le code de ce chapitre.
+utilisé** dans le code de ce chapitre. Activer le flag ne fait pas que révéler ces nouveaux
+packages : en Go 1.26, il fait aussi tourner `encoding/json` v1 **par-dessus** v2 en interne
+(même implémentation), avec un comportement annoncé comme identique dans l'immense majorité des
+cas. C'est précisément ce qui permet à l'équipe Go de mesurer l'impact de v2 sur du code v1
+existant, sans le réécrire.
 
 Apports visés :
 
-- **Performance** — décodage nettement plus rapide et moins d'allocations (streaming repensé).
+- **Performance** — décodage nettement plus rapide et moins d'allocations (streaming repensé,
+  nouvelles interfaces `MarshalerTo`/`UnmarshalerFrom` qui écrivent/lisent directement sur un
+  `jsontext.Encoder`/`Decoder` sans passer par un `[]byte` intermédiaire).
 - **Options explicites** — les fonctions acceptent des `Options` variadiques
   (`json.Marshal(v, opts...)`) au lieu de comportements implicites ; on configure finement la
   sémantique (clés inconnues, casse, formats) et la syntaxe.
-- **Défauts plus sains** — ex. les map sont triées par clé à l'encodage, gestion plus stricte.
+- **Défauts plus stricts** — clés JSON dupliquées et octets UTF-8 invalides deviennent des
+  **erreurs** (v1 les tolère silencieusement) ; l'appariement nom de champ ↔ clé JSON en
+  désérialisation est **sensible à la casse** par défaut (v1 retombe sur une correspondance
+  insensible à la casse, 🔁 Pièges ci-dessus) ; une slice/map **`nil`** s'encode en `[]`/`{}` au
+  lieu de `null` — le piège « `nil` slice vs `[]` » plus haut disparaît en v2.
 - **API de flux dédiée** — `MarshalWrite`/`UnmarshalRead` (vers `io.Writer`/`io.Reader`),
   `MarshalEncode`/`UnmarshalDecode` (vers un `jsontext.Encoder`/`Decoder`).
 
-> 💡 En production, restez sur `encoding/json` (v1, stable) jusqu'à stabilisation de v2. Surveillez
-> les notes de version : l'objectif à terme est que v1 délègue à v2.
+> 💡 En production, restez sur `encoding/json` sans le flag (comportement par défaut inchangé,
+> stable) jusqu'à stabilisation de v2 — v1 ne sera de toute façon **jamais retiré**, la migration
+> est prévue comme une option, pas une obligation. Surveillez les notes de version pour suivre la
+> décision d'adoption (ou d'abandon) du flag.
 
 ---
 
@@ -204,7 +261,13 @@ API jumelle de JSON (`Marshal`/`Unmarshal`, tags `xml:"..."`). Plus lourde et pl
 
 Le moteur de Go est **RE2** : **pas de références arrière** (`\1`) ni de lookaround, mais une
 **garantie de temps linéaire** — pas d'« explosion catastrophique » comme avec les moteurs à
-backtracking (⚡). 🔁 voir aussi `strings`/`bytes` ([Ch. 7](07-maps-strings.md)).
+backtracking (⚡). Le mécanisme : RE2 compile le motif en un **automate fini**, parcouru en une
+seule passe sur l'entrée (temps proportionnel à sa longueur). Un moteur à backtracking (PCRE, les
+regex de Python ou Perl) explore au contraire **toutes** les combinaisons possibles par
+récursion, ce qui peut dégénérer en temps **exponentiel** sur certains motifs pathologiques (ex.
+`(a+)+b` appliqué à une longue chaîne sans `b`). Références arrière et lookaround exigent
+justement cette capacité de backtracking — RE2 les exclut délibérément pour préserver sa
+garantie. 🔁 voir aussi `strings`/`bytes` ([Ch. 7](07-maps-strings.md)).
 
 ### Compiler une fois
 
@@ -250,12 +313,19 @@ for _, m := range kvPattern.FindAllStringSubmatch(s, -1) {
 
 ## ⚡ Performance
 
-- **JSON est cher** : réflexion à chaque champ (🔁 [Ch. 34](34-reflexion.md)). Pour un chemin
-  ultra-chaud, un `MarshalJSON` manuel ou de la génération de code (🔁 Projet 6) bat la réflexion.
+- **JSON est cher** : `Marshal`/`Unmarshal` paient l'introspection par réflexion à **chaque
+  champ**, à **chaque appel** — le Ch. 34 chiffre ce surcoût à environ **110× plus lent** qu'un
+  code écrit à la main, avec des allocations là où le code direct n'en fait aucune (🔁
+  [Ch. 34](34-reflexion.md)). `encoding/json` **atténue** ce coût en mettant en cache les
+  métadonnées de champs par type, calculées une fois puis réutilisées — mais ne l'élimine pas : le
+  parcours des valeurs reste réflexif à chaque appel. Pour un chemin ultra-chaud, un `MarshalJSON`
+  manuel ou de la génération de code (🔁 Projet 6) bat la réflexion.
 - **Streaming** (`Encoder`/`Decoder`) évite de matérialiser un gros `[]byte` intermédiaire.
 - **`regexp`** : compiler une fois ; les variantes `…Bytes` évitent une conversion `string`↔`[]byte`
   inutile quand on travaille déjà sur des octets.
-- **`json/v2`** (expérimental) vise précisément à réduire allocations et temps de décodage.
+- **`json/v2`** (expérimental) vise précisément à réduire allocations et temps de décodage ; les
+  annonces de l'équipe Go évoquent jusqu'à **10×** plus rapide en désérialisation sur certains
+  projets ayant testé le flag — à vérifier sur son propre code avant toute généralisation.
 
 ## 🧪 À tester soi-même
 

@@ -32,6 +32,22 @@ func NewPoint(x, y int) *Point {
 	return &p
 }
 
+// sink simule un état qui survit à l'appel (cache, registre global, etc.) : tout
+// ce qu'on y range doit donc être conservé au-delà de la fonction qui l'écrit.
+var sink any
+
+// pointToInterface boxe un Point (16 octets, deux int) dans une interface RETENUE
+// par sink : même minuscule et passé PAR VALEUR (pas par pointeur, contrairement à
+// NewPoint), p s'échappe vers le tas. Ce n'est pas la conversion vers `any` qui
+// coûte en elle-même : c'est le fait que sink en garde une référence au-delà de
+// l'appel — exactement le même principe que &p renvoyé par NewPoint, par un autre
+// chemin.
+//
+//go:noinline
+func pointToInterface(p Point) {
+	sink = p // p boxé puis retenu par sink -> tas, alors que p est petit et passé par valeur
+}
+
 // sumSmallSlice construit un petit slice LOCAL et le consomme sur place. Depuis
 // Go 1.25/1.26, le backing d'un slice de taille bornée et non échappé est alloué
 // sur la PILE : zéro allocation tas.

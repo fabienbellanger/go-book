@@ -52,8 +52,13 @@ var shape Shape = Circle{R: 2}
 ## L'`itab` et le dispatch dynamique
 
 L'**`itab`** (interface table) est construit **une fois** par couple (type concret, type interface),
-puis **mis en cache** par le runtime — les conversions suivantes le réutilisent. Il contient les
-**pointeurs vers les méthodes** du type concret qui satisfont l'interface.
+puis **mis en cache** par le runtime — les conversions suivantes le réutilisent. Concrètement, le
+runtime garde une **table de hachage globale** de tous les couples déjà rencontrés : la lecture s'y
+fait **sans verrou** (chemin chaud), et seule la construction d'une entrée absente prend un verrou le
+temps de l'insérer. Une fois créée, une entrée n'est **jamais libérée** — son coût mémoire dépend donc
+du nombre de couples (type, interface) **distincts** réellement utilisés par le programme, pas du
+nombre de conversions effectuées. Chaque `itab` contient les **pointeurs vers les méthodes** du type
+concret qui satisfont l'interface.
 
 Appeler `s.Area()` sur une `Shape` fait un **dispatch dynamique** : aller chercher le pointeur de
 `Area` dans l'`itab`, puis sauter dessus.
@@ -74,7 +79,13 @@ func TotalArea(shapes []Shape) float64 {
 On croit souvent que « l'appel indirect coûte cher ». En pratique, sur un CPU moderne, un dispatch
 **monomorphe** est presque gratuit (le prédicteur de branche l'anticipe). Le **vrai** coût est que
 l'appel via interface **empêche l'inlining** de la méthode — et toutes les optimisations qui en
-découlent. Mesuré (1000 formes, `Area()` trivial) :
+découlent. La raison est mécanique : `s.Area()` saute via un pointeur de fonction lu dans l'`itab`,
+connu seulement à l'**exécution** — le compilateur ne peut donc pas, en compilant `TotalArea`,
+remplacer l'appel par le corps d'**une** implémentation précise, puisqu'il en existe potentiellement
+plusieurs (`Circle.Area`, `Rectangle.Area`, ...) et que le bon choix dépend de la valeur réelle au
+moment de l'appel. Un appel `c.Area()` sur un `Circle` **concret** désigne au contraire une fonction
+**unique et connue à la compilation** : le compilateur peut recopier son corps sur place. Mesuré (1000
+formes, `Area()` trivial) :
 
 | Variante               | ns/op    | allocs/op |
 | ---------------------- | -------- | --------- |
@@ -90,7 +101,8 @@ type concret ou les **génériques** ([Ch. 11](11-genericite.md)) ; ailleurs, le
 Ranger une valeur dans une interface, c'est la **boxer** : l'interface doit pointer vers les données.
 Si la valeur ne tient pas déjà sous forme de pointeur, le runtime **l'alloue sur le tas**
 ([Ch. 26](26-allocation-escape.md)). Exception : les petits entiers **0 à 255** sont **mis en cache** par
-le runtime (pointeurs pré-alloués) :
+le runtime, via un tableau partagé de 256 mots (`staticuint64s`) indexé par la valeur — boxer `42` ne
+fait que pointer vers la case 42 de ce tableau, déjà là au démarrage du programme, jamais réécrite :
 
 ```go
 // code/ch33-interfaces-profondeur/iface.go
@@ -129,10 +141,34 @@ FailBuggy(true)   == nil ? false   (PIEGE : on attendait true)
 FailCorrect(true) == nil ? true    (correct)
 ```
 
-L'interface renvoyée porte `(*myError, nil)` : type **non nul**, donc `err != nil` est vrai même sans
-erreur. La parade : renvoyer **explicitement** `nil` (`FailCorrect`), jamais une variable de type
-pointeur concret. ⚠️ Ne déclarez pas vos fonctions avec un type d'erreur **concret** en retour ;
-renvoyez `error`.
+Voici ce que contiennent réellement les deux mots machine de l'interface renvoyée par
+`FailBuggy(true)` :
+
+```
+   var e *myError   // pointeur Go ordinaire, valant nil
+   return e         // conversion implicite *myError -> error
+
+   l'iface error renvoyee :
+   +-------------------------------+----------+
+   |  *itab                        |   data   |
+   |  -> itab(*myError, error)     |   nil    |
+   +-------------------------------+----------+
+        mot 1 : NON nil                 mot 2 : nil
+        fixe par le type DECLARE        valeur de e au moment du
+        de e (*myError), construit      return : e ne pointait
+        des la compilation, jamais      vers rien
+        a l'execution
+
+   err == nil compare les DEUX mots : mot1 != nil suffit a rendre
+   err != nil, quelle que soit la valeur (meme nil) du mot 2.
+```
+
+Le type concret (`*myError`) est connu du compilateur **avant même l'exécution** : l'`itab` du couple
+`(*myError, error)` existe et est non-nil **indépendamment** de la valeur de `e`. C'est pour cela
+qu'un pointeur nil **typé** suffit à rendre l'interface non-nil — le mot 1 ne reflète jamais la
+valeur de `e`, seulement son **type déclaré**. La parade : renvoyer **explicitement** `nil`
+(`FailCorrect`), jamais une variable de type pointeur concret. ⚠️ Ne déclarez pas vos fonctions avec un
+type d'erreur **concret** en retour ; renvoyez `error`.
 
 ## Assertions, type switch & `reflect.TypeAssert`
 
