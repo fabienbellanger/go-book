@@ -106,7 +106,7 @@ benchstat old.txt new.txt
 ```
 
 ```
-        | old.txt (naïve) |      new.txt (map)          |
+        | old.txt (naïve) |      new.txt (map)           |
         |     sec/op      |   sec/op      vs base        |
 Dedup-8     2464.43µ ± 4%    76.57µ ± 0%   -96.89% (p=0.000 n=8)
         |      B/op       |    B/op       vs base        |
