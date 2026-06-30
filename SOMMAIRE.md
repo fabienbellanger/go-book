@@ -98,3 +98,4 @@
 - F — [Idiomes & style](annexes/F-idiomes-style.md)
 - G — [Ressources](annexes/G-ressources.md)
 - H — [Concurrence sûre](annexes/H-concurrence-sure.md)
+- I — [Verbes de formatage `fmt`](annexes/I-formatage-fmt.md)
