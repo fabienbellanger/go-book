@@ -6,12 +6,12 @@
   <script>
     // À la réouverture du site, revenir directement sur la dernière page lue.
     // Le paramètre ?home (lien « Accueil ») force l'affichage du sommaire.
-    (function () {
+    (() => {
       try {
         if (new URLSearchParams(location.search).has("home")) return;
-        var last = localStorage.getItem("lastPage");
+        const last = localStorage.getItem("lastPage");
         if (last) location.replace(last);
-      } catch (e) {}
+      } catch {}
     })();
   </script>
   <title>{{.Book.Title}}</title>

@@ -12,26 +12,28 @@
 <link rel="stylesheet" href="{{.BaseURL}}assets/css/layout.css">
 <script>
   // Applique le thème avant le rendu pour éviter le flash (FOUC).
-  (function () {
+  (() => {
     try {
-      var t = localStorage.getItem("theme");
+      let t = localStorage.getItem("theme");
       if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.setAttribute("data-theme", t);
-    } catch (e) {}
+    } catch {}
   })();
 </script>
 {{- end -}}
 
 {{- define "header" -}}
 <header class="site-header">
-  <button class="burger" id="sidebar-toggle" aria-label="Afficher ou masquer le sommaire" title="Afficher/masquer le sommaire">☰</button>
+  <button type="button" class="burger" id="sidebar-toggle" aria-label="Afficher ou masquer le sommaire" title="Afficher/masquer le sommaire">☰</button>
   <a class="brand" href="{{.BaseURL}}index.html?home">{{.Book.Title}}</a>
-  <form class="search-box" action="{{.BaseURL}}search.html" method="get" role="search">
-    <input id="q" name="q" type="search" placeholder="Rechercher…  (/)" autocomplete="off">
-    <div id="search-results" class="search-results" hidden></div>
-  </form>
+  <search class="search-box">
+    <form action="{{.BaseURL}}search.html" method="get">
+      <input id="q" name="q" type="search" placeholder="Rechercher…  (/)" autocomplete="off">
+      <div id="search-results" class="search-results" hidden></div>
+    </form>
+  </search>
   <div class="header-actions">
-    <button id="theme-toggle" class="theme-toggle" aria-label="Basculer le thème" title="Thème clair/sombre">◐</button>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Basculer le thème" title="Thème clair/sombre">◐</button>
   </div>
 </header>
 {{- end -}}

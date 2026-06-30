@@ -5,7 +5,7 @@
   {{- template "head" . }}
   <title>{{.Page.Title}} — {{.Book.Title}}</title>
 </head>
-<body>
+<body data-last-page="{{.Page.OutPath}}">
   {{- template "header" . }}
   <div class="layout">
     {{- template "sidebar" . }}
@@ -34,10 +34,6 @@
     {{- end }}
   </div>
   {{- template "footer" . }}
-  <script>
-    // Mémorise la dernière page lue pour y revenir à la réouverture du site.
-    try { localStorage.setItem("lastPage", "{{.Page.OutPath}}"); } catch (e) {}
-  </script>
   <script src="{{.BaseURL}}assets/js/theme.js"></script>
   <script src="{{.BaseURL}}assets/js/search.js" data-base="{{.BaseURL}}"></script>
 </body>

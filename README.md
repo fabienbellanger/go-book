@@ -83,7 +83,7 @@ go vet ./...    # analyse statique propre
 
 ## 📋 Todo-list
 
-- Corriger les erreurs dans les fichiers HTML générés pour le site
+- [x] Corriger les erreurs dans les fichiers HTML générés pour le site
 
 ## 📄 Licence
 

@@ -14,7 +14,7 @@
 BINARY  := gobook-site
 SRC     := ../..
 OUT     := $(SRC)/public
-ADDR    ?= :8080
+ADDR    ?= :8180
 LDFLAGS := -s -w
 
 .PHONY: build serve test vet fmt update-deps check chroma dist clean

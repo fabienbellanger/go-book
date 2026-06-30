@@ -1,0 +1,24 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+	"files": {
+		"includes": [
+			"**",
+			"!**/github-markdown.css",
+			"!**/chroma.css",
+			"!**/search-index.js",
+			"!**/search-index.json"
+		]
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"style": {
+				"noDescendingSpecificity": "off"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": false
+	}
+}
