@@ -14,8 +14,9 @@
   // Applique le thème avant le rendu pour éviter le flash (FOUC).
   (() => {
     try {
-      let t = localStorage.getItem("theme");
-      if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      // Thème clair par défaut ; on ne suit la préférence système que si l'utilisateur
+      // n'a rien choisi explicitement via la bascule.
+      const t = localStorage.getItem("theme") || "light";
       document.documentElement.setAttribute("data-theme", t);
     } catch {}
   })();

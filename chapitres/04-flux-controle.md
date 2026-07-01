@@ -83,15 +83,15 @@ for sum < 10 { … }
 for { … }
 ```
 
-```
-   Table de décision — quelle forme de for ?
-   -----------------------------------------
-   Compter / indexer .................. for i := 0; i < n; i++ { }
-   Boucler tant qu'une condition tient . for cond { }
-   Boucler N fois (sans indice utile) .. for range n { }       (🆕 1.22)
-   Parcourir une collection ........... for i, v := range coll { }
-   Boucle événementielle / serveur .... for { select { … } }   (voir Ch. 20)
-```
+**Table de décision — quelle forme de `for` ?**
+
+| Besoin                              | Forme                                |
+| ----------------------------------- | ------------------------------------ |
+| Compter / indexer                   | `for i := 0; i < n; i++ { }`         |
+| Boucler tant qu'une condition tient | `for cond { }`                       |
+| Boucler N fois (sans indice utile)  | `for range n { }` (🆕 1.22)          |
+| Parcourir une collection            | `for i, v := range coll { }`         |
+| Boucle événementielle / serveur     | `for { select { … } }` (voir Ch. 20) |
 
 La clause `post` (comme l'`init`) est une **instruction simple**, pas seulement `i++` :
 une **affectation multiple** y fonctionne aussi, ce qui permet de faire avancer deux
@@ -336,11 +336,43 @@ for _, f := range funcs {
 
 ## ⚡ Performance
 
-- **Bornes éliminées par le compilateur (BCE)** — une boucle idiomatique
-  `for i := 0; i < len(s); i++ { _ = s[i] }` permet au compilateur de prouver que `i`
-  reste dans les bornes et de **supprimer le test de dépassement** à chaque accès `s[i]`.
-  Indexer avec une variable non corrélée à `len(s)` réintroduit ce test. On observe ces
-  décisions avec `go build -gcflags="-d=ssa/check_bce/debug=1"`.
+- **Bornes éliminées par le compilateur (BCE)** — en Go, **chaque** accès `s[i]` est
+  protégé : le compilateur insère un test caché qui déclenche un `panic` si `i` sort des
+  bornes. Autrement dit, `_ = s[i]` compile en réalité comme :
+
+    ```go
+    if uint(i) >= uint(len(s)) {
+        panic("index out of range")
+    }
+    _ = s[i]
+    ```
+
+    Ce test coûte quelques instructions **à chaque tour de boucle**. Le compilateur sait
+    parfois **prouver** qu'il est inutile et le supprime : c'est le BCE. La condition de la
+    boucle est alors la clé — comparez :
+
+    ```go
+    // ✅ BCE : la borne de la boucle EST len(s). Le compilateur en déduit
+    //    que 0 ≤ i < len(s), donc s[i] ne peut pas déborder → test supprimé.
+    for i := 0; i < len(s); i++ {
+        _ = s[i]
+    }
+
+    // ❌ test conservé : n n'est pas corrélé à len(s). Le compilateur ne peut
+    //    rien garantir, il laisse le contrôle avant chaque s[i].
+    n := computeLimit()
+    for i := 0; i < n; i++ {
+        _ = s[i]
+    }
+    ```
+
+    L'astuce classique pour aider le compilateur quand on ne peut pas boucler directement
+    sur `len(s)` : ajouter une seule vérification **avant** la boucle (`_ = s[n-1]`), ce qui
+    suffit à prouver que tous les indices suivants sont valides et à retirer les tests du
+    corps. En pratique, boucler avec `range` ou sur `len(s)` reste le réflexe le plus sûr.
+    On observe ces décisions avec `go build -gcflags="-d=ssa/check_bce/debug=1"` (voir aussi
+    Ch. 39, dédié à la compilation).
+
 - **`range` sur un array copie tout l'array une fois** (voir ⚠️ ci-dessus) — pour un grand
   array, ce coût est réel et se répète à chaque appel de la fonction qui contient la
   boucle. Ranger sur un **slice** (en-tête de 3 mots, indépendant de la taille des
