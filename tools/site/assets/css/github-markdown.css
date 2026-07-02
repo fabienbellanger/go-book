@@ -63,8 +63,14 @@
   padding: 1em;
   overflow: auto;
   background: var(--code-bg);
+  /* Bordure : délimite la boîte même quand son fond coïncide avec le conteneur
+     (ex. code à l'intérieur d'une citation, où --code-bg == --bg-subtle en sombre). */
+  border: 1px solid var(--border);
   border-radius: 8px;
   line-height: 1.45;
+  /* Les tabulations (indentation Go/gofmt) s'affichent sur 4 colonnes, comme dans l'éditeur. */
+  -moz-tab-size: 4;
+  tab-size: 4;
 }
 .markdown-body pre code {
   padding: 0;
