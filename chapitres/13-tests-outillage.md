@@ -50,7 +50,7 @@ go test -run Slugify   # filtre par nom (regexp)
 > (ou un chiffre) : `func TestFoo` est reconnu, mais `func Testfoo` **compile sans erreur** et
 > n'est **jamais exécuté** par `go test`. `go vet` (que `go test` invoque en partie avant de
 > lancer les tests) le signale : `Testfoo has malformed name: first letter after 'Test' must
-> not be lowercase`.
+not be lowercase`.
 
 ## Tests **table-driven** + sous-tests
 
@@ -386,4 +386,6 @@ go test -fuzz=FuzzSlugify -fuzztime=5s ./ch13-tests/...
   corpus de fuzz, pièges de micro-bench.
 - [Ch. 23 — Tests concurrents](23-patterns-concurrence.md) : `-race`, `testing/synctest`.
 - [Ch. 12 — Packages & modules](12-packages-modules.md) : `Example` comme documentation.
+- [Projet 1 — Outil CLI `txtkit`](../projets/1-cli/) : tests de tables, `testdata/`, couverture
+  sur un vrai outil en ligne de commande.
 - Annexe B — Antisèche des commandes `go`.

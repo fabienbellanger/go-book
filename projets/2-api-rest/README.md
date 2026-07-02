@@ -205,6 +205,74 @@ st, err := store.NewSQLStore(ctx, "sqlite", "tasks.db")
 > Le backend par défaut reste `MemStore` : `tasksd` tourne et se teste **sans
 > aucune base ni dépendance**.
 
+### Transactions : tout ou rien
+
+Certaines opérations touchent **plusieurs lignes** et n'ont de sens que si elles
+aboutissent **ensemble**. Archiver une tâche, c'est l'insérer dans `tasks_archive`
+**et** la retirer de `tasks` : si la seconde écriture échoue, la première doit être
+défaite, sinon on se retrouve avec un doublon orphelin. C'est le rôle d'une
+**transaction** `database/sql`.
+
+`SQLStore.ArchiveTask` s'appuie sur un petit helper réutilisable, `withinTx` :
+
+```go
+func (s *SQLStore) withinTx(ctx context.Context, fn func(*sql.Tx) error) error {
+	tx, err := s.db.BeginTx(ctx, nil) // *sql.TxOptions : nil = isolation par défaut
+	if err != nil {
+		return fmt.Errorf("ouverture transaction : %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // filet de sécurité (no-op après Commit)
+
+	if err := fn(tx); err != nil {
+		return err // le defer Rollback annule les écritures déjà faites
+	}
+	return tx.Commit()
+}
+```
+
+Trois points de vigilance :
+
+- ⚠️ **Toujours terminer la transaction.** Une transaction ni validée ni annulée
+  garde une connexion mobilisée : sous charge, le pool s'épuise et le service se
+  fige. Le `defer tx.Rollback()` garantit une sortie propre sur **tous** les
+  chemins (erreur, `return` anticipé, panique).
+- ⚠️ **`Rollback` après `Commit` est inoffensif.** Il renvoie `sql.ErrTxDone`,
+  qu'on ignore. On peut donc laisser le `defer Rollback` en place sans condition :
+  soit le `Commit` a réussi et le Rollback ne fait rien, soit on est sorti en
+  erreur et il annule tout.
+- ⚠️ **Lire *dans* la transaction.** On lit la tâche avec `tx.QueryRowContext`
+  (pas `s.db`) pour une vue cohérente avec les écritures qui suivent, et on ordonne
+  INSERT **puis** DELETE : la moindre erreur laisse `tasks` intact.
+
+La logique métier tient alors en quelques lignes, sans se soucier du cycle de vie :
+
+```go
+func (s *SQLStore) ArchiveTask(ctx context.Context, id int64) error {
+	return s.withinTx(ctx, func(tx *sql.Tx) error {
+		t, err := scanTask(tx.QueryRowContext(ctx, `SELECT ... WHERE id = ?`, id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		} else if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO tasks_archive ...`, ...); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `DELETE FROM tasks WHERE id = ?`, id)
+		return err
+	})
+}
+```
+
+> 💡 Les requêtes restent **paramétrées** (`?`), transaction ou pas : c'est la
+> défense contre l'injection SQL (voir [Ch. 47](../../chapitres/47-securite-supply-chain.md)).
+>
+> Le `MemStore` fournit le même `ArchiveTask` : tout s'y déroule sous un unique
+> verrou exclusif, l'équivalent en mémoire du « tout ou rien ». C'est cette
+> version que valide `archive_test.go` (cas nominal, échec sans mutation,
+> annulation) — le `SQLStore`, lui, reste sans dépendance et n'exige un driver
+> qu'à l'exécution réelle.
+
 ---
 
 ## 8. Tests
@@ -221,7 +289,9 @@ go test -race ./...
 - **Middlewares** (`middleware_test.go`) — récupération de panique (`500`),
   génération/reprise de `X-Request-Id`.
 - **Store** (`mem_test.go`) — CRUD, filtre/pagination, `ErrNotFound`,
-  annulation par `context`. `sql_test.go` valide le découpage des migrations.
+  annulation par `context`. `archive_test.go` vérifie l'**atomicité** de
+  `ArchiveTask` (commit, échec sans mutation, annulation). `sql_test.go` valide le
+  découpage des migrations.
 
 > 🧪 **À tester soi-même** : ajouter `PATCH /api/tasks/{id}` (mise à jour
 > partielle) avec un `*string` pour `title` afin de distinguer « absent » de

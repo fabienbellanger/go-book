@@ -363,4 +363,4 @@ go test -bench=. -benchmem ./ch11-generics/...
   génériques évitent.
 - [Ch. 39 — Compilation & inlining](39-compilation-inlining-pgo.md) : GC-shape stenciling,
   dictionnaires, inlining des instanciations.
-- Projet 4 — Bibliothèque générique : ensemble, file de priorité, cache LRU.
+- [Projet 4 — Bibliothèque générique](../projets/4-lib-generique/) : ensemble, file de priorité, cache LRU.

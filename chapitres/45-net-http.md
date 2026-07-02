@@ -412,5 +412,7 @@ go run ./ch45-http      # serveur sur :8080 ; curl http://localhost:8080/items/4
 - [Ch. 22 — `context`](22-context.md) : annulation et deadlines de bout en bout.
 - [Ch. 43 — `log/slog`](43-journalisation-slog.md) : journaliser les requêtes proprement.
 - [Ch. 46 — Embarquer & déployer](46-embed-build-deploiement.md) : `embed.FS` servie, binaire autonome.
-- [Ch. 37 — Profiling](37-profiling-pprof.md) & Projet 7 : `net/http/pprof` sur un service réel.
+- [Ch. 37 — Profiling](37-profiling-pprof.md) & [Projet 7](../projets/7-profiling/) : `net/http/pprof` sur un service réel.
+- [Projet 5 — Service réseau TCP](../projets/5-service-reseau/) : pour le réseau **bas niveau**
+  (TCP brut, protocole binaire) avec le seul package `net`, sans HTTP.
 - Doc : [`pkg.go.dev/net/http`](https://pkg.go.dev/net/http), [`net/http/httptest`](https://pkg.go.dev/net/http/httptest).

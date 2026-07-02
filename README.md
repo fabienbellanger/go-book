@@ -16,7 +16,7 @@ exemples compilables, listes et tableaux.
 
 La table des matières complète et cliquable est dans **[SOMMAIRE.md](SOMMAIRE.md)**.
 
-Le livre est organisé en 9 parties (48 chapitres, 7 projets, 8 annexes) :
+Le livre est organisé en 9 parties (50 chapitres, 7 projets, 9 annexes) :
 
 | Partie  | Thème                                                     | Chapitres |
 | ------- | --------------------------------------------------------- | --------- |
@@ -27,15 +27,15 @@ Le livre est organisé en 9 parties (48 chapitres, 7 projets, 8 annexes) :
 | IV      | Runtime & modèle mémoire                                  | 24–29     |
 | V       | Internals des structures de données & types               | 30–35     |
 | VI      | Performance, profiling & outils                           | 36–40     |
-| VII     | La bibliothèque standard en pratique & mise en production | 41–47     |
+| VII     | La bibliothèque standard en pratique & mise en production | 41–49     |
 | VIII    | Projets pratiques                                         | 7 projets |
-| Annexes | Glossaire, antisèche, idiomes, concurrence sûre…          | A–H       |
+| Annexes | Glossaire, antisèche, idiomes, concurrence sûre…          | A–I       |
 
 ## 🧭 Parcours de lecture
 
-- 🟢 **Débutant Go** : Parties 0 → I → II → III, puis projets 1 et 2.
+- 🟢 **Débutant Go** : Parties 0 → I → II → III, puis projets 1, 2 et 4.
 - 🟡 **Lecture intégrale** : dans l'ordre — c'est le parcours conçu.
-- 🔵 **« Je connais Go, je veux les internals »** : Parties IV → V → VI (suivre les renvois 🔁).
+- 🔵 **« Je connais Go, je veux les internals »** : Parties IV → V → VI (suivre les renvois 🔁), puis Projet 6 (`go:generate`).
 - 🟣 **Focus concurrence** : Partie III → Ch. 28 (scheduler) → Ch. 25 (modèle mémoire) → Annexe H → Projet 3.
 - 🟠 **Focus performance** : Partie VI → Ch. 26-27 (alloc/GC) → Projet 7.
 - 🟤 **Focus production / stdlib** : Partie VII (lisible dès la fin de la Partie I) → projets 2 et 5.
@@ -45,9 +45,7 @@ Le livre est organisé en 9 parties (48 chapitres, 7 projets, 8 annexes) :
 ```
 go-book/
 ├─ README.md          présentation + parcours de lecture
-├─ SOMMAIRE.md        table des matières cliquable
-├─ PLAN.md            plan de production détaillé
-├─ IDEA.md            brief d'origine
+├─ SOMMAIRE.md        table des matières cliquable (pilote la navigation du site)
 ├─ chapitres/         un fichier Markdown par chapitre (+ _gabarit.md)
 ├─ code/              exemples compilables — module unique example.com/gobook
 ├─ projets/           7 projets pratiques
@@ -80,10 +78,6 @@ go vet ./...    # analyse statique propre
 - [Bibliothèque standard](https://pkg.go.dev/std)
 - [A Tour of Go](https://go.dev/tour/)
 - [Go by Example](https://gobyexample.com/)
-
-## 📋 Todo-list
-
-- [x] Corriger les erreurs dans les fichiers HTML générés pour le site
 
 ## 📄 Licence
 

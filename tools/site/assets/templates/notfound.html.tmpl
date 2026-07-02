@@ -1,0 +1,96 @@
+{{- /*
+  Page 404 AUTONOME : servie par GitHub Pages pour toute URL inconnue, à une
+  profondeur imprévisible. Elle n'a donc AUCUNE dépendance externe (CSS/JS inline)
+  et reconstruit le lien d'accueil en JavaScript pour gérer le préfixe de projet
+  GitHub Pages (ex. /go-book/). Le contexte « . » est une map {Book}.
+*/ -}}
+{{- define "notfound.html.tmpl" -}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 — Page introuvable · {{.Book.Title}}</title>
+  <script>
+    // Applique le thème enregistré avant le rendu pour éviter le flash (FOUC).
+    (() => {
+      try {
+        let t = localStorage.getItem("theme");
+        if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #ffffff; --bg-subtle: #f6f8fa; --fg: #1f2328; --fg-muted: #59636e;
+      --accent: #0969da; --border: #d1d9e0;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    :root[data-theme="dark"] {
+      --bg: #0d1117; --bg-subtle: #161b22; --fg: #e6edf3; --fg-muted: #9198a1;
+      --accent: #4493f8; --border: #30363d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0d1117; --bg-subtle: #161b22; --fg: #e6edf3; --fg-muted: #9198a1;
+        --accent: #4493f8; --border: #30363d;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 1.5rem;
+      background: var(--bg); color: var(--fg);
+      font-family: var(--font-sans); line-height: 1.6;
+    }
+    .card {
+      max-width: 34rem; width: 100%; text-align: center;
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2.5rem 2rem;
+    }
+    .code {
+      font-family: var(--font-mono); font-size: 4.5rem; font-weight: 700;
+      line-height: 1; color: var(--accent); margin: 0;
+    }
+    h1 { font-size: 1.4rem; margin: 1rem 0 0.5rem; }
+    p { color: var(--fg-muted); margin: 0.5rem 0; }
+    .actions { margin-top: 1.75rem; }
+    a.home {
+      display: inline-block; padding: 0.6rem 1.2rem;
+      background: var(--accent); color: #fff; text-decoration: none;
+      border-radius: 8px; font-weight: 600;
+    }
+    a.home:hover { filter: brightness(1.08); }
+    a.plain { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <p class="code">404</p>
+    <h1>Page introuvable</h1>
+    <p>La page demandée n'existe pas ou a été déplacée.</p>
+    <p>Utilisez la recherche depuis l'accueil, ou revenez à la table des matières.</p>
+    <div class="actions">
+      <a id="home" class="home" href="/">Retour à l'accueil</a>
+    </div>
+  </main>
+  <script>
+    // Reconstruit le lien d'accueil en tenant compte d'un éventuel préfixe de
+    // projet GitHub Pages (ex. /go-book/) : sur un site de projet, le premier
+    // segment du chemin est le nom du dépôt ; en local (racine), on garde « / ».
+    (() => {
+      try {
+        const seg = location.pathname.split("/").filter(Boolean);
+        const base = location.hostname.endsWith("github.io") && seg.length > 0
+          ? "/" + seg[0] + "/"
+          : "/";
+        document.getElementById("home").setAttribute("href", base + "index.html?home");
+      } catch {}
+    })();
+  </script>
+</body>
+</html>
+{{- end -}}

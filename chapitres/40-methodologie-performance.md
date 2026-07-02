@@ -203,4 +203,4 @@ go test -bench=. -benchmem -count=8 -run=^$ ./ch40-methodologie/...
 - [Ch. 38 — Traces & Flight Recorder](38-traces-flight-recorder.md) : diagnostiquer la latence.
 - [Ch. 39 — Compilation & PGO](39-compilation-inlining-pgo.md) : laisser le compilateur optimiser.
 - [Ch. 27 — GC](27-garbage-collector.md) : `GOGC`/`GOMEMLIMIT` pour la mémoire et la p99.
-- **Projet 7 — Profiling d'un service réel** : la méthode de bout en bout sur un cas complet.
+- [**Projet 7 — Profiling d'un service réel**](../projets/7-profiling/) : la méthode de bout en bout sur un cas complet.

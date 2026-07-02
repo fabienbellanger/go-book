@@ -422,4 +422,6 @@ go test -run TestRateLimitedVirtualTime -v ./ch23-patterns-concurrence/...
 - [Ch. 36 — Benchmarks](36-tests-benchmarks-fuzzing.md) : mesurer un système concurrent.
 - [Annexe H — Concurrence sûre](../annexes/H-concurrence-sure.md) : règles d'or, catalogue races &
   deadlocks avec correctifs, mode opératoire de détection, checklist pre-merge.
-- Projet 3 (pipeline / worker pool) : la synthèse de tout ce chapitre.
+- [Projet 3 — Pipeline concurrent / worker pool](../projets/3-pipeline/) : la synthèse de tout ce chapitre.
+- [Projet 5 — Service réseau TCP](../projets/5-service-reseau/) : goroutines, `context` et
+  synchronisation appliqués à un serveur réel.

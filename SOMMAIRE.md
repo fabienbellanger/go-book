@@ -1,7 +1,7 @@
 # Sommaire — Comprendre et maîtriser Go 1.26
 
-> Table des matières cliquable. Les chapitres non encore rédigés pointent vers leur
-> fichier cible (à créer dans `chapitres/`). Voir [PLAN.md](PLAN.md) pour le détail.
+> Table des matières cliquable. Elle pilote la navigation du site généré (l'ordre des
+> pages vient de ce fichier).
 
 ## Partie 0 — Introduction & mise en route
 
@@ -77,6 +77,8 @@
 - Ch. 45 — [`net/http`](chapitres/45-net-http.md)
 - Ch. 46 — [Embarquer & déployer](chapitres/46-embed-build-deploiement.md)
 - Ch. 47 — [Sécurité & chaîne d'approvisionnement](chapitres/47-securite-supply-chain.md)
+- Ch. 48 — [Processus, signaux & ligne de commande](chapitres/48-processus-signaux-cli.md)
+- Ch. 49 — [Templates (`text/template` & `html/template`)](chapitres/49-templates.md)
 
 ## Partie VIII — Projets pratiques
 

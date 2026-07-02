@@ -10,7 +10,7 @@ Ce dépôt est un **livre** en français, « Comprendre et maîtriser Go 1.26 »
 - `code/` — **un seul module Go** (`example.com/gobook`) regroupant tous les exemples des chapitres, un sous-dossier `chNN-slug/` par chapitre, chacun `package main`.
 - `projets/` et `tools/site/` — des modules Go **séparés**, autonomes.
 
-`PLAN.md` (plan de production détaillé) et `PLAN_SITE.md` (conception du générateur de site) sont la source de vérité éditoriale ; `SOMMAIRE.md` est la table des matières et **pilote la navigation du site généré**.
+`SOMMAIRE.md` est la table des matières et **pilote la navigation du site généré** (l'ordre des pages en découle) : c'est la source de vérité éditoriale de la structure du livre.
 
 ## Commandes
 

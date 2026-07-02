@@ -20,17 +20,19 @@ const (
 // List) prennent un verrou partagé, les écritures un verrou exclusif. C'est le
 // schéma classique « beaucoup de lecteurs, peu d'écrivains » (Ch. 21).
 type MemStore struct {
-	mu     sync.RWMutex
-	tasks  map[int64]Task
-	nextID int64
-	now    func() time.Time // injectable : les tests figent l'horloge
+	mu       sync.RWMutex
+	tasks    map[int64]Task
+	archived map[int64]Task // tâches déplacées par ArchiveTask
+	nextID   int64
+	now      func() time.Time // injectable : les tests figent l'horloge
 }
 
 // NewMemStore crée un MemStore vide.
 func NewMemStore() *MemStore {
 	return &MemStore{
-		tasks: make(map[int64]Task),
-		now:   time.Now,
+		tasks:    make(map[int64]Task),
+		archived: make(map[int64]Task),
+		now:      time.Now,
 	}
 }
 
@@ -115,6 +117,27 @@ func (s *MemStore) Delete(ctx context.Context, id int64) error {
 	if _, ok := s.tasks[id]; !ok {
 		return ErrNotFound
 	}
+	delete(s.tasks, id)
+	return nil
+}
+
+// ArchiveTask déplace une tâche vers l'archive de façon atomique. C'est le
+// pendant en mémoire de SQLStore.ArchiveTask : ici, tout se déroule sous un seul
+// verrou exclusif, donc aucune autre goroutine ne peut observer un état
+// intermédiaire (tâche à la fois présente dans les deux maps, ou dans aucune).
+// C'est l'équivalent mémoire du « tout ou rien » d'une transaction SQL.
+func (s *MemStore) ArchiveTask(ctx context.Context, id int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	t, ok := s.tasks[id]
+	if !ok {
+		return ErrNotFound // rien n'est modifié
+	}
+	s.archived[id] = t
 	delete(s.tasks, id)
 	return nil
 }

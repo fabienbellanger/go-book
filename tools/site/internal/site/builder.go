@@ -75,6 +75,10 @@ func (b *Builder) Build(book *model.Book) error {
 	if err := b.writeTemplate("search.html.tmpl", "search.html", map[string]any{"Book": book}); err != nil {
 		return err
 	}
+	// Page 404 autonome (servie par GitHub Pages pour toute URL inconnue).
+	if err := b.writeTemplate("notfound.html.tmpl", "404.html", map[string]any{"Book": book}); err != nil {
+		return err
+	}
 
 	// 4. Index de recherche.
 	if err := b.writeSearchIndex(book); err != nil {

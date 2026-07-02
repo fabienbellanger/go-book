@@ -6,6 +6,8 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
+	"slices"
 	"strings"
 	"time"
 )
@@ -52,16 +54,23 @@ func NewSQLStore(ctx context.Context, driver, dsn string) (*SQLStore, error) {
 // Close ferme le pool de connexions sous-jacent.
 func (s *SQLStore) Close() error { return s.db.Close() }
 
-// migrate exécute chaque instruction du script initial. Idempotent grâce aux
-// « IF NOT EXISTS » de la migration.
+// migrate applique toutes les migrations embarquées, dans l'ordre lexicographique
+// des noms de fichier (0001_, 0002_, …). Idempotent grâce aux « IF NOT EXISTS ».
 func (s *SQLStore) migrate(ctx context.Context) error {
-	data, err := migrationsFS.ReadFile("migrations/0001_init.sql")
+	files, err := fs.Glob(migrationsFS, "migrations/*.sql")
 	if err != nil {
-		return fmt.Errorf("lecture migration : %w", err)
+		return fmt.Errorf("liste des migrations : %w", err)
 	}
-	for _, stmt := range splitStatements(string(data)) {
-		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
-			return fmt.Errorf("migration : %w", err)
+	slices.Sort(files) // le préfixe numérique fixe l'ordre d'application
+	for _, f := range files {
+		data, err := migrationsFS.ReadFile(f)
+		if err != nil {
+			return fmt.Errorf("lecture migration %s : %w", f, err)
+		}
+		for _, stmt := range splitStatements(string(data)) {
+			if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("migration %s : %w", f, err)
+			}
 		}
 	}
 	return nil
@@ -142,6 +151,62 @@ func (s *SQLStore) Delete(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// withinTx exécute fn à l'intérieur d'une transaction. Si fn renvoie une erreur,
+// la transaction est annulée (Rollback) et rien n'est écrit ; sinon elle est
+// validée (Commit). C'est le squelette réutilisable de toute opération « tout ou
+// rien » : la logique métier vit dans fn, la gestion du cycle de vie ici.
+func (s *SQLStore) withinTx(ctx context.Context, fn func(*sql.Tx) error) (err error) {
+	// BeginTx accepte un *sql.TxOptions (niveau d'isolation, lecture seule) ; nil
+	// = les réglages par défaut du driver. Le contexte annule la transaction s'il
+	// expire avant le Commit.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("ouverture transaction : %w", err)
+	}
+	// Rollback en defer : filet de sécurité qui annule tout si l'on retourne sur
+	// une erreur (ou une panique) avant le Commit. Après un Commit réussi, ce
+	// Rollback est un no-op inoffensif (il renvoie sql.ErrTxDone, qu'on ignore).
+	defer func() { _ = tx.Rollback() }()
+
+	if err := fn(tx); err != nil {
+		return err // le defer Rollback annule les écritures déjà faites
+	}
+	return tx.Commit()
+}
+
+// ArchiveTask déplace une tâche de « tasks » vers « tasks_archive » de façon
+// atomique : soit l'insertion dans l'archive ET la suppression aboutissent toutes
+// les deux, soit aucune. On lit puis insère AVANT de supprimer, pour que la
+// moindre erreur laisse la tâche intacte dans « tasks » (le Rollback restaure
+// l'état d'avant la transaction). Renvoie ErrNotFound si la tâche n'existe pas.
+func (s *SQLStore) ArchiveTask(ctx context.Context, id int64) error {
+	return s.withinTx(ctx, func(tx *sql.Tx) error {
+		// 1. Lire la tâche DANS la transaction (vue cohérente avec les écritures).
+		row := tx.QueryRowContext(ctx,
+			`SELECT id, title, done, created_at FROM tasks WHERE id = ?`, id)
+		t, err := scanTask(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		// 2. Insérer dans l'archive (requête paramétrée, jamais de concaténation — Ch. 47).
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO tasks_archive (id, title, done, created_at, archived_at)
+			 VALUES (?, ?, ?, ?, ?)`,
+			t.ID, t.Title, boolToInt(t.Done), t.CreatedAt.Unix(), time.Now().UTC().Unix()); err != nil {
+			return err
+		}
+		// 3. Retirer de la table active. Si cet ExecContext échoue, le defer
+		//    Rollback annule aussi l'INSERT ci-dessus : pas de doublon orphelin.
+		if _, err := tx.ExecContext(ctx, `DELETE FROM tasks WHERE id = ?`, id); err != nil {
+			return err
+		}
+		return nil // withinTx valide (Commit)
+	})
 }
 
 // scanner abstrait *sql.Row et *sql.Rows : tous deux ont une méthode Scan.

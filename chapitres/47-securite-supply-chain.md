@@ -6,6 +6,14 @@
 > (aléa, secrets, templates, fichiers, TLS). On reste au plus près de la
 > bibliothèque standard et de l'outillage `go`.
 
+> **Prérequis** — [Ch. 1](01-installation-toolchain.md) (toolchain, `GOTOOLCHAIN`),
+> [Ch. 12](12-packages-modules.md) (modules, `go.sum`), et une lecture au moins survolée
+> de [Ch. 45](45-net-http.md) (`net/http`) pour la partie réseau.
+
+---
+
+## Introduction
+
 La sécurité n'est pas un module à brancher en fin de projet : c'est une suite de
 petits choix par défaut. Go aide beaucoup (binaire statique, pas d'interpréteur à
 durcir, `html/template` qui échappe tout seul, sommes de modules vérifiées), mais
@@ -99,7 +107,8 @@ un nouveau tag. La mise à jour est un acte explicite (`go get module@version`).
 
 Combiné à `GOTOOLCHAIN` (`auto`, `local`, ou une version exacte), cela garantit que
 toute l'équipe et la CI compilent avec **le même** toolchain — un maillon de la
-chaîne d'approvisionnement souvent oublié (renvoi 🔁 ch. 1 et 12).
+chaîne d'approvisionnement souvent oublié (renvoi 🔁 [Ch. 1](01-installation-toolchain.md)
+et [Ch. 12](12-packages-modules.md)).
 
 ### 1.5 Builds reproductibles et auditables
 
@@ -111,7 +120,7 @@ chaîne d'approvisionnement souvent oublié (renvoi 🔁 ch. 1 et 12).
   même binaire (reproductibilité, pas de fuite d'arborescence locale).
 - `-buildvcs=true` embarque la révision VCS, lisible via `runtime/debug.ReadBuildInfo`
   (`vcs.revision`, `vcs.modified`) — traçabilité « quel commit a produit ce binaire ? »
-  (renvoi 🔁 ch. 46).
+  (renvoi 🔁 [Ch. 46](46-embed-build-deploiement.md)).
 
 ⚠️ Cette provenance reste d'un type particulier : Go **ne fait signer aucun module**
 par son auteur (pas d'équivalent des attestations de provenance npm ou des artefacts
@@ -149,7 +158,7 @@ regardent que les numéros de version.
 ```
 
 💡 Intégrez-le en CI comme une étape bloquante. Couplé à `go vet ./...` et aux
-analyzers (renvoi 🔁 ch. 13), c'est votre filet de sécurité statique.
+analyzers (renvoi 🔁 [Ch. 13](13-tests-outillage.md)), c'est votre filet de sécurité statique.
 
 ### 2.1 Quatre couches, de l'automatique au jugement humain
 
@@ -326,7 +335,7 @@ func readWithinRoot(dir, name string) ([]byte, error) {
 
 - ⚠️ Un serveur **sans timeout** est vulnérable au déni de service (connexions lentes
   qui s'accumulent). Renseignez `ReadTimeout`, `WriteTimeout`, `IdleTimeout`,
-  `ReadHeaderTimeout` sur `http.Server` (renvoi 🔁 ch. 45).
+  `ReadHeaderTimeout` sur `http.Server` (renvoi 🔁 [Ch. 45](45-net-http.md)).
 - `http.MaxBytesReader(w, r.Body, n)` plafonne la taille d'un corps de requête : au
   delà, la lecture renvoie une erreur. Indispensable pour les uploads et le JSON.
 - 🆕 Go 1.25 : `http.NewCrossOriginProtection()` construit un middleware anti-CSRF ;
@@ -362,19 +371,19 @@ panique) au lieu d'être simplement utilisable. Utile en environnement réglemen
 
 ## 8. Catalogue de pièges ❌ → ✅
 
-| Sujet           | ❌ Vulnérable                         | ✅ Correct                                         |
-| --------------- | ------------------------------------- | -------------------------------------------------- |
-| Jeton aléatoire | `math/rand`                           | `crypto/rand` / `rand.Text` (1.24)                 |
-| Comparer secret | `a == b`                              | `subtle.ConstantTimeCompare`                       |
-| Mot de passe    | `sha256(pwd)`                         | `bcrypt`/`argon2` (x/crypto), salé, lent           |
-| Gabarit HTML    | `text/template` dans du HTML          | `html/template` (échappement contextuel)           |
-| SQL             | concaténation de chaîne               | requête paramétrée (`$1`/`?`)                      |
-| Identifiant SQL | colonne/table interpolée directement  | liste blanche (`switch`/`map`) avant interpolation |
-| Chemin fichier  | `filepath.Join(dir, input)` brut      | `fs.ValidPath` + `os.Root` (1.24)                  |
-| TLS             | `InsecureSkipVerify: true`            | `MinVersion`, vérif. active                        |
-| Corps HTTP      | lecture non bornée                    | `http.MaxBytesReader` + timeouts serveur           |
-| Dépendances     | `GOFLAGS=-mod=mod` en CI, pas d'audit | `-mod=readonly`, `go mod verify`, `govulncheck`    |
-| Secrets         | logger l'objet entier                 | `slog.LogValuer` qui masque (ch. 43)               |
+| Sujet           | ❌ Vulnérable                         | ✅ Correct                                                        |
+| --------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| Jeton aléatoire | `math/rand`                           | `crypto/rand` / `rand.Text` (1.24)                                |
+| Comparer secret | `a == b`                              | `subtle.ConstantTimeCompare`                                      |
+| Mot de passe    | `sha256(pwd)`                         | `bcrypt`/`argon2` (x/crypto), salé, lent                          |
+| Gabarit HTML    | `text/template` dans du HTML          | `html/template` (échappement contextuel)                          |
+| SQL             | concaténation de chaîne               | requête paramétrée (`$1`/`?`)                                     |
+| Identifiant SQL | colonne/table interpolée directement  | liste blanche (`switch`/`map`) avant interpolation                |
+| Chemin fichier  | `filepath.Join(dir, input)` brut      | `fs.ValidPath` + `os.Root` (1.24)                                 |
+| TLS             | `InsecureSkipVerify: true`            | `MinVersion`, vérif. active                                       |
+| Corps HTTP      | lecture non bornée                    | `http.MaxBytesReader` + timeouts serveur                          |
+| Dépendances     | `GOFLAGS=-mod=mod` en CI, pas d'audit | `-mod=readonly`, `go mod verify`, `govulncheck`                   |
+| Secrets         | logger l'objet entier                 | `slog.LogValuer` qui masque ([Ch. 43](43-journalisation-slog.md)) |
 
 ---
 
@@ -394,6 +403,32 @@ panique) au lieu d'être simplement utilisable. Utile en environnement réglemen
 
 ---
 
+## 🧪 À tester soi-même
+
+Le code du chapitre (`code/ch47-securite/`) rassemble les réflexes ci-dessus sous forme
+de petites fonctions testables : `newToken`/`equalTokens` (aléa et comparaison en temps
+constant), `renderUserHTML`/`renderUserText` (échappement), `isSafeRelPath`/`readWithinRoot`
+(confinement de chemin) et `hardenedTLSConfig`.
+
+```bash
+cd code && go test ./ch47-securite/...
+```
+
+**À essayer :**
+
+1. Dans `TestHTMLEscaping`, comparez la sortie de `renderUserHTML("<script>")` et de
+   `renderUserText("<script>")` : la première neutralise la balise, la seconde la laisse
+   passer telle quelle (faille XSS en contexte HTML).
+2. Faites échouer `TestReadWithinRoot` volontairement en remplaçant `os.OpenRoot` par un
+   `os.Open(filepath.Join(dir, name))` brut : le cas `../` cesse d'être bloqué.
+3. Remplacez `subtle.ConstantTimeCompare` par `==` dans `equalTokens` : le test passe
+   toujours (le résultat fonctionnel est le même), ce qui illustre qu'une faille de
+   _timing_ ne se voit **pas** dans un test unitaire — d'où l'importance de la règle.
+4. Lancez `go version -m $(go env GOROOT)/bin/go` : observez le module, ses dépendances
+   avec leurs sommes, et les réglages de build — un audit de provenance en une commande.
+
+---
+
 ## 📌 À retenir
 
 - **Deux fronts** : la _provenance_ du code (`go.sum` garantit l'**intégrité**, pas
@@ -410,6 +445,13 @@ panique) au lieu d'être simplement utilisable. Utile en environnement réglemen
 - **Automatiser** : `go mod verify` + `govulncheck` + `-mod=readonly` en CI valent
   mieux que toute vigilance manuelle.
 
-🔁 Renvois : ch. 1 (toolchain), ch. 12 (modules), ch. 43 (secrets & `slog`), ch. 45
-(timeouts HTTP, CSRF), ch. 46 (builds reproductibles), ch. 35 (`runtime/secret`),
-Projet 2 (API REST).
+## 🔁 Pour aller plus loin
+
+- Toolchain et `GOTOOLCHAIN` : [Ch. 1](01-installation-toolchain.md).
+- Modules, `go.sum`, MVS : [Ch. 12](12-packages-modules.md).
+- Masquer un secret dans les logs (`slog.LogValuer`) : [Ch. 43](43-journalisation-slog.md).
+- Timeouts HTTP et protection anti-CSRF : [Ch. 45](45-net-http.md).
+- Builds reproductibles (`-trimpath`, `ReadBuildInfo`) : [Ch. 46](46-embed-build-deploiement.md).
+- Zones mémoire protégées (`runtime/secret`, expérimental) : [Ch. 35](35-unsafe-cgo.md).
+- Mise en pratique dans une API réelle : [Projet 2 — API REST](../projets/2-api-rest/).
+- Doc : `go.dev/security`, `pkg.go.dev/golang.org/x/vuln/cmd/govulncheck`.

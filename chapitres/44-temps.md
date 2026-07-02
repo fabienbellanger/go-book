@@ -4,14 +4,15 @@
 > monotone, comparaisons, fuseaux, timers/tickers correctement arrêtés, et
 > intégration avec `context`.
 
-> **Prérequis** — Ch. 7 (formatage/parsing des dates), Ch. 20 (`select`), Ch. 22
-> (`context`), Ch. 23 (tests concurrents).
+> **Prérequis** — [Ch. 7](07-maps-strings.md) (formatage/parsing des dates),
+> [Ch. 20](20-channels-select.md) (`select`), [Ch. 22](22-context.md) (`context`),
+> [Ch. 23](23-patterns-concurrence.md) (tests concurrents).
 
 ---
 
 ## Introduction
 
-Le Ch. 7 a couvert le **formatage** et le **parsing** (la fameuse date de référence
+Le [Ch. 7](07-maps-strings.md) a couvert le **formatage** et le **parsing** (la fameuse date de référence
 `2006-01-02 15:04:05`). Ce chapitre traite tout le **reste** du package `time` :
 représenter un instant, mesurer une durée, planifier une action, gérer les fuseaux.
 
@@ -23,7 +24,7 @@ Trois types portent l'essentiel :
   time.Location  un FUSEAU horaire
 ```
 
-> 🔁 Pour `Format`/`Parse` et la table exhaustive des tokens, voir **Ch. 7**.
+> 🔁 Pour `Format`/`Parse` et la table exhaustive des tokens, voir [Ch. 7](07-maps-strings.md).
 
 ---
 
@@ -167,7 +168,7 @@ time.Duration(n) * time.Second   // ✅ 5s
 // n * time.Second               // ❌ ne compile pas (types incompatibles)
 ```
 
-💡 `5 * time.Second` compile car `5` est une constante non typée (Ch. 3) ; `n * time.Second`
+💡 `5 * time.Second` compile car `5` est une constante non typée ([Ch. 3](03-variables-constantes-types.md)) ; `n * time.Second`
 ne compile pas car `n` a le type `int`.
 
 ⚠️ Un `int64` de nanosecondes ne couvre qu'**environ 290 ans** (positifs ou négatifs). Au
@@ -201,7 +202,7 @@ réserver à l'affichage final, explicitement converti avec `In`.
 
 ⚠️ `LoadLocation` lit la base tzdata du système. Sur une image conteneur minimale
 (`scratch`), elle est absente → importez le package `time/tzdata` (embarque la base
-dans le binaire) ou installez les fichiers. 🔁 Ch. 46.
+dans le binaire) ou installez les fichiers. 🔁 [Ch. 46](46-embed-build-deploiement.md).
 
 ⚡ `LoadLocation` **reparse** les fichiers tzdata à chaque appel, sans cache interne :
 appelée dans un chemin chaud (par requête HTTP, par itération de boucle), elle coûte
@@ -306,7 +307,7 @@ d'envoyer immédiatement une valeur dans `timer.C`.
 ## Intégration avec `context`
 
 Pour propager un délai à travers une chaîne d'appels, on ne passe pas une `Duration` :
-on passe un `context` porteur d'une **deadline** (🔁 Ch. 22).
+on passe un `context` porteur d'une **deadline** (🔁 [Ch. 22](22-context.md)).
 
 ```go
 ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -352,7 +353,22 @@ Le code complet (`measure`, `countTicks`, `drainTimer`, `slowDouble`) et ses tes
 cd code && go test -race ./ch44-time/...
 ```
 
-🔁 `testing/synctest` est détaillé au **Ch. 23** (tests concurrents déterministes).
+**À essayer :**
+
+1. Comparez `t.Equal(p)` et `t == p` sur un même instant chargé dans deux fuseaux
+   (`time.UTC` puis `In(paris)`) : observez que `==` renvoie `false` alors que
+   l'instant est identique.
+2. Mesurez une durée avec `time.Since(start)`, puis refaites-la après un
+   `start = start.Round(0)` : le résultat reste correct mais l'horloge n'est plus
+   monotone (plus sensible aux sauts d'horloge).
+3. Remplacez la deadline du `TestSlowDoubleTimeout` par une valeur **supérieure** au
+   délai de travail et vérifiez que l'erreur disparaît — toujours instantanément grâce
+   à l'horloge virtuelle de `synctest`.
+4. Retirez le `defer ticker.Stop()` de `countTicks` et lancez le test avec `-race` :
+   le test passe encore (le GC récupère le ticker devenu inaccessible depuis 1.23),
+   mais gardez le `Stop` comme réflexe pour les tickers encore référencés.
+
+🔁 `testing/synctest` est détaillé au [Ch. 23](23-patterns-concurrence.md) (tests concurrents déterministes).
 
 ---
 
@@ -373,8 +389,8 @@ cd code && go test -race ./ch44-time/...
 
 ## 🔁 Pour aller plus loin
 
-- Formatage & parsing des dates : **Ch. 7**.
-- `context` (annulation, deadlines, valeurs) : **Ch. 22**.
-- Tests concurrents déterministes (`testing/synctest`, race detector) : **Ch. 23**.
-- Embarquer la base tzdata dans un binaire (`time/tzdata`) : **Ch. 46**.
+- Formatage & parsing des dates : [Ch. 7](07-maps-strings.md).
+- `context` (annulation, deadlines, valeurs) : [Ch. 22](22-context.md).
+- Tests concurrents déterministes (`testing/synctest`, race detector) : [Ch. 23](23-patterns-concurrence.md).
+- Embarquer la base tzdata dans un binaire (`time/tzdata`) : [Ch. 46](46-embed-build-deploiement.md).
 - Doc : `pkg.go.dev/time`, `pkg.go.dev/testing/synctest`.
