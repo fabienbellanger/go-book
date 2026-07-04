@@ -72,6 +72,7 @@ func TestBuildIntegration(t *testing.T) {
 		"assets/css/layout.css",
 		"assets/css/chroma.css",
 		"assets/js/search.js",
+		"assets/images/favicon-gopher.svg",
 	}
 	for _, rel := range expect {
 		if _, err := os.Stat(filepath.Join(out, rel)); err != nil {

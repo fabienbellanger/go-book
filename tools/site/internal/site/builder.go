@@ -165,7 +165,7 @@ func (b *Builder) writeSearchIndex(book *model.Book) error {
 
 // copyAssets recopie css/ et js/ embarqués vers OutDir/assets/.
 func (b *Builder) copyAssets() error {
-	for _, dir := range []string{"css", "js"} {
+	for _, dir := range []string{"css", "js", "images"} {
 		err := fs.WalkDir(b.Assets, dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err

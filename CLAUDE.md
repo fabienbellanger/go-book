@@ -33,12 +33,13 @@ Chaque projet a son propre `go.mod` et `Makefile`. Travailler **depuis le dossie
 
 ### Générateur de site (`tools/site/`) — module `example.com/gobook-site`
 
+Le `Makefile` est **à la racine du dépôt** (ses recettes entrent dans `tools/site`). Lancer les cibles **depuis la racine** :
+
 ```bash
-cd tools/site
-make build              # génère le site dans ../../public
-make serve              # build + sert sur http://localhost:8080 (ADDR=:9000 pour changer)
+make build              # génère le site dans public/
+make serve              # build + sert sur http://localhost:8180 (ADDR=:9000 pour changer)
 make check              # fmt + vet + test (porte de qualité avant commit)
-make chroma             # régénère assets/css/chroma.css (après bump de chroma)
+make chroma             # régénère tools/site/assets/css/chroma.css (après bump de chroma)
 ```
 
 `public/` est **gitignoré** et reconstruit à la volée ; ne jamais committer de HTML généré. Un workflow (`.github/workflows/site.yml`) publie le site sur GitHub Pages à chaque push sur `main`.
