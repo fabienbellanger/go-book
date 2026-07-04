@@ -79,6 +79,11 @@
 - Ch. 47 — [Sécurité & chaîne d'approvisionnement](chapitres/47-securite-supply-chain.md)
 - Ch. 48 — [Processus, signaux & ligne de commande](chapitres/48-processus-signaux-cli.md)
 - Ch. 49 — [Templates (`text/template` & `html/template`)](chapitres/49-templates.md)
+- Ch. 50 — [Fichiers & systèmes de fichiers](chapitres/50-fichiers-fs.md)
+- Ch. 51 — [`database/sql`](chapitres/51-database-sql.md)
+- Ch. 52 — [Réseau bas niveau (`net`)](chapitres/52-reseau-net.md)
+- Ch. 53 — [Cryptographie pratique](chapitres/53-crypto.md)
+- Ch. 54 — [Architecture & organisation d'une application](chapitres/54-architecture.md)
 
 ## Partie VIII — Projets pratiques
 
@@ -101,3 +106,7 @@
 - G — [Ressources](annexes/G-ressources.md)
 - H — [Concurrence sûre](annexes/H-concurrence-sure.md)
 - I — [Verbes de formatage `fmt`](annexes/I-formatage-fmt.md)
+- J — [Expressions régulières (`regexp`)](annexes/J-regexp.md)
+- K — [Venir de Python, JavaScript, Rust ou PHP](annexes/K-venir-de.md)
+- L — [Solutions des exercices (Partie I)](annexes/L-solutions-exercices.md)
+- M — [Index des packages de la bibliothèque standard](annexes/M-index-packages.md)
