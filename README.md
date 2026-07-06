@@ -46,10 +46,12 @@ Le livre est organisé en 9 parties (50 chapitres, 7 projets, 9 annexes) :
 go-book/
 ├─ README.md          présentation + parcours de lecture
 ├─ SOMMAIRE.md        table des matières cliquable (pilote la navigation du site)
+├─ Makefile           cibles du générateur de site (build, serve, check…)
 ├─ chapitres/         un fichier Markdown par chapitre (+ _gabarit.md)
 ├─ code/              exemples compilables — module unique example.com/gobook
 ├─ projets/           7 projets pratiques
-└─ annexes/           glossaire, antisèche, ressources…
+├─ annexes/           glossaire, antisèche, ressources…
+└─ tools/site/        générateur de site statique (module example.com/gobook-site)
 ```
 
 ## ✅ Exécuter et valider les exemples
@@ -64,6 +66,19 @@ go vet ./...    # analyse statique propre
 ```
 
 **Prérequis** : Go **1.26** ou supérieur (`go version`).
+
+## 🌐 Générer le site
+
+Le site est produit par le générateur `tools/site/`, piloté depuis la racine via le `Makefile` :
+
+```bash
+make build                     # génère le site dans public/
+make serve                     # build + sert sur http://localhost:8180
+make build VERSION=v1.2.0      # change la version affichée dans le pied de page
+```
+
+La version par défaut (`VERSION := v1.0.0`) et l'année de copyright s'affichent dans le
+pied de page du site. `public/` est régénéré à la volée (jamais commité).
 
 ## ✍️ Conventions
 

@@ -11,6 +11,8 @@
 #   make chroma  régénère tools/site/assets/css/chroma.css (coloration)
 #   make dist    compile le générateur (binaire statique)
 #   make clean   supprime public/ et tools/site/bin/
+#
+# Version affichée dans le pied de page : make build VERSION=v1.2.0
 
 # SITE : dossier du module générateur
 # SRC  : racine du livre (relative à SITE, où sont chapitres/, annexes/)
@@ -20,15 +22,16 @@ BINARY  := gobook-site
 SRC     := ../..
 OUT     := $(SRC)/public
 ADDR    ?= :8180
+VERSION := v1.0.0
 LDFLAGS := -s -w
 
 .PHONY: build serve test vet fmt update-deps check chroma dist clean
 
 build:
-	cd $(SITE) && go run . -clean -src $(SRC) -out $(OUT)
+	cd $(SITE) && go run . -clean -src $(SRC) -out $(OUT) -version $(VERSION)
 
 serve:
-	cd $(SITE) && go run . -src $(SRC) -out $(OUT) -serve -addr $(ADDR)
+	cd $(SITE) && go run . -src $(SRC) -out $(OUT) -serve -addr $(ADDR) -version $(VERSION)
 
 test:
 	cd $(SITE) && go test -race ./...

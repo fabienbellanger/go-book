@@ -42,6 +42,11 @@ make check              # fmt + vet + test (porte de qualité avant commit)
 make chroma             # régénère tools/site/assets/css/chroma.css (après bump de chroma)
 ```
 
+La version affichée dans le pied de page vient de la variable `VERSION` du `Makefile`
+(défaut `v1.0.0`) ; la surcharger à la volée : `make build VERSION=v1.2.0`. La CI
+(`.github/workflows/site.yml`) appelle `make test` et `make build`, donc elle utilise
+la même `VERSION` — source de vérité unique.
+
 `public/` est **gitignoré** et reconstruit à la volée ; ne jamais committer de HTML généré. Un workflow (`.github/workflows/site.yml`) publie le site sur GitHub Pages à chaque push sur `main`.
 
 ## Conventions de rédaction (à respecter strictement)

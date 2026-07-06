@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"example.com/gobook-site/internal/site"
 	"example.com/gobook-site/internal/sommaire"
@@ -35,6 +36,7 @@ func main() {
 		addr    = flag.String("addr", ":8080", "adresse du serveur de prévisualisation")
 		clean   = flag.Bool("clean", false, "vide le dossier de sortie avant génération")
 		title   = flag.String("title", "Comprendre et maîtriser Go 1.26", "titre du livre")
+		version = flag.String("version", "v1.0.0", "version affichée dans le pied de page")
 		verbose = flag.Bool("v", false, "logs verbeux (niveau debug)")
 	)
 	flag.Parse()
@@ -45,13 +47,13 @@ func main() {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
-	if err := run(logger, *src, *out, *title, *clean, *serve, *addr); err != nil {
+	if err := run(logger, *src, *out, *title, *version, *clean, *serve, *addr); err != nil {
 		logger.Error("échec de la génération", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger, src, out, title string, clean, serve bool, addr string) error {
+func run(logger *slog.Logger, src, out, title, version string, clean, serve bool, addr string) error {
 	if clean {
 		logger.Debug("nettoyage du dossier de sortie", "out", out)
 		if err := os.RemoveAll(out); err != nil {
@@ -71,6 +73,8 @@ func run(logger *slog.Logger, src, out, title string, clean, serve bool, addr st
 		return err
 	}
 	sommaire.ResolveDirLinks(book, src) // README.md des projets → pages rendues
+	book.Version = version
+	book.Year = time.Now().Year()
 	logger.Debug("sommaire parsé", "parties", len(book.Parts), "pages", len(book.Pages))
 
 	// 2. Assemblage du site.

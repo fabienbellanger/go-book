@@ -30,12 +30,10 @@ jobs:
           cache-dependency-path: tools/site/go.sum
 
       - name: Tests du générateur
-        working-directory: tools/site
-        run: go test ./...
+        run: make test
 
       - name: Génération du site
-        working-directory: tools/site
-        run: go run . -clean -src ../.. -out ../../public
+        run: make build
 
       - uses: actions/upload-pages-artifact@v3
         with:

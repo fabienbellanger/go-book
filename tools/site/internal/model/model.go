@@ -6,9 +6,11 @@ import "html/template"
 
 // Book représente le livre complet, prêt à être rendu en site.
 type Book struct {
-	Title string
-	Parts []*Part // ordre canonique du SOMMAIRE
-	Pages []*Page // toutes les pages rendues, à plat (recherche & navigation)
+	Title   string
+	Version string  // version affichée dans le pied de page (ex. « v1.0.0 »)
+	Year    int     // année de copyright affichée dans le pied de page
+	Parts   []*Part // ordre canonique du SOMMAIRE
+	Pages   []*Page // toutes les pages rendues, à plat (recherche & navigation)
 }
 
 // Part est une section du sommaire (« Partie I — Fondamentaux… »).
