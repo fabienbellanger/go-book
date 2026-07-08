@@ -16,7 +16,7 @@ exemples compilables, listes et tableaux.
 
 La table des matières complète et cliquable est dans **[SOMMAIRE.md](SOMMAIRE.md)**.
 
-Le livre est organisé en 9 parties (50 chapitres, 7 projets, 9 annexes) :
+Le livre est organisé en 9 parties (55 chapitres, 7 projets, 13 annexes) :
 
 | Partie  | Thème                                                     | Chapitres |
 | ------- | --------------------------------------------------------- | --------- |
@@ -27,18 +27,18 @@ Le livre est organisé en 9 parties (50 chapitres, 7 projets, 9 annexes) :
 | IV      | Runtime & modèle mémoire                                  | 24–29     |
 | V       | Internals des structures de données & types               | 30–35     |
 | VI      | Performance, profiling & outils                           | 36–40     |
-| VII     | La bibliothèque standard en pratique & mise en production | 41–49     |
+| VII     | La bibliothèque standard en pratique & mise en production | 41–54     |
 | VIII    | Projets pratiques                                         | 7 projets |
-| Annexes | Glossaire, antisèche, idiomes, concurrence sûre…          | A–I       |
+| Annexes | Glossaire, antisèche, idiomes, concurrence sûre…          | A–M       |
 
 ## 🧭 Parcours de lecture
 
-- 🟢 **Débutant Go** : Parties 0 → I → II → III, puis projets 1, 2 et 4.
+- 🟢 **Débutant Go** : Parties 0 → I → II → III, puis projets 1, 2 et 4. En appui : Annexe K (venir de Python/JS/Rust/PHP) et Annexe L (solutions des exercices).
 - 🟡 **Lecture intégrale** : dans l'ordre — c'est le parcours conçu.
 - 🔵 **« Je connais Go, je veux les internals »** : Parties IV → V → VI (suivre les renvois 🔁), puis Projet 6 (`go:generate`).
 - 🟣 **Focus concurrence** : Partie III → Ch. 28 (scheduler) → Ch. 25 (modèle mémoire) → Annexe H → Projet 3.
 - 🟠 **Focus performance** : Partie VI → Ch. 26-27 (alloc/GC) → Projet 7.
-- 🟤 **Focus production / stdlib** : Partie VII (lisible dès la fin de la Partie I) → projets 2 et 5.
+- 🟤 **Focus production / stdlib** : Partie VII (lisible dès la fin de la Partie I) — de `net/http` (Ch. 45) à `database/sql` (Ch. 51), réseau bas niveau (Ch. 52), crypto (Ch. 53) et architecture applicative (Ch. 54) → projets 2 et 5.
 
 ## 🗂️ Organisation du dépôt
 
