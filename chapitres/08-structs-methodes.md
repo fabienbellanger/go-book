@@ -190,6 +190,45 @@ func (a Account) Lost(n int)     { a.balance += n } // VALEUR  : modifie une cop
    sur pointeur (pas de mélange valeur/pointeur).
 5. Sinon (petit, immuable) → **valeur**, c'est plus simple et sûr.
 
+> 📌 La règle 4 se résume à une idée : **le choix valeur/pointeur se décide au niveau du
+> type, pas méthode par méthode.** Dès que **l'une** des règles 1-3 impose un pointeur pour
+> **une** méthode, alignez **tout le type** sur pointeur. On ne garde la valeur (règle 5) que
+> pour les types **entièrement** petits et immuables où **aucune** méthode n'a besoin d'un
+> pointeur (`Point`, `time.Time`). C'est aussi la recommandation officielle de Go
+> (« don't mix receiver types »).
+
+Mélanger les deux styles a trois conséquences fâcheuses.
+
+**Mutation silencieusement perdue.** Une méthode à récepteur valeur travaille sur une
+**copie**, une méthode à récepteur pointeur sur l'**original**. Selon l'adressabilité du
+support, la même API mute l'état... ou pas :
+
+```go
+func (a Account)  Balance() int  { return a.balance } // VALEUR
+func (a *Account) Deposit(n int) { a.balance += n }   // POINTEUR
+
+s := []Account{{balance: 10}}
+s[0].Deposit(5)   // OK : élément de slice adressable -> mute l'original
+
+m := map[string]Account{"x": {balance: 10}}
+// m["x"].Deposit(5) // NE COMPILE PAS : élément de map non adressable
+```
+
+Avec un type **tout pointeur** (`[]*Account`, `map[string]*Account`), ces cas se comportent
+**uniformément**.
+
+**Satisfaction d'interface incohérente.** Une méthode sur pointeur n'entre que dans le
+method set de `*T` (voir juste en dessous). Mélanger force l'appelant à retenir « ici il me
+faut un `*Account`, pas un `Account` » ; tout sur pointeur rend la règle triviale : « on
+manipule toujours des `*Account` ».
+
+**Copies accidentelles dangereuses.** Si le struct contient un champ non copiable
+(`sync.Mutex`) ou dont la copie casse un invariant, une méthode à récepteur valeur en fait
+une copie **à chaque appel** — une porte laissée ouverte sur les seules méthodes « oubliées ».
+
+> 🔁 Le *pourquoi* technique de la première et de la deuxième conséquence tient au **method
+> set**, l'objet de la section suivante.
+
 ### Method set (aperçu)
 
 Le **method set** d'un type détermine quelles interfaces il satisfait (détail
