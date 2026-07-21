@@ -36,4 +36,11 @@ func main() {
 		return
 	}
 	fmt.Printf("relue: %s / %q\n", got.ID, got.Title)
+
+	all, err := svc.List(ctx)
+	if err != nil {
+		fmt.Println("erreur:", err)
+		return
+	}
+	fmt.Printf("total: %d note(s)\n", len(all))
 }

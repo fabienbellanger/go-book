@@ -3,7 +3,7 @@
 > **Objectif** — Fournir des **solutions compilables et testées** aux exercices
 > « 🧪 À tester soi-même » des chapitres **fondamentaux (2 à 13)**. Chaque
 > solution reformule l'énoncé, propose une implémentation idiomatique et explique
-> le *pourquoi*. Tout le code vit dans
+> le _pourquoi_. Tout le code vit dans
 > [`code/annexe-L-solutions/`](../code/annexe-L-solutions/) et passe `go test`.
 >
 > Cette annexe couvre la **Partie I**. Les parties suivantes (mécanismes avancés,
@@ -123,8 +123,10 @@ cascade dans le `case` suivant.
 
 ## Chapitre 5 — [Fonctions](../chapitres/05-fonctions.md)
 
-**Énoncé.** Ajouter une option `WithMaxConns(n)`, écrire `compose(f, g)`, et
-expliquer pourquoi `sum(divmod(17, 5))` compile mais pas `q := divmod(17, 5)`.
+**Énoncé.** Ajouter une option `WithMaxConns(n)`, transformer `incVal` pour
+qu'elle **mute réellement** le counter (paramètre `*counter`), écrire
+`compose(f, g)`, et expliquer pourquoi `sum(divmod(17, 5))` compile mais pas
+`q := divmod(17, 5)`.
 
 **Solution** ([`ch05.go`](../code/annexe-L-solutions/ch05.go)) :
 
@@ -135,16 +137,23 @@ func ch05Compose(f, g func(int) int) func(int) int {
 }
 
 func ch05WithMaxConns(n int) ch05Option { return func(s *ch05Server) { s.maxConns = n } }
+
+// Passage par valeur vs pointeur : incVal reçoit une COPIE (aucun effet),
+// incPtr reçoit *ch05Counter et mute donc l'original de l'appelant.
+func ch05IncVal(c ch05Counter)  { c.n++ }
+func ch05IncPtr(c *ch05Counter) { c.n++ }
 ```
 
 **Pourquoi.** `compose` renvoie une **closure** qui capture `f` et `g` : les
-fonctions sont des valeurs de première classe. `sum(divmod(17, 5))` compile car
-les **deux** valeurs de retour de `divmod` alimentent directement les **deux**
-paramètres de `sum` — Go autorise ce « déballage » uniquement quand l'appel est
-le **seul** argument. À l'inverse, `q := divmod(17, 5)` échoue : on ne peut pas
-affecter deux valeurs à une seule variable. Enfin, une nouvelle option comme
-`WithMaxConns` n'impacte **aucun** appel existant : c'est l'atout du patron des
-options fonctionnelles.
+fonctions sont des valeurs de première classe. Go **copie toujours** les
+arguments : `incVal` incrémente une copie (sans effet dehors), alors que
+`incPtr(&c)` reçoit l'**adresse** et modifie bien l'original — d'où le passage
+par `*counter`. `sum(divmod(17, 5))` compile car les **deux** valeurs de retour
+de `divmod` alimentent directement les **deux** paramètres de `sum` — Go autorise
+ce « déballage » uniquement quand l'appel est le **seul** argument. À l'inverse,
+`q := divmod(17, 5)` échoue : on ne peut pas affecter deux valeurs à une seule
+variable. Enfin, une nouvelle option comme `WithMaxConns` n'impacte **aucun**
+appel existant : c'est l'atout du patron des options fonctionnelles.
 
 ## Chapitre 6 — [Arrays & slices](../chapitres/06-arrays-slices.md)
 
@@ -221,14 +230,15 @@ type ch08Packed struct { b int64; a bool; c bool } // 16 octets (compact)
 **Pourquoi.** Un récepteur **pointeur** (`*ch08Account`) opère sur la valeur
 d'origine ; un récepteur **valeur** travaillerait sur une **copie** et le solde
 appelant ne bougerait pas. Côté taille, l'**alignement mémoire** insère du
-*padding* : en groupant les champs du plus grand au plus petit, on supprime les
+_padding_ : en groupant les champs du plus grand au plus petit, on supprime les
 trous et l'on passe de 24 à 16 octets (`unsafe.Sizeof` le mesure). Ajouter un
 champ non comparable (`tags []string`) à un `Point` rendrait par ailleurs
 `Point{} == Point{}` illégal **à la compilation**.
 
 ## Chapitre 9 — [Interfaces](../chapitres/09-interfaces.md)
 
-**Énoncé.** Ajouter un `Triangle` satisfaisant `Shape` sans rien changer
+**Énoncé.** Passer `Error()` en récepteur **valeur** et observer le changement
+de _method set_, ajouter un `Triangle` satisfaisant `Shape` sans rien changer
 d'autre, et écrire `describe(x any)` distinguant un `fmt.Stringer`.
 
 **Solution** ([`ch09.go`](../code/annexe-L-solutions/ch09.go)) :
@@ -243,14 +253,29 @@ func ch09Describe(x any) string {
 	}
 	return fmt.Sprintf("%T: %v", x, x)
 }
+
+// Récepteur VALEUR : la valeur ET le pointeur satisfont error.
+type ch09ValErr struct{ msg string }
+
+func (e ch09ValErr) Error() string { return e.msg }
+
+// Récepteur POINTEUR : seul *ch09PtrErr satisfait error, pas ch09PtrErr{}.
+type ch09PtrErr struct{ msg string }
+
+func (e *ch09PtrErr) Error() string { return e.msg }
 ```
 
 **Pourquoi.** La satisfaction d'interface est **implicite** : dès que `Triangle`
 possède `Area()`, il devient une `Shape` utilisable par `totalArea` — sans
-déclaration ni modification du code existant. `describe` exploite l'**assertion
-de type** `x.(fmt.Stringer)` pour brancher sur la méthode `String()` quand elle
-existe. Comparer deux `any` contenant des `[]int` avec `==` **panique**
-(`comparing uncomparable type`) : les slices ne sont pas comparables.
+déclaration ni modification du code existant. Le **method set** dépend du
+récepteur : une méthode à récepteur **valeur** entre dans le method set de la
+valeur _et_ du pointeur (donc `ch09ValErr{}` **comme** `&ch09ValErr{}`
+satisfont `error`) ; une méthode à récepteur **pointeur** n'entre que dans celui
+du pointeur (seul `&ch09PtrErr{}` satisfait `error`, pas la valeur). `describe`
+exploite l'**assertion de type** `x.(fmt.Stringer)` pour brancher sur la méthode
+`String()` quand elle existe. Comparer deux `any` contenant des `[]int` avec
+`==` **panique** (`comparing uncomparable type`) : les slices ne sont pas
+comparables.
 
 ## Chapitre 10 — [Gestion des erreurs](../chapitres/10-erreurs.md)
 

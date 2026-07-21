@@ -41,9 +41,8 @@ func fizzbuzz(n int) []string {
 	return out
 }
 
-// firstPair cherche, dans une grille, le premier couple d'indices (i, j) dont la
-// somme des valeurs vaut target. Illustre le `break` ÉTIQUETÉ pour sortir des
-// deux boucles d'un coup.
+// firstPair cherche, dans une grille, le premier indice (i, j) dont la valeur
+// vaut target. Illustre le `break` ÉTIQUETÉ pour sortir des deux boucles d'un coup.
 func firstPair(grid [][]int, target int) (i, j int, found bool) {
 search:
 	for r := range grid {

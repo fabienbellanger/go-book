@@ -41,3 +41,16 @@ func ch05NewServer(opts ...ch05Option) *ch05Server {
 	}
 	return s
 }
+
+// --- Passage par valeur vs pointeur (exercice 2) ---
+
+// ch05Counter illustre que Go copie TOUJOURS les arguments.
+type ch05Counter struct{ n int }
+
+// ch05IncVal reçoit une COPIE : la mutation est perdue à la sortie, l'original
+// de l'appelant reste inchangé.
+func ch05IncVal(c ch05Counter) { c.n++ }
+
+// ch05IncPtr reçoit un POINTEUR : la mutation vise le counter de l'appelant et
+// persiste. C'est la transformation demandée — passer *ch05Counter.
+func ch05IncPtr(c *ch05Counter) { c.n++ }

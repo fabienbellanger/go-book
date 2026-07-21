@@ -39,7 +39,9 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) (err error) {
 		tmp.Close()
 		return err
 	}
-	// Sync force l'écriture sur le disque avant le Rename (durabilité).
+	// Sync pousse les données du fichier sur le disque avant le Rename : évite un
+	// fichier au contenu incomplet après un crash. (La durabilité stricte du
+	// renommage exigerait aussi un fsync du répertoire parent.)
 	if err = tmp.Sync(); err != nil {
 		tmp.Close()
 		return err

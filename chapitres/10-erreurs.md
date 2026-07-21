@@ -46,9 +46,10 @@ err := errors.New("disque plein")                 // erreur simple
 err = fmt.Errorf("port invalide : %d", 99999)     // erreur formatée
 ```
 
-> ⚡ Depuis **Go 1.26**, `fmt.Errorf("…")` **sans** verbe `%w` alloue autant qu'`errors.New`
-> (1 allocation), il n'y a donc plus de raison de préférer l'un à l'autre pour une erreur
-> formatée simple.
+> ⚡ Depuis **Go 1.26**, `fmt.Errorf` **sans aucun verbe de formatage** (une chaîne littérale,
+> ex. `fmt.Errorf("disque plein")`) alloue autant qu'`errors.New` (1 allocation). Dès qu'il y a
+> un verbe — `%d`, `%s`… ou `%w` — le coût reste de **2 allocations** (l'exemple ci-dessus avec
+> `%d` en fait donc toujours 2).
 
 > 💡 **Convention de message** : en **minuscules**, sans **point final**, et sans préfixe
 > redondant (« failed to… », « error: »…). Raison : un message d'erreur est fait pour être
@@ -251,8 +252,8 @@ erreur formatée — pratique pour joindre deux causes sans perdre de message d'
   standard.
 - **1.20** — `errors.Join` et **plusieurs `%w`** dans un même `fmt.Errorf` (arbres d'erreurs,
   `Unwrap() []error`).
-- **1.26** — `errors.AsType[E]` (variante générique typée) ; `fmt.Errorf` sans `%w` alloue comme
-  `errors.New`.
+- **1.26** — `errors.AsType[E]` (variante générique typée) ; `fmt.Errorf` sur une **chaîne sans
+  verbe de formatage** alloue comme `errors.New` (1 alloc).
 
 ## ⚠️ Pièges
 
@@ -271,8 +272,9 @@ erreur formatée — pratique pour joindre deux causes sans perdre de message d'
 
 ## ⚡ Performance
 
-- `errors.New` et `fmt.Errorf("…")` (sans `%w`) : **1 allocation** chacun (≈16 o). `fmt.Errorf`
-  **avec `%w`** : **2 allocations** (≈48 o) — le surcoût du maillon de chaîne.
+- `errors.New` et `fmt.Errorf` **sur une chaîne sans verbe** (🆕 1.26) : **1 allocation** chacun
+  (≈16 o). Une erreur **formatée** (`%d`, `%s`…) ou **enveloppée** (`%w`) : **2 allocations**
+  (≈48 o) — le surcoût du formatage / du maillon de chaîne.
 - **Préallouez les sentinelles** au niveau package (`var ErrX = errors.New(...)`) : une seule
   allocation pour tout le programme.
 - N'enveloppez pas dans une **boucle chaude** par réflexe : ajoutez du contexte aux

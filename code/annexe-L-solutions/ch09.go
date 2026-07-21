@@ -37,3 +37,19 @@ func ch09Describe(x any) string {
 // ch09Round arrondit à la décimale (utilitaire pour comparer des float64 en test
 // sans dépendre d'une égalité binaire fragile).
 func ch09Round(f float64) float64 { return math.Round(f*100) / 100 }
+
+// --- Récepteur valeur vs pointeur & method set (exercice 1) ---
+
+// ch09ValErr définit Error() sur un RÉCEPTEUR VALEUR : le method set de la
+// VALEUR contient donc Error(), et ch09ValErr{} satisfait error (le pointeur
+// aussi, car le method set d'un pointeur inclut les méthodes à récepteur valeur).
+type ch09ValErr struct{ msg string }
+
+func (e ch09ValErr) Error() string { return e.msg }
+
+// ch09PtrErr définit Error() sur un RÉCEPTEUR POINTEUR : seul *ch09PtrErr a
+// Error() dans son method set. La valeur ch09PtrErr{} NE satisfait PAS error ;
+// il faut &ch09PtrErr{}.
+type ch09PtrErr struct{ msg string }
+
+func (e *ch09PtrErr) Error() string { return e.msg }

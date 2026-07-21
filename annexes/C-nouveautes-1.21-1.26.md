@@ -27,7 +27,7 @@ chapitre ou le projet qui développe le sujet.
 | ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Langage      | Builtins `min`, `max`, `clear`  | `min`/`max` sur types ordonnés ; `clear(m)` vide une map, `clear(s)` met une tranche à zéro.                                                                                                         |
 | Langage      | Inférence de type améliorée     | Inférence plus complète pour les fonctions génériques.                                                                                                                                               |
-| Bibliothèque | `slices`, `maps`, `cmp`         | Opérations génériques sur tranches/maps ; `cmp.Compare`/`cmp.Or` pour les types ordonnés — évite de réécrire les mêmes utilitaires (`Contains`, `Index`, tri…) dans chaque projet. 🔁 Ch. 6, 11      |
+| Bibliothèque | `slices`, `maps`, `cmp`         | Opérations génériques sur tranches/maps ; `cmp.Compare`/`cmp.Less` pour les types ordonnés — évite de réécrire les mêmes utilitaires (`Contains`, `Index`, tri…) dans chaque projet. 🔁 Ch. 6, 11    |
 | Bibliothèque | `log/slog`                      | **Journalisation structurée** officielle (handlers texte/JSON, niveaux, attributs) : plus besoin d'une dépendance tierce (logrus, zap) pour des logs exploitables en production. 🔁 Ch. 43, Projet 2 |
 | Bibliothèque | `sync.OnceFunc`/`OnceValue`     | Mémoïsation d'une initialisation paresseuse sans écrire un `sync.Once` à la main.                                                                                                                    |
 | Runtime      | Ordre d'exécution des `init`    | Ordre des paquets d'initialisation rendu déterministe.                                                                                                                                               |
@@ -44,6 +44,7 @@ chapitre ou le projet qui développe le sujet.
 | Langage      | `range` sur un entier                  | `for i := range n { … }` itère de 0 à n-1.                                                                                                                                           |
 | Bibliothèque | Routage enrichi de `net/http.ServeMux` | Motifs avec **méthode** (`GET /…`), **jokers** (`/{id}`) et `r.PathValue("id")` : un routeur correct sans dépendance externe (chi, gorilla/mux) pour la plupart des API. 🔁 Projet 2 |
 | Bibliothèque | `math/rand/v2`                         | Première version `v2` de la stdlib : API nettoyée, meilleurs générateurs.                                                                                                            |
+| Bibliothèque | `cmp.Or`                               | Renvoie le premier argument **non-zéro** : valeurs par défaut concises, comparaisons multi-critères.                                                                                 |
 | Runtime      | Métadonnées plus compactes             | Optimisations mémoire/CPU de l'allocateur et du ramasse-miettes.                                                                                                                     |
 | Outils       | `go vet` : avertissements de boucle    | Ajustements liés au nouveau comportement des variables de boucle.                                                                                                                    |
 
@@ -61,7 +62,7 @@ chapitre ou le projet qui développe le sujet.
 | Bibliothèque | `iter`                             | Le contrat des itérateurs (push) que consomment `slices`/`maps`.                                                                                                      |
 | Bibliothèque | `slices`/`maps` × itérateurs       | `slices.Collect`, `slices.Sorted`, `slices.Values`, `maps.Keys`, `maps.Values`…                                                                                       |
 | Bibliothèque | `unique`                           | **Internement** de valeurs comparables : déduplique et accélère les comparaisons — utile pour des ensembles de chaînes très répétées (tags, identifiants) en mémoire. |
-| Bibliothèque | Refonte de `time.Timer`/`Ticker`   | Timers non démarrés plus simples à collecter ; canal non bufferisé.                                                                                                   |
+| Bibliothèque | Refonte de `time.Timer`/`Ticker`   | Timers **non référencés** collectés par le GC même sans `Stop()` ; canal non bufferisé.                                                                               |
 | Outils       | Télémétrie opt-in de la toolchain  | Collecte **facultative** de statistiques d'usage de l'outillage Go.                                                                                                   |
 
 ---
@@ -98,17 +99,17 @@ chapitre ou le projet qui développe le sujet.
 
 ## Go 1.26
 
-| Domaine      | Nouveauté                                      | En bref                                                                                                                                        |
-| ------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Langage      | **`new(expr)`**                                | `new` accepte une **expression** : alloue et **initialise** en une fois (`p := new(1 + 2)`). 🔁 Projet 2                                       |
-| Langage      | Contraintes génériques **auto-référentielles** | Une contrainte peut se nommer elle-même (`type Adder[T] interface{ … T … }`). 🔁 Ch. 11                                                        |
-| Bibliothèque | `go/ast.ParseDirective`                        | Décode une directive `//tool:name args` en `{Tool, Name, Args}`. 🔁 Projet 6                                                                   |
-| Bibliothèque | `go/ast.BasicLit.ValueEnd`                     | Position **juste après** un littéral : diagnostics précis (portée exacte). 🔁 Projet 6                                                         |
-| Bibliothèque | `errors.AsType`                                | Version **générique et type-sûre** de `errors.As` : plus rapide, sans réflexion, sans piège de pointeur-vers-pointeur. 🔁 Ch. 10               |
-| Bibliothèque | `slog.NewMultiHandler`                         | Diffuser un même enregistrement vers **plusieurs handlers** (ex. texte + JSON) sans écrire de handler composite à la main. 🔁 Ch. 43, Projet 2 |
-| Runtime      | GC **Green Tea** par défaut                    | Activé par défaut après son passage en expérimental en 1.25 : 10 à 40 % de coût GC en moins sur les programmes qui en abusent. 🔁 Ch. 27       |
-| Runtime      | cgo plus rapide                                | Le surcoût d'un appel cgo baisse d'environ 30 %, allégeant la pénalité historique de l'interop C. 🔁 Ch. 35                                    |
-| Outils       | `go fix` et les **modernizers**                | Réécriture automatisée du code vers les idiomes/API récents ; directives `//go:fix inline` pour vos propres migrations. 🔁 Ch. 13              |
+| Domaine      | Nouveauté                                      | En bref                                                                                                                                                            |
+| ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Langage      | **`new(expr)`**                                | `new` accepte une **expression** : alloue et **initialise** en une fois (`p := new(1 + 2)`). 🔁 Projet 2                                                           |
+| Langage      | Contraintes génériques **auto-référentielles** | Un type générique peut se référer à lui-même dans sa liste de paramètres de type (`type Adder[A Adder[A]] interface{ Add(A) A }`) — auparavant interdit. 🔁 Ch. 11 |
+| Bibliothèque | `go/ast.ParseDirective`                        | Décode une directive `//tool:name args` en `{Tool, Name, Args}`. 🔁 Projet 6                                                                                       |
+| Bibliothèque | `go/ast.BasicLit.ValueEnd`                     | Position **juste après** un littéral : diagnostics précis (portée exacte). 🔁 Projet 6                                                                             |
+| Bibliothèque | `errors.AsType`                                | Version **générique et type-sûre** de `errors.As` : plus rapide, sans réflexion, sans piège de pointeur-vers-pointeur. 🔁 Ch. 10                                   |
+| Bibliothèque | `slog.NewMultiHandler`                         | Diffuser un même enregistrement vers **plusieurs handlers** (ex. texte + JSON) sans écrire de handler composite à la main. 🔁 Ch. 43, Projet 2                     |
+| Runtime      | GC **Green Tea** par défaut                    | Activé par défaut après son passage en expérimental en 1.25 : 10 à 40 % de coût GC en moins sur les programmes qui en abusent. 🔁 Ch. 27                           |
+| Runtime      | cgo plus rapide                                | Le surcoût d'un appel cgo baisse d'environ 30 %, allégeant la pénalité historique de l'interop C. 🔁 Ch. 35                                                        |
+| Outils       | `go fix` et les **modernizers**                | Réécriture automatisée du code vers les idiomes/API récents ; directives `//go:fix inline` pour vos propres migrations. 🔁 Ch. 1                                   |
 
 > ⚠️ **Prudence sur 1.26** — Ce tableau ne liste que des éléments confirmés sur la
 > toolchain `go1.26.4` (vérifiés via `go doc` / compilation). La version apporte

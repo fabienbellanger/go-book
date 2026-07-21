@@ -180,10 +180,24 @@ func classify(x any) string {
 > `error`) : le **premier** cas qui correspond gagne, et un type concret peut satisfaire
 > plusieurs interfaces.
 
-> 💡 Un `case` peut lister **plusieurs types** séparés par des virgules (`case int, int64:`).
-> Dans ce cas précis, `v` garde le type **statique** de l'expression switchée (`any` ici) plutôt
-> que le type qui a matché — contrairement à un `case` à un seul type, où `v` prend exactement
-> ce type.
+> 💡 Un `case` peut lister **plusieurs types** séparés par des virgules (`case int, int64:`) —
+> mais cela change le type de `v` dans ce cas :
+>
+> - **un seul type** dans le `case` → `v` a **exactement ce type** (dans `case int:`, `v` est un
+>   `int`, on peut donc écrire `v + 1`) ;
+> - **plusieurs types** dans le `case` → le compilateur ne peut pas deviner lequel choisir, donc
+>   `v` conserve le **type statique de l'expression** du switch (ici `any`), et **non** l'un des
+>   types listés. Pour manipuler la valeur comme un entier, il faut alors une **nouvelle
+>   assertion** à l'intérieur du `case`.
+>
+> ```go
+> switch v := x.(type) { // x est de type any
+> case int: // un seul type
+> 	_ = v + 1 // OK : v est un int
+> case int8, int16: // plusieurs types
+> 	_ = v // v est de type any ici ; `v + 1` ne compilerait pas
+> }
+> ```
 
 ## Interfaces idiomatiques de la stdlib
 
@@ -212,28 +226,85 @@ fmt.Println(Circle{Radius: 2}) // -> Circle(r=2)
 
 ## ⚠️ Le piège : interface `nil` vs pointeur `nil`
 
-Une interface vaut `nil` **seulement si son type ET sa valeur sont nil**. Y ranger un **pointeur
-nil typé** donne une interface… **non nil** (le type, lui, n'est pas nil) :
+**Modèle mental.** Une valeur d'interface n'est pas une simple case : c'est une **paire de deux
+champs**, `(type dynamique, valeur)`. Le premier dit _quel type concret_ est rangé dedans, le
+second _quelle donnée_ (🔁 Ch. 33 pour le layout `eface`/`iface`).
+
+Une interface vaut `nil` **uniquement quand ses DEUX champs sont vides** — c'est-à-dire quand elle
+ne contient **aucun type**. D'où le piège : un **pointeur nil typé** a beau pointer sur « rien », il
+porte quand même un **type** (`*ValidationError`). Le ranger dans une interface remplit donc le
+champ _type_ — l'interface n'est **plus vide**, donc **plus `nil`** :
 
 ```
-   var x error                       ( type=nil , data=nil )   ->  x == nil   ✅
+                                type dynamique        valeur
+                                --------------        ------
+  var x error                   nil                   nil      ->  x == nil   ✅  (les deux vides)
 
-   var p *ValidationError = nil
-   var x error = p                   ( type=*ValidationError , data=nil )  ->  x != nil  ⚠️
+  var p *ValidationError = nil
+  var x error = p               *ValidationError      nil      ->  x != nil   ⚠️  (le type n'est PAS vide)
 ```
 
-Le cas le plus courant : renvoyer une variable de type pointeur concret comme `error`.
+> 💡 **Analogie** : une interface est un **colis étiqueté**. Un `nil` interface = un colis **sans
+> étiquette et vide**. Un pointeur nil typé = un colis **étiqueté `*ValidationError`** mais vide à
+> l'intérieur. Comparer à `nil` teste l'**étiquette**, pas le contenu : dès qu'il y a une étiquette,
+> `== nil` est **faux**.
+
+```
+  « x == nil ? » teste l'ÉTIQUETTE (le champ type), pas le contenu du colis :
+
+  (1) interface nil        var x error
+      +----------------------------------+
+      |  type   : (aucun)                |
+      |  valeur : (vide)                 |
+      +----------------------------------+
+      ->  x == nil  vaut  true    (colis SANS étiquette : vraiment vide)
+
+  (2) pointeur nil typé    var p *ValidationError = nil ; var x error = p
+      +----------------------------------+
+      |  type   : *ValidationError       |
+      |  valeur : nil                    |
+      +----------------------------------+
+      ->  x == nil  vaut  FALSE   (colis AVEC étiquette mais vide : LE piège)
+```
+
+**Où ça mord.** Le cas classique : une fonction déclare un retour `error` mais renvoie une variable
+de **type pointeur concret**. Même quand ce pointeur est `nil`, l'interface renvoyée porte son type
+et devient **non nil** :
 
 ```go
 func bad() error {
-	var p *ValidationError // nil
-	return p               // renvoie une interface NON nil contenant un pointeur nil !
+	var p *ValidationError // p vaut nil
+	return p               // range (*ValidationError, nil) dans l'interface : NON nil !
 }
-// bad() == nil  vaut  FALSE  -> le code appelant croit qu'il y a une erreur
+
+func good() error {
+	return nil // renvoie une interface VRAIMENT nil (type ET valeur vides)
+}
 ```
 
-**Parade** : déclarez le type de retour `error` et renvoyez `nil` **littéral** en cas de succès
-(ne renvoyez jamais un pointeur concret « nil » par l'interface).
+Résultat : `bad() == nil` vaut **`false`**, alors que `good() == nil` vaut `true`. Le test d'erreur
+habituel côté appelant **se trompe** donc avec `bad()` :
+
+```go
+if err := bad(); err != nil {
+	// On entre ICI alors qu'il n'y a PAS d'erreur (err != nil vaut true).
+	// Pire : err.Error() déréférence un pointeur nil -> panique.
+	log.Fatal(err)
+}
+```
+
+> 🧪 Démo exécutable : comparez `typedNilError()` (le mauvais cas) et `validateAge()` (le bon) dans
+> [`code/ch09-interfaces/errors.go`](../code/ch09-interfaces/errors.go). `go run ./ch09-interfaces`
+> affiche `typedNilError()==nil ? false` mais `validateAge(30) == nil ? true`.
+
+**Parade** — deux règles simples :
+
+- Le type de retour est **`error`** (l'interface), **jamais** un `*MonErreur` concret.
+- En cas de succès, renvoyez le **`nil` littéral** (`return nil`), pas une variable de type pointeur
+  qui « se trouve » être nil.
+
+Ainsi le champ _type_ de l'interface reste vide, et `err != nil` ne se déclenche que pour une
+**vraie** erreur.
 
 ## Method set : valeur ou pointeur (rappel du Ch. 8)
 
@@ -284,15 +355,54 @@ directement un `*T` dans l'interface contourne le problème : l'adresse existe d
 
 ## ⚡ Performance
 
-- Un appel **via interface** est un **dispatch indirect** (par la table de méthodes) : il
-  empêche certaines optimisations d'inlining (détail [Ch. 33](33-interfaces-profondeur.md)).
-- Convertir une valeur concrète en interface peut **allouer** (boxing) si elle s'échappe sur le
-  tas ([Ch. 26](26-allocation-escape.md)).
-- Une **assertion de type** (`x.(T)`) est bon marché : une comparaison de pointeur de type (ou
-  d'itab), pas une réflexion — sans rapport avec le coût du package `reflect`
-  ([Ch. 34](34-reflexion.md)). Ne l'évitez pas par excès de prudence.
-- Dans le code **chaud**, préférez un type concret ou les **génériques** (résolus à la
-  compilation, sans dispatch) quand c'est possible.
+Une interface échange un **petit coût à l'exécution** contre du **découplage**. Dans la plupart du
+code ce coût est négligeable et la souplesse l'emporte largement ; il ne devient mesurable que sur
+les **chemins très chauds** (appelés des millions de fois). Voici les quatre mécanismes à connaître.
+
+**1. Un appel via interface est un dispatch _indirect_.** Sur un type concret, `c.Area()` est un
+appel **direct** : le compilateur connaît la fonction exacte et peut l'**inliner** (recopier son
+corps sur place, sans appel). À travers une interface, `s.Area()` passe par l'**itab** — la petite
+table de méthodes rangée dans la valeur d'interface (🔁 [Ch. 33](33-interfaces-profondeur.md)) : le
+runtime y **lit** l'adresse de `Area`, puis l'appelle **indirectement**. Cette indirection coûte un
+chargement + un saut, mais surtout elle est **opaque** à l'optimiseur : il ignore quel code concret
+tournera, donc **pas d'inlining ni d'optimisation** au travers de l'appel. (Depuis 1.21, la **PGO**
+sait _dévirtualiser_ les appels chauds dominés par un seul type — 🔁 [Ch. 39](39-compilation-inlining-pgo.md).)
+
+**2. Passer une valeur en interface peut _allouer_ (boxing).** Une valeur d'interface range un
+**pointeur** vers la donnée. Y mettre une valeur concrète peut donc la **copier sur le tas**
+(_boxing_) si elle s'échappe — une **allocation**, souvent invisible dans le code : `var x any = 42`,
+une `error` renvoyée, les `...any` passés à `fmt.Println`. Anodin ponctuellement, coûteux dans une
+boucle serrée (pression sur le GC). 🔁 [Ch. 26](26-allocation-escape.md) pour l'escape analysis.
+(Go met en cache les petits entiers 0–255 : eux n'allouent pas.)
+
+**3. Une assertion de type n'est PAS de la « réflexion ».** C'est la confusion la plus fréquente.
+`x.(T)` (et le `type switch`) se compile en une simple **comparaison du descripteur de type** rangé
+dans l'interface (ou de son itab) avec le type attendu : une ou deux comparaisons de pointeurs et un
+branchement, de l'ordre de la **nanoseconde**. Cela **n'a rien à voir** avec le paquet `reflect`,
+qui est une API d'introspection **dynamique** bien plus lourde (🔁 [Ch. 34](34-reflexion.md)).
+Conséquence pratique : **utilisez les assertions et les type switches sans hésiter** — ce n'est pas
+un poste de coût, et les éviter « par prudence » complique le code pour rien.
+
+**4. Dans le code chaud, préférez un type concret ou les génériques.** Quand un appel tourne des
+millions de fois et que l'abstraction n'apporte rien de concret, deux façons d'éviter le dispatch
+indirect :
+
+- **Type concret** — pas d'interface du tout : les appels sont directs et inlinables. À privilégier
+  quand vous n'avez, de fait, qu'**un seul** type.
+- **Génériques** ([Ch. 11](11-genericite.md)) — une fonction comme `func Sum[T Number](xs []T) T`
+  est **spécialisée à la compilation** : les appels sont **résolus statiquement** (pas d'itab),
+  donc inlinables et sans boxing. On garde le « écrire une fois, marche pour plusieurs types » de
+  l'interface, mais **fixé à la compilation** plutôt que résolu à l'exécution.
+
+> ⚡ **À mesurer, pas à supposer.** Le gain des génériques n'est **pas automatique** : pour les
+> types **pointeur**, le compilateur mutualise une seule instanciation par « forme GC » via un
+> **dictionnaire** passé en paramètre caché — ce qui peut **annuler** l'avantage, voire rendre le
+> générique **plus lent** qu'une interface (démonstration chiffrée, 🔁
+> [Annexe E](../annexes/E-demonstrations-benchmarks.md)). Règle de conduite : **interface** pour
+> découpler (I/O, stockage, handlers), **génériques** pour les algorithmes génériques chauds
+> (conteneurs, calcul numérique), **type concret** sinon — et **profilez avant d'optimiser**
+> (🔁 [Ch. 40](40-methodologie-performance.md)). Ne remplacez jamais une interface par un générique
+> sur une simple intuition de performance.
 
 ## 🧪 À tester soi-même
 

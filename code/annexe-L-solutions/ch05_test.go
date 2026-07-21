@@ -28,3 +28,15 @@ func TestCh05Options(t *testing.T) {
 		t.Errorf("défauts : %+v", d)
 	}
 }
+
+func TestCh05IncValVsPtr(t *testing.T) {
+	c := ch05Counter{n: 0}
+	ch05IncVal(c) // copie -> aucun effet
+	if c.n != 0 {
+		t.Errorf("incVal a modifié l'original (c.n=%d), veut 0", c.n)
+	}
+	ch05IncPtr(&c) // pointeur -> effet visible
+	if c.n != 1 {
+		t.Errorf("incPtr n'a pas modifié l'original (c.n=%d), veut 1", c.n)
+	}
+}

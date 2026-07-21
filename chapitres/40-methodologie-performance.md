@@ -101,7 +101,9 @@ une optimisation qui casse le comportement n'en est pas une.
 ## Étape 4 — Re-mesurer (et mesurer TOUS les axes)
 
 ```bash
-go test -bench=Dedup -benchmem -count=8 -run=^$ ./ch40-methodologie/... # avant ET après
+# benchstat apparie PAR NOM : on unifie les deux versions sous le nom Dedup.
+go test -bench=DedupNaive -benchmem -count=8 -run=^$ ./ch40-methodologie/... | sed 's/DedupNaive/Dedup/' > old.txt
+go test -bench='Dedup$'   -benchmem -count=8 -run=^$ ./ch40-methodologie/... > new.txt
 benchstat old.txt new.txt
 ```
 
@@ -142,8 +144,8 @@ axes**, un gain n'est validé que rapporté à la **cible**.
   **virtuelle** (pas de `time.Sleep` réel) ; **Flight Recorder** ([Ch. 38](38-traces-flight-recorder.md))
   capture l'avant-incident en production.
 - **1.26** — **Green Tea GC** par défaut ([Ch. 27](27-garbage-collector.md)) réduit l'overhead GC ;
-  **PGO** ([Ch. 39](39-compilation-inlining-pgo.md)) affine les chemins chauds. Le runtime optimise
-  **pour** vous — encore faut-il **mesurer** l'effet.
+  l'escape analysis alloue **davantage de slices sur la pile** ([Ch. 39](39-compilation-inlining-pgo.md)).
+  Le runtime optimise **pour** vous — encore faut-il **mesurer** l'effet.
 
 ## ⚠️ Pièges
 

@@ -236,8 +236,8 @@ réels — modestes mais **gratuits** (aucun changement de code), et **cumulatif
   inlining guidés par profil.
 - **1.25** — **DWARF5** par défaut (debug plus compact) ; **FMA** émis en **`GOAMD64=v3`** et plus.
 - **1.26** — **davantage de backing stores de slices alloués sur la pile** : l'escape analysis progresse,
-  réduisant les allocations sans changer le code (vérifié en [Ch. 26](26-allocation-escape.md)). La PGO
-  continue de s'affiner (meilleure dévirtualisation).
+  réduisant les allocations sans changer le code (vérifié en [Ch. 26](26-allocation-escape.md)) ;
+  **`b.Loop` n'empêche plus l'inlining** du corps de boucle ([Ch. 36](36-tests-benchmarks-fuzzing.md)).
 
 ## ⚠️ Pièges
 

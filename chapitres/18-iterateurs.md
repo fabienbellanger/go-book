@@ -271,9 +271,9 @@ for i, v := range slices.Backward(words) {
 - **Appeler `yield` après un `false`** : interdit, **panique**. Toujours `return` dès que `yield`
   renvoie `false`. Le runtime le détecte et arrête tout avec
   `runtime error: range function continued iteration after function for loop body returned false`
-  — voir `BrokenAfterStop` et `TestYieldAfterStopPanics` dans
-  [`code/ch18-iterators/iterators.go`](../code/ch18-iterators/iterators.go) pour un cas reproduit et
-  capturé avec `recover`.
+  — voir `BrokenAfterStop` dans
+  [`code/ch18-iterators/iterators.go`](../code/ch18-iterators/iterators.go) et le test
+  `TestYieldAfterStopPanics` (dans `iterators_test.go`) qui reproduit le cas et le capture avec `recover`.
 - **Oublier `stop()` après `iter.Pull`** : fuite de goroutine. Mettez `defer stop()` juste après.
 - **Croire que c'est lazy partout** : `slices.Collect`/`Sorted` **matérialisent** (et trient) — ils
   consomment toute la séquence. N'enchaînez pas un `Collect` au milieu d'un pipeline.

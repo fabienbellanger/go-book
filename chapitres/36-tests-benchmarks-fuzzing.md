@@ -138,9 +138,10 @@ Un benchmark isolé ne dit rien : **107 ns, est-ce mieux ou moins bien ?** La r�
 ```bash
 go install golang.org/x/perf/cmd/benchstat@latest   # une fois
 
-# On mesure 10 fois chaque version (le bruit l'exige) dans deux fichiers.
-go test -bench=Naive   -count=10 -run=^$ ./ch36-benchmarks-fuzzing/... > old.txt
-go test -bench=Builder -count=10 -run=^$ ./ch36-benchmarks-fuzzing/... > new.txt
+# benchstat apparie les mesures PAR NOM de benchmark : on renomme les deux
+# versions sous un nom commun (Format) pour comparer l'ancienne à la nouvelle.
+go test -bench=Naive   -count=10 -run=^$ ./ch36-benchmarks-fuzzing/... | sed 's/Naive/Format/'   > old.txt
+go test -bench=Builder -count=10 -run=^$ ./ch36-benchmarks-fuzzing/... | sed 's/Builder/Format/' > new.txt
 benchstat old.txt new.txt
 ```
 

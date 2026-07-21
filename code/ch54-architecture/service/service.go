@@ -66,3 +66,14 @@ func (s *Service) Get(ctx context.Context, id string) (domain.Note, error) {
 	}
 	return n, nil
 }
+
+// List renvoie toutes les notes, en déléguant la lecture au store. Avec Create et
+// Get, le service utilise ainsi les TROIS opérations qu'il déclare dans NoteStore :
+// l'interface reste « ni plus, ni moins » que ce dont le service a besoin.
+func (s *Service) List(ctx context.Context) ([]domain.Note, error) {
+	notes, err := s.store.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("service.List: %w", err)
+	}
+	return notes, nil
+}
