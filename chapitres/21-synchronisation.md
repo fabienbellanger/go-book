@@ -240,6 +240,12 @@ func joinInts(nums []int, sep string) string {
   sans le boilerplate de `sync.Once`.
 - Depuis **1.19**, les **types** atomiques (`atomic.Int64`, `atomic.Pointer[T]`...) remplacent
   avantageusement les fonctions `atomic.AddInt64` & co (typage, pas de souci d'alignement).
+- **1.27** — deux modernizers de `go fix ./...` automatisent les migrations de ce chapitre :
+  **`atomictypes`** convertit `var x int32` + `atomic.AddInt32(&x, 1)` en `var x atomic.Int32` +
+  `x.Add(1)` (le type atomique interdit tout accès non atomique, d'où la réduction du risque), et
+  **`waitgroupgo`** — ex-`waitgroup`, renommé pour ne plus se confondre avec l'analyseur `go vet`
+  homonyme — transforme le trio `Add(1)` / `go func` / `defer Done()` en `wg.Go(f)`.
+  🔁 [Ch. 13](13-tests-outillage.md).
 
 ## ⚠️ Pièges
 
@@ -259,22 +265,22 @@ func joinInts(nums []int, sep string) string {
 
 ## ⚡ Performance
 
-Mesuré (go1.26.4, Apple M3, `RunParallel` = sous contention) :
+Mesuré (go1.27.0, Apple M3, `RunParallel` = sous contention) :
 
 ```
-   BenchmarkAtomicInc     52.5 ns/op   0 allocs   (atomic.Int64.Add)
-   BenchmarkMutexInc     138.4 ns/op   0 allocs   (Mutex autour d'un n++)
-   BenchmarkRWMutexRead   63.5 ns/op   0 allocs   (lecteurs parallèles)
-   BenchmarkMutexRead    120.4 ns/op   0 allocs   (exclusif même en lecture)
+   BenchmarkAtomicInc     18.2 ns/op   0 allocs   (atomic.Int64.Add)
+   BenchmarkMutexInc      86.3 ns/op   0 allocs   (Mutex autour d'un n++)
+   BenchmarkRWMutexRead   41.4 ns/op   0 allocs   (lecteurs parallèles)
+   BenchmarkMutexRead     82.2 ns/op   0 allocs   (exclusif même en lecture)
 ```
 
-- Pour **une valeur**, `atomic` est ~**2,6×** plus rapide qu'un `mutex` (et plus simple).
+- Pour **une valeur**, `atomic` est ~**4,7×** plus rapide qu'un `mutex` (et plus simple).
 - Ces chiffres mesurent le **pire cas** : plusieurs goroutines qui se disputent réellement le verrou
   (`RunParallel`). Un `Mutex` **non contesté** (jamais qu'une seule goroutine à la fois en pratique)
   coûte presque aussi peu qu'un `atomic` — `Lock`/`Unlock` se résout alors en une simple opération
   atomique réussie au premier essai, sans passer par le runtime. Le surcoût mesuré ici vient du
   **réveil des goroutines mises en sommeil** quand elles doivent attendre, pas du verrou lui-même.
-- Pour de la **lecture pure**, `RWMutex` est ~**1,9×** plus rapide qu'un `Mutex` — utile seulement si
+- Pour de la **lecture pure**, `RWMutex` est ~**2,0×** plus rapide qu'un `Mutex` — utile seulement si
   les lectures dominent réellement.
 - **Faux partage** (_false sharing_) : deux atomics chauds sur la **même ligne de cache** (64 o) se
   gênent comme s'ils partageaient la donnée. Pour un état très contendu, séparez-les (padding). 🔁

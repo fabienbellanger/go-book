@@ -35,7 +35,7 @@ func main() {
 	counts := wordFrequencies(text, 1)
 	fmt.Printf("%d mots distincts ; \"profil\" apparaît %d fois\n",
 		len(counts), counts["profil"])
-	fmt.Printf("%d profils prédéfinis disponibles (allocs, block, goroutine, heap, mutex, threadcreate)\n",
+	fmt.Printf("%d profils prédéfinis disponibles (allocs, block, goroutine, goroutineleak, heap, mutex, threadcreate)\n",
 		CountProfiles())
 }
 

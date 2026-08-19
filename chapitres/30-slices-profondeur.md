@@ -46,7 +46,7 @@ slice copie **ce header**, pas les données — d'où le partage du backing.
 ### Le vrai type : `runtime.slice`, et pourquoi un array n'en a pas besoin
 
 Le schéma ci-dessus n'est pas qu'une métaphore : à la compilation, `[]T` devient le type interne
-`runtime.slice` (vérifié dans les sources Go 1.26) :
+`runtime.slice` (vérifié dans les sources Go 1.27) :
 
 ```go
 type slice struct {
@@ -230,6 +230,13 @@ le contenu d'origine de `src` — à n'employer que si l'appelant n'en a plus be
   `sumSmallSlice` = 0 alloc/op) : un `make([]T, k)` local qui ne s'échappe pas n'alloue plus. La
   taille doit rester **statique** — un `make([]T, n)` avec `n` connu seulement à l'exécution continue,
   lui, de s'échapper sur le tas.
+- **1.27** — l'allocation elle-même accélère : le compilateur émet des routines **spécialisées par
+  classe de taille**, jusqu'à ~30 % plus rapides sous 80 octets
+  ([Ch. 26](26-allocation-escape.md)). Le backing d'un petit slice qui s'échappe malgré tout coûte
+  donc un peu moins cher — sans changer la hiérarchie : ne pas allouer reste meilleur.
+- **1.27** — le modernizer **`slicesbackward`** (`go fix ./...`) réécrit les parcours à rebours
+  `for i := len(s) - 1; i >= 0; i--` en `for _, v := range slices.Backward(s)` (1.23), plus lisible
+  et sans risque d'erreur de borne. 🔁 [Ch. 13](13-tests-outillage.md).
 
 ## ⚠️ Pièges
 

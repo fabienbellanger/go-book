@@ -33,11 +33,15 @@ question :
 | **block**        | qui **bloque** sur canal/verrou ?     | `runtime.SetBlockProfileRate(n)`     |
 | **mutex**        | qui se dispute les **verrous** ?      | `runtime.SetMutexProfileFraction(n)` |
 | **threadcreate** | qui crée des **threads OS** ?         | toujours actif                       |
+| **goroutineleak** 🆕 1.27 | quelles goroutines sont bloquées **à jamais** ? | toujours actif |
 
 ```
 $ go run ./ch37-profiling-pprof
-6 profils prédéfinis disponibles (allocs, block, goroutine, heap, mutex, threadcreate)
+7 profils prédéfinis disponibles (allocs, block, goroutine, goroutineleak, heap, mutex, threadcreate)
 ```
+
+> 🆕 La liste est passée de **6 à 7** en Go 1.27 : `goroutineleak`, expérimental en 1.26 (et donc
+> absent de `pprof.Profiles()` sans `GOEXPERIMENT`), est désormais toujours là.
 
 > ⚠️ **block** et **mutex** sont **désactivés par défaut** (ils ont un coût). On les arme explicitement
 > avant de les capturer.
@@ -256,10 +260,14 @@ Une case large tout en haut = un point chaud isolé ; une large « base » = un 
 
 - **1.26** — l'UI web de `pprof` ouvre désormais le **flame graph par défaut** (auparavant : le graphe
   d'appels). La vue la plus utile est en première page.
-- **1.26** — profil expérimental **`goroutineleak`** ([Ch. 23](23-patterns-concurrence.md)) : il liste
-  les goroutines **définitivement bloquées** (fuites), exposé via `/debug/pprof/goroutineleak`. Il est
-  **gated** par `GOEXPERIMENT=goroutineleakprofile` — sans l'expérience, `pprof.Lookup("goroutineleak")`
-  renvoie `nil` (vérifié sur 1.26.4).
+- **1.26 / 1.27** — profil **`goroutineleak`** ([Ch. 23](23-patterns-concurrence.md)) : il liste les
+  goroutines **définitivement bloquées** (fuites). Expérimental en 1.26, **stable en 1.27** — le
+  `GOEXPERIMENT=goroutineleakprofile` a disparu et `pprof.Lookup("goroutineleak")` renvoie toujours un
+  profil (vérifié sur go1.27.0). Exposé via `/debug/pprof/goroutineleak`, `?debug=2` pour des piles
+  lisibles.
+- **1.27** — les **étiquettes** posées par `pprof.Do` remontent dans les **tracebacks**
+  (`GODEBUG=tracebacklabels=0` pour désactiver) : le même vocabulaire sert au profil et au rapport de
+  crash.
 - **1.21+** — le profil **`allocs`** par défaut de `go test -memprofile` distingue clairement
   `alloc_space` (pression GC) de `inuse_space` (rétention).
 
@@ -272,7 +280,7 @@ Une case large tout en haut = un point chaud isolé ; une large « base » = un 
 - **Le mauvais profil pour le problème** — un profil **cpu** ne voit que le code **en train de
   s'exécuter** ; une fuite mémoire, c'est de la mémoire retenue mais **inactive**, invisible dans
   `cpu.prof` même en le scrutant longtemps. Pour une fuite : `heap`/`inuse_space` ; pour une fuite de
-  **goroutines** : le profil `goroutine` (ou `goroutineleak`, 1.26 expérimental).
+  **goroutines** : le profil `goroutine` (ou `goroutineleak`, 🆕 1.27 stable).
 - **Oublier d'armer block/mutex** — sans `SetBlockProfileRate`/`SetMutexProfileFraction`, ces profils
   sont **vides**. À l'inverse, les armer au taux **maximal** (`rate=1`, `fraction=1` : tout capturer) en
   permanence sur un service à forte contention a un coût mesurable (voir ⚡ Performance plus bas) — on
@@ -321,14 +329,14 @@ go tool pprof -sample_index=alloc_space -top mem.prof
 
 - Le benchmark dit **combien**, le **profil** dit **où**. Mesurer → localiser → optimiser, jamais
   l'inverse.
-- **6 profils** par défaut (cpu via `StartCPUProfile`, heap, allocs, goroutine, block*, mutex*,
-  threadcreate) ; `block`/`mutex` doivent être **armés**.
+- **7 profils** par défaut depuis 🆕 **1.27** (cpu via `StartCPUProfile`, heap, allocs, goroutine,
+  **goroutineleak**, block*, mutex*, threadcreate) ; `block`/`mutex` doivent être **armés**.
 - **`runtime/pprof`** pour les programmes, **`net/http/pprof`** (`/debug/pprof/`, port **interne**) pour
   les services.
 - **`go tool pprof`** : `top`, `list` (ligne à ligne), `peek` (contexte d'appel), `web`/flame graph.
   **`flat`** = temps dans la fonction, **`cum`** = avec ses appelés — optimisez le **`flat`**.
 - Tas : **`alloc_space`** (pression GC) vs **`inuse_space`** (rétention/fuite). 🆕 1.26 : flame graph par
-  défaut, profil `goroutineleak` (expérimental).
+  défaut ; 🆕 1.27 : profil **`goroutineleak`** stable et **labels pprof dans les tracebacks**.
 
 ## 🔁 Pour aller plus loin
 

@@ -75,7 +75,7 @@ appel** — pratique pour un one-shot, à proscrire sur un chemin chaud.
 ```go
 // code/annexe-J-regexp/main.go
 reWord := regexp.MustCompile(`\w+`)
-reWord.FindString("  Go 1.26 !") // "Go"
+reWord.FindString("  Go 1.27 !") // "Go"
 reWord.FindAllString("un deux trois", -1) // ["un" "deux" "trois"]
 ```
 

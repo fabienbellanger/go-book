@@ -222,7 +222,11 @@ après GC, Get(1) == nil : true     <- la référence faible n'a pas retenu l'ob
   même moment, souvent liés) sont traités ensemble, donc déjà chargés en cache. Résultat : **−10 à
   −40 %** d'overhead GC selon la charge, l'effet étant d'autant plus net que le tas contient beaucoup de
   petits objets dispersés. On peut le désactiver via `GOEXPERIMENT=nogreenteagc` (vérifié accepté sur
-  1.26.4). Le tas est aussi **randomisé** en adresse de base ([Ch. 24](24-runtime-bootstrap.md)).
+  1.27.0). Le tas est aussi **randomisé** en adresse de base ([Ch. 24](24-runtime-bootstrap.md)).
+- **1.27** — rien ne change dans le **marquage**, mais l'**allocation** accélère : le compilateur émet
+  des routines spécialisées par classe de taille ([Ch. 26](26-allocation-escape.md)). C'est le chemin
+  `malloc`, pas le GC — la pression sur le ramasse-miettes, elle, dépend toujours du **nombre**
+  d'objets alloués, pas de leur coût unitaire.
 
 ## ⚠️ Pièges
 

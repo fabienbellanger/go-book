@@ -321,28 +321,46 @@ Cinq appels espacés de 100 ms « prennent » **500 ms** de temps **virtuel** �
 en **0 s réel**. `synctest.Wait()` complète l'outil : il bloque jusqu'à ce que toutes les autres
 goroutines de la bulle soient bloquées, pour observer un état stable sans `time.Sleep`.
 
-## Détecter les fuites : `goroutineleak` (1.26)
+## Détecter les fuites : `goroutineleak` (🆕 1.27)
 
-Une goroutine **bloquée à jamais** fuit en silence ([Ch. 19](19-goroutines.md)). Go 1.26 ajoute un
-profil **expérimental** qui les **liste** — celles qui sont bloquées **et inaccessibles** (plus aucun
-moyen de les réveiller) :
+Une goroutine **bloquée à jamais** fuit en silence ([Ch. 19](19-goroutines.md)). Introduit derrière
+un `GOEXPERIMENT` en 1.26, le profil **`goroutineleak`** est **stable en Go 1.27** : il liste les
+goroutines bloquées **et inaccessibles** — celles que plus rien ne peut réveiller.
 
 ```go
 import "runtime/pprof"
 
-p := pprof.Lookup("goroutineleak")     // nil sans l'expérience
+p := pprof.Lookup("goroutineleak")   // toujours présent depuis 1.27
 _ = p.WriteTo(os.Stdout, 1)
 ```
 
 ```
-$ GOEXPERIMENT=goroutineleakprofile go run .
+$ go run .
 goroutineleak profile: total 1
-1 @ ...
-#  main.leak.func1+0x23  .../main.go:14   (<-ch : bloqué pour toujours)
+1 @ 0x10433ff18 0x1042db0b0 0x1042dac34 0x104393524 0x104346024
+#	0x104393523	main.leak.func1+0x23	.../main.go:14   (<-ch : bloqué pour toujours)
 ```
 
-Vérifié sur go1.26.4 : il pointe la **ligne exacte** du blocage. Sans `GOEXPERIMENT=goroutineleakprofile`,
-`pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29](29-observabilite-runtime.md).
+**Comment il sait.** Le profil ne mesure pas une durée de blocage — il s'appuie sur le **GC**. Si une
+goroutine G est bloquée sur une primitive P (canal, `sync.Mutex`, `sync.Cond`…) et que P n'est
+**joignable** depuis aucune goroutine exécutable, ni depuis une goroutine que celles-ci pourraient
+réveiller, alors personne ne peut plus toucher P : G ne se réveillera jamais. C'est une certitude, pas
+une heuristique — d'où l'absence de faux positifs.
+
+> ⚠️ **La réciproque est fausse** : le profil ne voit pas toutes les fuites. Une goroutine bloquée sur
+> un canal encore référencé par une **variable globale**, ou par la pile d'une goroutine exécutable,
+> reste « joignable » aux yeux du GC, donc invisible ici — même si, en pratique, plus personne
+> n'écrira jamais dedans. Le profil `goroutine` classique (`debug=2`) et un décompte de
+> `runtime.NumGoroutine()` avant/après restent nécessaires pour ces cas-là.
+
+En service, le point d'entrée `net/http/pprof` l'expose comme les autres :
+
+```
+/debug/pprof/goroutineleak          # profil pprof binaire
+/debug/pprof/goroutineleak?debug=2  # piles lisibles, format « panique »
+```
+
+🔁 [Ch. 29](29-observabilite-runtime.md), [Ch. 37](37-profiling-pprof.md).
 
 ---
 
@@ -350,8 +368,12 @@ Vérifié sur go1.26.4 : il pointe la **ligne exacte** du blocage. Sans `GOEXPER
 
 - **1.25** — **`testing/synctest`** passe en **GA** : `synctest.Test(t, f)` (bulle + horloge virtuelle)
   et `synctest.Wait()` (attendre que la bulle se stabilise). Fin des tests temporels lents et instables.
-- **1.26** — profil **`goroutineleak`** (expérimental, `GOEXPERIMENT=goroutineleakprofile`) :
-  identifie les goroutines bloquées à jamais. Aussi exposé via `/debug/pprof/goroutineleak`.
+- **1.27** — profil **`goroutineleak`** **stable** (expérimental en 1.26 ; le `GOEXPERIMENT` associé
+  a été supprimé) : identifie les goroutines bloquées à jamais. Exposé via
+  `/debug/pprof/goroutineleak`.
+- **1.27** — **`synctest.Sleep(d)`** : équivaut à `time.Sleep(d)` suivi de `synctest.Wait()`. Dans un
+  test, c'est presque toujours ce que l'on veut — sans le `Wait`, le test et le code testé qui
+  dorment la même durée se réveillent dans un ordre imprévisible.
 - **1.25** — l'analyzer **`go vet waitgroup`** ([Ch. 21](21-synchronisation.md)) attrape un `Add` mal
   placé, source classique de bug de pool.
 
@@ -410,7 +432,8 @@ go test -run TestRateLimitedVirtualTime -v ./ch23-patterns-concurrence/...
   **indéfini**. **`-race`** la traque ; activez-le en CI.
 - **`testing/synctest`** (1.25) teste le **temps** de façon **déterministe et instantanée** (horloge
   virtuelle).
-- **`goroutineleak`** (1.26, expérimental) liste les goroutines **bloquées à jamais**.
+- **`goroutineleak`** (🆕 1.27, stable) liste les goroutines **bloquées à jamais** — celles dont le
+  GC prouve que la primitive attendue est devenue injoignable.
 
 ## 🔁 Pour aller plus loin
 

@@ -1,5 +1,6 @@
-// Command ch42-encoding illustre la sérialisation (encoding/json, gob, csv)
-// et les expressions régulières (regexp) de la bibliothèque standard.
+// Command ch42-encoding illustre la sérialisation (encoding/json, son
+// successeur encoding/json/v2 🆕 1.27, gob, csv) et les expressions
+// régulières (regexp) de la bibliothèque standard.
 package main
 
 import (
@@ -158,4 +159,12 @@ func main() {
 	var t Temperature = 21.5
 	tj, _ := json.Marshal(t)
 	fmt.Println("temp JSON:", string(tj))
+
+	// 🆕 Go 1.27 : encoding/json/v2 (voir jsonv2.go). Même valeur, deux moteurs.
+	r := Réponse{} // Items et Labels sont nil
+	rv1, _ := marshalRéponseV1(r)
+	rv2, _ := marshalRéponseV2(r)
+	fmt.Println("v1 (nil -> null):\n" + rv1)
+	fmt.Println("v2 (nil -> [] / {}):\n" + rv2)
+	fmt.Println("v2 refuse un nom dupliqué :", hasDuplicateName(`{"name":"a","name":"b"}`))
 }

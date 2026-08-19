@@ -183,37 +183,155 @@ Sans type cible précis, JSON se décode vers des types **génériques** :
 
 ---
 
-## 🆕 `encoding/json/v2` (expérimental)
+## 🆕 `encoding/json/v2` (1.27)
 
-Go 1.25/1.26 embarquent une refonte majeure, **`encoding/json/v2`** (et son étage syntaxique
-`encoding/json/jsontext`). Elle n'existe **que** si l'on compile avec
-`GOEXPERIMENT=jsonv2` — c'est **expérimental**, hors promesse de compatibilité Go 1, et **non
-utilisé** dans le code de ce chapitre. Activer le flag ne fait pas que révéler ces nouveaux
-packages : en Go 1.26, il fait aussi tourner `encoding/json` v1 **par-dessus** v2 en interne
-(même implémentation), avec un comportement annoncé comme identique dans l'immense majorité des
-cas. C'est précisément ce qui permet à l'équipe Go de mesurer l'impact de v2 sur du code v1
-existant, sans le réécrire.
+Après deux versions derrière `GOEXPERIMENT=jsonv2`, la refonte de l'API JSON est **stable en
+Go 1.27**. Elle arrive en deux packages :
 
-Apports visés :
+- **`encoding/json/v2`** — l'étage **sémantique** : la correspondance entre valeurs Go et JSON
+  (`Marshal`, `Unmarshal`, balises de struct, options).
+- **`encoding/json/jsontext`** — l'étage **syntaxique** : le JSON vu comme une suite de
+  *tokens*, sans aucune connaissance des types Go.
 
-- **Performance** — décodage nettement plus rapide et moins d'allocations (streaming repensé,
-  nouvelles interfaces `MarshalerTo`/`UnmarshalerFrom` qui écrivent/lisent directement sur un
-  `jsontext.Encoder`/`Decoder` sans passer par un `[]byte` intermédiaire).
-- **Options explicites** — les fonctions acceptent des `Options` variadiques
-  (`json.Marshal(v, opts...)`) au lieu de comportements implicites ; on configure finement la
-  sémantique (clés inconnues, casse, formats) et la syntaxe.
-- **Défauts plus stricts** — clés JSON dupliquées et octets UTF-8 invalides deviennent des
-  **erreurs** (v1 les tolère silencieusement) ; l'appariement nom de champ ↔ clé JSON en
-  désérialisation est **sensible à la casse** par défaut (v1 retombe sur une correspondance
-  insensible à la casse, 🔁 Pièges ci-dessus) ; une slice/map **`nil`** s'encode en `[]`/`{}` au
-  lieu de `null` — le piège « `nil` slice vs `[]` » plus haut disparaît en v2.
-- **API de flux dédiée** — `MarshalWrite`/`UnmarshalRead` (vers `io.Writer`/`io.Reader`),
-  `MarshalEncode`/`UnmarshalDecode` (vers un `jsontext.Encoder`/`Decoder`).
+```
+   valeur Go  <---- encoding/json/v2 ----> suite de tokens <---- jsontext ----> octets JSON
+   (struct)         (sémantique :              (BeginObject,      (syntaxe :        []byte
+                     tags, options)             String, …)         échappement,
+                                                                   validation)
+```
 
-> 💡 En production, restez sur `encoding/json` sans le flag (comportement par défaut inchangé,
-> stable) jusqu'à stabilisation de v2 — v1 ne sera de toute façon **jamais retiré**, la migration
-> est prévue comme une option, pas une obligation. Surveillez les notes de version pour suivre la
-> décision d'adoption (ou d'abandon) du flag.
+Le changement le plus important est invisible : **`encoding/json` v1 tourne désormais
+par-dessus v2**. Même moteur, mais v1 conserve sa sémantique — elle est reconstituée par un jeu
+d'options « héritées » (`json.DefaultOptionsV1()`, `json.CallMethodsWithLegacySemantics(…)`…).
+Le décodage y gagne nettement en vitesse ; l'encodage est globalement à parité. Aucune
+migration n'est requise, et v1 ne sera pas retiré.
+
+> ⚠️ **Ce qui change quand même en v1** : les **messages d'erreur**. Le moteur n'est plus le
+> même, donc le texte des erreurs diffère. Un test qui compare `err.Error()` à une chaîne
+> littérale va casser — comparez avec `errors.Is`/`errors.As`, ou sur un sous-ensemble stable.
+> En cas d'urgence, `GOEXPERIMENT=nojsonv2` restaure l'ancien moteur au build, mais c'est un
+> sursis : l'opt-out disparaîtra.
+
+### Ce que v2 change, concrètement
+
+Les **défauts** sont plus stricts, et c'est le cœur de la refonte :
+
+| Situation                        | `encoding/json` (v1)             | `encoding/json/v2`                     |
+| -------------------------------- | -------------------------------- | -------------------------------------- |
+| Clé JSON dupliquée               | silencieusement, la **dernière** | **erreur**                             |
+| UTF-8 invalide dans une chaîne   | remplacé par U+FFFD              | **erreur**                             |
+| Appariement clé ↔ champ          | insensible à la casse en dernier recours | **sensible à la casse**        |
+| Slice/map `nil` à l'encodage     | `null`                           | `[]` / `{}`                            |
+| Ordre des clés d'une **map**     | **trié**                         | **non déterministe** (`Deterministic(true)` pour trier) |
+| Clé JSON inconnue au décodage    | ignorée                          | ignorée (option pour refuser)          |
+
+```go
+// code/ch42-encoding/jsonv2.go
+import (
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
+)
+
+// Ni omitempty ni omitzero : c'est là que la différence se voit.
+type Réponse struct {
+	Items  []string          `json:"items"`
+	Labels map[string]string `json:"labels"`
+}
+
+r := Réponse{} // Items et Labels sont nil
+
+b, _ := jsonv2.Marshal(r, jsontext.WithIndent("  "))
+// v2 : {"items": [],   "labels": {}}    -- nil s'encode en [] / {}
+// v1 : {"items": null, "labels": null}  -- comportement historique préservé
+
+err := jsonv2.Unmarshal([]byte(`{"name":"a","name":"b"}`), &v)
+// jsontext: duplicate object member name "name"  (v1 accepte et garde "b")
+```
+
+Le premier point supprime un réflexe défensif très répandu : en v1, une API qui renvoie
+`{"items": null}` oblige chaque client à distinguer `null` de `[]`, d'où le
+`if items == nil { items = []T{} }` juste avant de sérialiser. En v2, il n'a plus lieu d'être.
+
+Le piège « `nil` slice vs `[]` » vu plus haut disparaît donc en v2 — et avec lui le
+`if s == nil { s = []T{} }` défensif qu'on écrivait avant de sérialiser une réponse d'API.
+
+### Les options remplacent les comportements implicites
+
+Toutes les fonctions v2 acceptent des `Options` variadiques. On règle explicitement ce qui
+était auparavant figé :
+
+```go
+json.Marshal(v, jsontext.WithIndent("  "))            // indentation (côté syntaxe)
+json.Marshal(v, json.Deterministic(true))             // ordre des clés de map stable
+json.Unmarshal(b, &v, json.RejectUnknownMembers(true))  // refuse une clé inconnue
+json.Unmarshal(b, &v, json.MatchCaseInsensitiveNames(true)) // retrouve la tolérance v1
+```
+
+⚠️ La ligne « ordre des clés de map » est le piège le plus sournois de la migration : v1 trie
+les clés, v2 non. Un test à *golden file*, une signature calculée sur du JSON, ou un cache
+indexé par la sérialisation d'une map deviennent instables. Passez `json.Deterministic(true)`
+partout où l'octet exact compte.
+
+`json.RejectUnknownMembers(true)` mérite une mention : c'est l'équivalent déclaratif de
+`Decoder.DisallowUnknownFields()` en v1, et le réflexe à prendre pour valider une charge utile
+entrante — une clé mal orthographiée devient une erreur au lieu d'être silencieusement perdue.
+
+### Les quatre portes d'entrée
+
+v2 nomme explicitement ce qui, en v1, se répartissait entre fonctions et types :
+
+| Fonction          | Source / destination            | Équivalent v1                    |
+| ----------------- | ------------------------------- | -------------------------------- |
+| `Marshal`         | `[]byte`                        | `json.Marshal`                   |
+| `MarshalWrite`    | `io.Writer`                     | `json.NewEncoder(w).Encode(v)`   |
+| `MarshalEncode`   | `*jsontext.Encoder`             | —                                |
+| `Unmarshal`       | `[]byte`                        | `json.Unmarshal`                 |
+| `UnmarshalRead`   | `io.Reader`                     | `json.NewDecoder(r).Decode(&v)`  |
+| `UnmarshalDecode` | `*jsontext.Decoder`             | —                                |
+
+```go
+// Écrire directement dans la réponse HTTP, sans buffer intermédiaire.
+func écrireJSON(w http.ResponseWriter, v any) error {
+	w.Header().Set("Content-Type", "application/json")
+	return json.MarshalWrite(w, v)
+}
+```
+
+Côté types, les interfaces `MarshalerTo` / `UnmarshalerFrom` (méthodes `MarshalJSONTo(*jsontext.Encoder)`
+et `UnmarshalJSONFrom(*jsontext.Decoder)`) permettent d'écrire ou lire **directement sur le
+flux**, sans allouer le `[]byte` intermédiaire qu'imposaient `MarshalJSON`/`UnmarshalJSON`. Les
+anciennes interfaces restent reconnues.
+
+### `jsontext` : le JSON sans les types
+
+Quand on n'a pas besoin de mapper vers des structs — filtrer un flux, réindenter, valider,
+transformer une clé — `jsontext` travaille sur les *tokens* :
+
+```go
+// code/ch42-encoding/jsonv2.go
+dec := jsontext.NewDecoder(r)
+for {
+	tok, err := dec.ReadToken()
+	if err == io.EOF {
+		break
+	}
+	if tok.Kind() == jsontext.KindString {
+		// dec.StackPointer() donne le JSON Pointer courant, ex. "/items/3/nom"
+	}
+}
+```
+
+⚠️ Au niveau syntaxique, **une clé d'objet est un token de type chaîne** au même titre qu'une
+valeur : sur `{"a":"x"}`, `ReadToken` en livre deux. `dec.StackPointer()` permet de savoir où
+l'on se trouve, et `dec.SkipValue()` de sauter un sous-arbre entier sans le construire.
+
+`jsontext.Value` est un texte JSON brut (c'est le nouveau nom de `json.RawMessage`, dont il est
+désormais l'alias) avec des méthodes de mise en forme : `Compact`, `Indent`, `Canonicalize`.
+
+> 💡 **Que choisir ?** `encoding/json` pour du code existant et pour l'immense majorité des cas
+> — il est maintenant rapide. `encoding/json/v2` pour du **code neuf** où l'on veut les défauts
+> stricts et les options explicites. `jsontext` seulement quand la structure typée n'a pas de
+> sens (proxy, filtre, outil de mise en forme).
 
 ---
 
@@ -323,9 +441,13 @@ for _, m := range kvPattern.FindAllStringSubmatch(s, -1) {
 - **Streaming** (`Encoder`/`Decoder`) évite de matérialiser un gros `[]byte` intermédiaire.
 - **`regexp`** : compiler une fois ; les variantes `…Bytes` évitent une conversion `string`↔`[]byte`
   inutile quand on travaille déjà sur des octets.
-- **`json/v2`** (expérimental) vise précisément à réduire allocations et temps de décodage ; les
-  annonces de l'équipe Go évoquent jusqu'à **10×** plus rapide en désérialisation sur certains
-  projets ayant testé le flag — à vérifier sur son propre code avant toute généralisation.
+- 🆕 **1.27** — le moteur **v2 sous v1** est un gain gratuit : la **désérialisation** accélère
+  nettement, l'encodage reste à parité. Vous en profitez sans changer une ligne, simplement en
+  recompilant. Mesurez chez vous plutôt que de reprendre un chiffre d'annonce : le gain dépend
+  fortement de la forme des documents (profondeur, proportion de chaînes, taille des objets).
+- Pour **écrire** un gros document, `MarshalWrite(w, v)` (v2) ou `Encoder` (v1) évitent le
+  `[]byte` intermédiaire. Pour n'en lire qu'une partie, `jsontext.Decoder` + `SkipValue()` saute
+  les sous-arbres sans jamais les construire.
 
 ## 🧪 À tester soi-même
 
@@ -351,8 +473,14 @@ go test -race ./ch42-encoding/...
 - `encoding/json` : `Marshal`/`Unmarshal` (pointeur requis), tags `omitempty`/`omitzero`/`,string`/`-` ;
   seuls les **champs exportés** comptent.
 - Pour un flux, utilisez `Encoder`/`Decoder` ; `DisallowUnknownFields` valide strictement les entrées.
-- 🆕 **1.24** `omitzero` règle le cas `time.Time` ; 🆕 **json/v2** (expérimental, `GOEXPERIMENT=jsonv2`)
-  préfigure une API plus rapide et explicite — pas encore pour la production.
+- 🆕 **1.24** `omitzero` règle le cas `time.Time`.
+- 🆕 **1.27** — **`encoding/json/v2` est stable** et fait tourner v1 par-dessous : décodage plus
+  rapide, comportement v1 inchangé, mais **messages d'erreur différents** (ne les comparez pas
+  littéralement). En code neuf, v2 apporte des défauts stricts (doublons et UTF-8 invalide
+  refusés, casse respectée) et des **options explicites** ; attention, v2 **ne trie plus** les
+  clés de map — `json.Deterministic(true)` si l'octet exact compte.
+- 🆕 **1.27** — `encoding/json/jsontext` expose le JSON comme une suite de *tokens* : pour
+  filtrer, réindenter ou valider un flux sans le typer.
 - `gob` (Go↔Go), `csv` (tableaux), `xml` (interop imposée) complètent la famille ; **JSON par défaut**.
 - `regexp` = RE2 (linéaire, pas de backref) : **compilez une fois**, et préférez `strings` quand il suffit.
 

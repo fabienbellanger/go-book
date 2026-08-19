@@ -5,7 +5,7 @@
 > (`TopWordsScan`), puis on **chiffre** le gain. Toutes les mesures sont
 > reproductibles avec le `Makefile` (`make bench`, `make cpu`, `make pgo`).
 
-Matériel des mesures ci-dessous : Apple M3 (`arm64`), Go 1.26, corpus de
+Matériel des mesures ci-dessous : Apple M3 (`arm64`), Go 1.27, corpus de
 ~400 Kio (`b.SetBytes` ⇒ débit en Mo/s). Vos chiffres absolus varieront ; ce qui
 compte est le **rapport** avant/après.
 
@@ -88,10 +88,18 @@ make bench      # go test -bench=TopWords -benchmem -count=10, des deux côtés
 
 | Métrique (par opération) | v1 `Regexp` | v2 `Scan` |                 Gain |
 | ------------------------ | ----------: | --------: | -------------------: |
-| Temps                    |    ~36,8 ms |  ~4,20 ms | **×8,7** plus rapide |
-| Débit (`SetBytes`)       |  ~24,9 Mo/s | ~217 Mo/s |             **×8,7** |
+| Temps                    |    ~35,3 ms |  ~4,05 ms | **×8,7** plus rapide |
+| Débit (`SetBytes`)       |  ~25,8 Mo/s | ~225 Mo/s |             **×8,7** |
 | Mémoire allouée          |    ~29,1 Mo |   ~5,4 Ko |      **×5400** moins |
-| Nombre d'allocations     |     144 070 |       112 |      **×1286** moins |
+| Nombre d'allocations     |     144 065 |       112 |      **×1286** moins |
+
+> 🆕 **Relevé refait sous Go 1.27** (il l'était sous 1.26). Les deux implémentations gagnent
+> quelques pour cent en absolu — l'**allocation spécialisée par taille** de 1.27
+> ([Ch. 26](../../chapitres/26-allocation-escape.md)) profite surtout à `v1`, qui fait 144 000
+> allocations par opération. Le **rapport** entre les deux, lui, ne bouge pas : c'est bien
+> l'algorithme qui décide, pas la version du compilateur. Illustration directe du principe du
+> §1 — refaites vos mesures après une montée de version **avant** d'attribuer un gain à votre
+> propre travail.
 
 Le résultat fonctionnel est **identique** (vérifié par `TestImplementationsAgree`
 et `TestBothImplementations`) : on a gagné presque un ordre de grandeur en CPU et
@@ -122,6 +130,39 @@ fautive.
 
 ---
 
+## 5 bis. Fuites de goroutines — le profil `goroutineleak` (🆕 Go 1.27)
+
+Un service qui « grossit doucement » sans que le tas n'explose accuse souvent des **goroutines
+bloquées à jamais** : chacune retient sa pile et tout ce qu'elle capture. Jusqu'ici, on les
+traquait en lisant `/debug/pprof/goroutine?debug=2` et en cherchant à l'œil les piles figées
+depuis longtemps — fastidieux et incertain.
+
+Stable depuis Go 1.27, le profil **`goroutineleak`** le fait pour vous :
+
+```bash
+wordstats -addr :8080 &
+go tool pprof -top 'http://localhost:8080/debug/pprof/goroutineleak'
+curl -s 'localhost:8080/debug/pprof/goroutineleak?debug=2'   # piles lisibles
+```
+
+Il ne mesure pas une durée d'attente : il s'appuie sur le **GC**. Si une goroutine est bloquée
+sur une primitive (canal, mutex, `sync.Cond`) que plus aucune goroutine exécutable ne peut
+atteindre, alors le réveil est **impossible** — c'est une preuve, pas une heuristique, d'où
+l'absence de faux positifs.
+
+> ⚠️ **La réciproque est fausse.** Une goroutine bloquée sur un canal encore référencé par une
+> variable **globale** reste « joignable » aux yeux du GC et n'apparaîtra pas, même si en
+> pratique plus personne n'y écrira. Gardez donc les deux autres filets : `runtime.NumGoroutine()`
+> suivi dans le temps (une croissance monotone est le symptôme), et `testing/synctest`
+> ([Projet 3](../3-pipeline/)) qui échoue si une goroutine reste bloquée en fin de test.
+
+> 💡 **`go tool trace` a changé de défaut en 1.27** : `-http=:6060` n'écoute plus que sur
+> `localhost`, alors qu'il ouvrait auparavant toutes les interfaces. Une trace expose noms de
+> fonctions, chronologie et charge — la restriction est bienvenue. Pour exposer volontairement
+> l'explorateur (poste distant, conteneur), écrivez-le : `-http=0.0.0.0:6060`.
+
+---
+
 ## 6. PGO (Profile-Guided Optimization)
 
 ```bash
@@ -133,8 +174,8 @@ détecte automatiquement (`-pgo=auto`) et l'embarque (`go version -m` le confirm
 
 | Build              | Temps `TopWordsScan` |
 | ------------------ | -------------------: |
-| `-pgo=off`         |             ~4,17 ms |
-| `-pgo=default.pgo` |             ~4,19 ms |
+| `-pgo=off`         |             ~4,24 ms |
+| `-pgo=default.pgo` |             ~4,36 ms |
 
 **Honnêtement : le gain est ici dans le bruit de mesure.** C'est instructif : le
 PGO brille sur du code **riche en appels** (inlining et dévirtualisation

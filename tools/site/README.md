@@ -46,7 +46,7 @@ go run . -src ../.. -serve -addr :8080
 | `-clean` | `false`                           | vide la sortie avant génération           |
 | `-serve` | `false`                           | sert le résultat en HTTP après génération |
 | `-addr`  | `:8080`                           | adresse du serveur de prévisualisation    |
-| `-title` | `Comprendre et maîtriser Go 1.26` | titre du livre                            |
+| `-title` | `Comprendre et maîtriser Go 1.27` | titre du livre                            |
 | `-v`     | `false`                           | logs verbeux (niveau debug)               |
 
 ## Structure

@@ -207,6 +207,17 @@ func resolveHost(ctx context.Context, host string) ([]string, error) {
 }
 ```
 
+## 🆕 Go 1.2x
+
+- **1.27** — les méthodes de lecture d'une **`*net.UnixConn`** (sockets de domaine Unix) renvoient
+  désormais **`io.EOF` directement**, au lieu de l'envelopper dans un `*net.OpError`. Le code
+  idiomatique `if err == io.EOF` — ou la boucle `io.Copy` qui s'arrête toute seule — fonctionne enfin
+  comme sur une connexion TCP. Si vous aviez contourné le problème par un
+  `errors.Is(err, io.EOF)` ou en démontant l'`OpError` à la main, le contournement reste correct :
+  `errors.Is` marche dans les deux cas.
+- **1.27** — TLS accepte les signatures **post-quantiques** ML-DSA en TLS 1.3, et la constante
+  `tls.MLKEM1024` complète les échanges de clés hybrides (🔁 [Ch. 53](53-crypto.md)).
+
 ## ⚠️ Pièges
 
 - **Oublier `conn.Close()`** (et `ln.Close()`) : chaque connexion non fermée fuit un

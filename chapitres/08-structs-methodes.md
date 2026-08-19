@@ -52,6 +52,25 @@ littéral.
 > de champs et documente le code. La forme positionnelle est réservée aux très petits structs
 > stables (ex. `Point`).
 
+🆕 **Go 1.27 — la clé peut désigner un champ promu.** Une clé de littéral n'est plus limitée
+aux champs de premier niveau : ce peut être n'importe quel **sélecteur de champ valide** pour
+le type, y compris un champ atteint à travers une **incorporation** (voir « Composition par
+embedding » plus bas). Le littéral s'écrit donc comme la lecture se lirait.
+
+```go
+type Object struct{ name, color string }
+type Point3D struct {
+	Object
+	x, y, z float64
+}
+
+// Avant 1.27 : reconstruire le type embarqué, même pour un seul champ.
+ancien := Point3D{Object: Object{name: "origine"}, x: 1}
+
+// 🆕 1.27 : la clé suit le chemin de sélection, comme p.name à la lecture.
+p := Point3D{name: "origine", x: 1}
+```
+
 ### Zero value et accès
 
 Un struct non initialisé a **tous ses champs à leur zero value** — il est immédiatement
@@ -270,7 +289,20 @@ aa := &AuditedAccount{Account: Account{Owner: "bob"}}
 aa.Owner       // champ promu depuis Account
 aa.Deposit(10) // méthode promue depuis Account
 aa.Account.Owner // accès EXPLICITE au champ embarqué
+
+// 🆕 1.27 : la promotion vaut aussi à l'initialisation.
+aa2 := &AuditedAccount{Owner: "bob"}
 ```
+
+> ⚠️ **Trois règles encadrent cette clé promue** (🆕 1.27). Le chemin traversé ne doit contenir
+> **aucun pointeur** : sur `struct{ *Account; … }`, écrire `{Owner: "bob"}` échoue
+> (`invalid implicit pointer indirection`) — le littéral ne peut pas inventer l'`Account` à
+> allouer. Deux clés ne doivent pas se **recouvrir** : `{Account: a, Owner: "bob"}` est refusé,
+> `Owner` étant déjà fixé par `Account`. Enfin, la clé reste soumise à l'ambiguïté de
+> profondeur décrite ci-dessous : un nom ambigu l'est aussi comme clé.
+
+> 💡 Le modernizer **`embedlit`** de `go fix ./...` applique la réécriture sur du code
+> existant : il transforme `T{U: U{x: 1}}` en `T{x: 1}` ([Ch. 13](13-tests-outillage.md)).
 
 ```
    AuditedAccount
@@ -371,6 +403,11 @@ struct isolé, mais réel sur un **tableau de millions d'éléments**. Détail (
 - **1.23** — package **`structs`** : le marqueur `structs.HostLayout` (champ de type
   `structs.HostLayout`) indique au compilateur de respecter la disposition mémoire attendue par
   la plateforme hôte — utile pour l'interop **cgo/syscall** ([Ch. 35](35-unsafe-cgo.md)).
+- **1.27** — une **clé de littéral** peut être n'importe quel sélecteur de champ valide, donc
+  désigner un champ **promu** par incorporation (voir « Littéraux » et « Composition par
+  embedding »). Le modernizer `embedlit` réécrit le code existant.
+- **1.27** — les **méthodes** peuvent déclarer leurs propres paramètres de type
+  ([Ch. 11](11-genericite.md)) — sauf dans une interface.
 
 ## ⚠️ Pièges
 
@@ -381,6 +418,8 @@ struct isolé, mais réel sur un **tableau de millions d'éléments**. Détail (
 - **Copier un struct contenant un slice/map** → copie **superficielle** : les deux variables
   partagent les mêmes données sous-jacentes (voir « Affecter un struct » ci-dessus).
 - **Embedding pris pour de l'héritage** → pas de dispatch dynamique (voir ci-dessus).
+- **Clé promue à travers un pointeur embarqué** (🆕 1.27) → refusé : `struct{ *Account }` doit
+  encore s'initialiser par `{Account: &Account{…}}`.
 - **Comparer un struct à champ non comparable** (`slice`/`map`/`func`) avec `==` → erreur de
   compilation.
 - **Copier un struct contenant un `sync.Mutex`** → copie le verrou (data race). `go vet` le

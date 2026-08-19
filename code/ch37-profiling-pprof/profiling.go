@@ -67,8 +67,10 @@ func CaptureHeapProfile(w io.Writer) error {
 	return pprof.WriteHeapProfile(w)
 }
 
-// CountProfiles renvoie le nombre de profils prédéfinis disponibles (6 par
-// défaut : allocs, block, goroutine, heap, mutex, threadcreate).
+// CountProfiles renvoie le nombre de profils prédéfinis disponibles (7 depuis
+// Go 1.27 : allocs, block, goroutine, goroutineleak, heap, mutex, threadcreate).
+// goroutineleak était expérimental en 1.26 (GOEXPERIMENT) et n'apparaissait pas
+// dans cette liste.
 func CountProfiles() int {
 	return len(pprof.Profiles())
 }

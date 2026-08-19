@@ -12,7 +12,7 @@ func main() {
 	s := make([]int, 3, 8) // len=3, cap=8
 	fmt.Printf("make([]int,3,8) : len=%d cap=%d %v\n", len(s), cap(s), s)
 
-	// --- Croissance de cap au fil des append (valeurs observées sur 1.26).
+	// --- Croissance de cap au fil des append (valeurs observées sur 1.27).
 	g := []int{}
 	prev := -1
 	fmt.Print("cap growth      : ")

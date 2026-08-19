@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Nature du dépôt
 
-Ce dépôt est un **livre** en français, « Comprendre et maîtriser Go 1.26 » — pas une application. Le contenu rédactionnel (Markdown) est la livraison principale ; le code Go existe pour être **compilable et vérifiable**, en appui du texte. Trois familles de contenu coexistent :
+Ce dépôt est un **livre** en français, « Comprendre et maîtriser Go 1.27 » — pas une application. Le contenu rédactionnel (Markdown) est la livraison principale ; le code Go existe pour être **compilable et vérifiable**, en appui du texte. Trois familles de contenu coexistent :
 
 - `chapitres/` + `annexes/` — le texte du livre, un fichier Markdown par chapitre (`NN-slug.md`) ou annexe (`X-slug.md`).
 - `code/` — **un seul module Go** (`example.com/gobook`) regroupant tous les exemples des chapitres, un sous-dossier `chNN-slug/` par chapitre, chacun `package main`.
@@ -25,7 +25,7 @@ go test -run TestReverseInts ./ch06-slices/   # un seul test
 go run ./ch06-slices           # exécuter la démo d'un chapitre
 ```
 
-Prérequis : **Go 1.26+**.
+Prérequis : **Go 1.27+**.
 
 ### Projets (`projets/N-*`) — modules indépendants
 
@@ -43,7 +43,7 @@ make chroma             # régénère tools/site/assets/css/chroma.css (après b
 ```
 
 La version affichée dans le pied de page vient de la variable `VERSION` du `Makefile`
-(défaut `v1.0.0`) ; la surcharger à la volée : `make build VERSION=v1.2.0`. La CI
+(défaut `v1.1.0`) ; la surcharger à la volée : `make build VERSION=v1.2.0`. La CI
 (`.github/workflows/site.yml`) appelle `make test` et `make build`, donc elle utilise
 la même `VERSION` — source de vérité unique.
 

@@ -55,7 +55,9 @@ func TestAccountPointerReceiver(t *testing.T) {
 }
 
 func TestAuditedAccountEmbedding(t *testing.T) {
-	a := &AuditedAccount{Account: Account{Owner: "bob"}}
+	// 🆕 Go 1.27 : Owner est un champ promu d'Account ; la clé du littéral peut
+	// le désigner directement, sans passer par Account: Account{...}.
+	a := &AuditedAccount{Owner: "bob"}
 
 	// Champ et méthode promus depuis Account.
 	if a.Owner != "bob" {
@@ -86,5 +88,24 @@ func TestFieldSizesPadding(t *testing.T) {
 	}
 	if packed >= padded {
 		t.Error("le réagencement des champs devrait réduire la taille")
+	}
+}
+
+// TestPromotedFieldKey vérifie la nouveauté Go 1.27 : une clé de littéral de
+// struct peut être n'importe quel sélecteur de champ valide, donc désigner un
+// champ promu par incorporation. Les deux écritures produisent la même valeur.
+func TestPromotedFieldKey(t *testing.T) {
+	// ⚠️ NE PAS « moderniser » la ligne `ancien` : c'est le contre-exemple.
+	// `go fix ./...` (modernizer `embedlit`) proposera de la réécrire en
+	// AuditedAccount{Owner: "bob"} — ce qui ferait disparaître la comparaison
+	// que ce test existe précisément pour établir. Refuser le correctif ici.
+	ancien := AuditedAccount{Account: Account{Owner: "bob"}} // forme d'avant 1.27
+	nouveau := AuditedAccount{Owner: "bob"}                  // 🆕 1.27 : clé promue
+
+	if ancien.Account != nouveau.Account {
+		t.Errorf("les deux littéraux diffèrent : %+v vs %+v", ancien.Account, nouveau.Account)
+	}
+	if nouveau.Owner != "bob" {
+		t.Errorf("Owner = %q ; attendu \"bob\"", nouveau.Owner)
 	}
 }

@@ -56,7 +56,11 @@ func main() {
 	// EMBEDDING : composition, promotion, override
 	// =========================================================================
 
-	audited := &AuditedAccount{Account: Account{Owner: "bob"}}
+	// 🆕 Go 1.27 : la clé d'un littéral peut désigner un champ PROMU. On écrit
+	// Owner comme on le lirait (audited.Owner), sans reconstruire l'Account.
+	// Avant 1.27, il fallait : &AuditedAccount{Account: Account{Owner: "bob"}}
+	// Le modernizer `embedlit` (go fix ./...) applique cette réécriture.
+	audited := &AuditedAccount{Owner: "bob"}
 	audited.Deposit(200)     // Deposit REDÉFINI : délègue + journalise
 	_ = audited.Withdraw(50) // Withdraw PROMU depuis Account (non journalisé)
 	fmt.Printf("\nembed  : Owner (promu)=%q Balance (promu)=%d\n", audited.Owner, audited.Balance())
@@ -73,6 +77,6 @@ func main() {
 		padded, packed, padded-packed)
 
 	// --- Struct anonyme (sans nom de type) : pratique pour un regroupement local.
-	pair := struct{ Key, Value string }{Key: "go", Value: "1.26"}
+	pair := struct{ Key, Value string }{Key: "go", Value: "1.27"}
 	fmt.Printf("layout : struct anonyme = %+v\n", pair)
 }

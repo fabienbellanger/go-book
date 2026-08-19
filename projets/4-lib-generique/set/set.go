@@ -150,6 +150,43 @@ func (s *Set[T]) IsSubsetOf(other *Set[T]) bool {
 	return true
 }
 
+// Map applique f à chaque élément et renvoie l'ensemble des résultats.
+//
+// C'est une MÉTHODE GÉNÉRIQUE (Go 1.27) : U est un paramètre de type propre à
+// la méthode, en plus du T porté par le récepteur.
+//
+// Avant Go 1.27, cette signature était tout simplement illégale : une méthode
+// ne pouvait utiliser que les paramètres de type de son récepteur, et un
+// « map » change de type de sortie par définition. Il fallait une fonction
+// libre — `set.Map(s, f)` — qui se lit à l'envers et casse le chaînage.
+// Comparer avec [Sorted] plus bas : elle reste une fonction libre, mais pour
+// une raison DIFFÉRENTE (une contrainte plus forte, pas un type nouveau).
+//
+// L'ensemble résultant peut être plus PETIT que s : deux éléments distincts
+// dont f renvoie la même image fusionnent.
+func (s *Set[T]) Map[U comparable](f func(T) U) *Set[U] {
+	out := &Set[U]{m: make(map[U]struct{}, s.Len())}
+	for k := range s.m {
+		out.m[f(k)] = struct{}{}
+	}
+	return out
+}
+
+// Filter renvoie l'ensemble des éléments qui satisfont keep.
+//
+// Contre-exemple utile : Filter ne change PAS de type de sortie, donc elle n'a
+// aucune raison d'être générique. C'est le changement de type qui justifie un
+// paramètre de méthode, pas la commodité.
+func (s *Set[T]) Filter(keep func(T) bool) *Set[T] {
+	out := &Set[T]{m: make(map[T]struct{})}
+	for k := range s.m {
+		if keep(k) {
+			out.m[k] = struct{}{}
+		}
+	}
+	return out
+}
+
 // Sorted renvoie les éléments de s triés en ordre croissant.
 //
 // C'est une fonction libre (et non une méthode) car elle exige une contrainte

@@ -48,7 +48,7 @@ suivent la version courante du langage.
 - **<https://go.dev/doc/devel/release>** — Index de toutes les **notes de
   version** : pratique pour retrouver le changelog d'une version précise,
   passée ou future. 🔁 voir Annexe C.
-- **<https://go.dev/doc/go1.26>** — Notes de la version 1.26 (et, en remplaçant le
+- **<https://go.dev/doc/go1.27>** — Notes de la version 1.27 (et, en remplaçant le
   numéro dans l'URL, de chaque version). À consulter à chaque montée de version.
 
 ## Runtime & internals

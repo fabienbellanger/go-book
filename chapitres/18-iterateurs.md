@@ -294,11 +294,11 @@ et le corps de `seq`, il peut fusionner les deux et faire disparaître l'indirec
 `range`-over-func compile alors vers une boucle quasi équivalente à la main, **sans allocation**. La
 closure `yield` elle-même n'échappe jamais sur le tas puisqu'elle ne sert qu'à cet appel direct
 (escape analysis, [Ch. 26](26-allocation-escape.md)). Le gain vient surtout d'**éviter la
-matérialisation**. Mesuré (go1.26.4, somme de 0..999) :
+matérialisation**. Mesuré (go1.27.0, Apple M3, somme de 0..999) :
 
 ```
-   BenchmarkIterator        1981 ns/op       0 B/op   0 allocs   (aucune slice)
-   BenchmarkMaterialized    2889 ns/op    8192 B/op   1 alloc    (slice de 1000 ints)
+   BenchmarkIterator        1136 ns/op       0 B/op   0 allocs   (aucune slice)
+   BenchmarkMaterialized    1678 ns/op    8192 B/op   1 alloc    (slice de 1000 ints)
 ```
 
 - Quand on construirait une slice **juste pour l'itérer une fois**, l'itérateur est à la fois plus

@@ -22,7 +22,7 @@ BINARY  := gobook-site
 SRC     := ../..
 OUT     := $(SRC)/public
 ADDR    ?= :8180
-VERSION := v1.0.0
+VERSION := v1.1.0
 LDFLAGS := -s -w
 
 .PHONY: build serve test vet fmt update-deps check chroma dist clean

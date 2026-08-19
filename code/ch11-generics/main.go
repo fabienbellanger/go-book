@@ -1,11 +1,13 @@
 // Démonstrations du chapitre 11 : types paramétrés, contraintes, alias génériques
-// (1.24), contrainte auto-référentielle (1.26), packages slices/maps/cmp.
+// (1.24), contrainte auto-référentielle (1.26), méthode générique (1.27),
+// packages slices/maps/cmp.
 // Lancement : depuis code/, `go run ./ch11-generics`
 package main
 
 import (
 	"cmp"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 )
 
@@ -68,6 +70,24 @@ func main() {
 
 	total := SumAll([]Vec2{{1, 1}, {2, 3}, {0, 1}})
 	fmt.Printf("sumAll   : %+v\n", total)
+
+	// =========================================================================
+	// Méthode générique (🆕 1.27) : Apply déclare son propre paramètre F.
+	// =========================================================================
+
+	nums := List[int]{1, 2, 3, 4}
+	// int -> string : le type de retour CHANGE, d'où le besoin d'une méthode
+	// générique. F est inféré depuis la fonction passée.
+	labels := nums.Filter(func(i int) bool { return i%2 == 0 }).Apply(itoa)
+	fmt.Printf("method   : %v -> pairs en texte %v (%T)\n", nums, labels, labels)
+
+	// F peut aussi être explicite, comme pour une fonction générique.
+	tailles := labels.Apply[int](func(s string) int { return len(s) })
+	fmt.Printf("method   : longueurs %v\n", tailles)
+
+	// La stdlib en donne le premier exemple : (*rand.Rand).N est générique.
+	r := rand.New(rand.NewPCG(1, 2))
+	fmt.Printf("method   : rand.Rand.N(100) = %d (dans [0,100))\n", r.N(100))
 
 	// =========================================================================
 	// slices + cmp : tri multi-critères (âge croissant, puis nom).

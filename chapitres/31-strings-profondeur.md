@@ -218,6 +218,13 @@ collecte des valeurs devenues inutilisées (via des références faibles,
   pas seulement pour les strings. Remplace les tables d'interning maison.
 - **1.24** — `unique` s'appuie sur les **références faibles** internes ; les handles non utilisés sont
   récupérés par le GC, sans fuite.
+- **1.27** — **`strings.CutLast`** / **`bytes.CutLast`** : symétriques de `Cut`, mais sur la
+  **dernière** occurrence. Comme `Cut`, elles renvoient des **sous-chaînes** de l'original —
+  donc aucune copie, mais le backing complet reste retenu (voir le piège plus bas).
+- **1.27** — `unicode` passe d'**Unicode 15 à Unicode 17** : `unicode.Version == "17.0.0"`, et de
+  nouvelles `RangeTable` apparaissent (`Garay`, `Sunuwar`, `Tulu_Tigalari`, `Sidetic`…). Les
+  classifications (`unicode.IsLetter`…) changent donc de résultat sur ces points de code : un
+  test qui fige un décompte de lettres sur du texte exotique peut basculer.
 - **continuité** — les optimisations **sans copie** de conversion (`m[string(b)]`, `string(b)==s`,
   `for range`) restent garanties par le compilateur ; profitez-en au lieu de recourir à `unsafe`.
 
@@ -233,6 +240,7 @@ collecte des valeurs devenues inutilisées (via des références faibles,
   source ne sera plus jamais modifié ([Ch. 35](35-unsafe-cgo.md)).
 - **Garder une petite sous-chaîne d'un grand texte** — elle retient **tout** le backing en mémoire
   (même piège que les slices, [Ch. 30](30-slices-profondeur.md)). `strings.Clone` pour détacher.
+  Vaut aussi pour les résultats de `Cut`/`CutLast` (🆕 1.27) : ce sont des tranches, pas des copies.
 - **Compter sur l'optimisation sans copie après un refactoring** — le motif (`m[string(b)]`...) doit
   rester **syntaxiquement identique** ; le stocker dans une variable intermédiaire la fait disparaître.
 

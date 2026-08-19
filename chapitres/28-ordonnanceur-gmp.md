@@ -211,8 +211,8 @@ func WithGOMAXPROCS(n int, f func()) {
   un hôte 64 cœurs), le runtime fixe `GOMAXPROCS=2` au lieu de 64 — fini la sur-souscription qui faisait
   s'effondrer les services conteneurisés. La valeur est **réajustée dynamiquement** si la limite change.
 - **1.25** — **`runtime.SetDefaultGOMAXPROCS()`** réapplique la valeur calculée par défaut (utile après
-  l'avoir forcée). Vérifié présent sur 1.26.4.
-- 🔁 La préemption asynchrone (**1.14**) et le netpoller sont stables ; ce chapitre décrit l'état 1.26.
+  l'avoir forcée). Vérifié présent sur 1.27.0.
+- 🔁 La préemption asynchrone (**1.14**) et le netpoller sont stables ; ce chapitre décrit l'état 1.27.
 
 ## ⚠️ Pièges
 

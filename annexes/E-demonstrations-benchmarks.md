@@ -18,7 +18,7 @@ go build -gcflags="-m" -o /dev/null ./annexe-E-benchmarks/   # escape analysis
 ```
 
 > ⚠️ **Les chiffres absolus ci-dessous n'ont aucune valeur universelle.** Ils ont
-> été relevés sur **Apple M3, Go 1.26, `arm64`** (`b.Loop` 🆕 1.24, `-benchmem`).
+> été relevés sur **Apple M3, Go 1.27, `arm64`** (`b.Loop` 🆕 1.24, `-benchmem`).
 > Sur votre machine, ils différeront — et c'est sans importance : ce qui compte
 > est le **rapport** entre les deux versions, pas la valeur brute. Reproduisez-les
 > chez vous avec `benchstat` (🔁 Ch. 36).

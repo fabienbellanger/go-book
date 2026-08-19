@@ -320,6 +320,10 @@ wg.Go(work)   // Go 1.25 : équivaut à wg.Add(1); go func(){ defer wg.Done(); w
 wg.Wait()
 ```
 
+> 💡 `go fix ./...` applique cette réécriture tout seul : le modernizer s'appelle
+> `waitgroupgo` (renommé en 🆕 1.27 ; il s'appelait `waitgroup`, comme
+> l'analyseur `go vet` homonyme — d'où le changement).
+
 ---
 
 ## 5. Le mode opératoire de détection
@@ -330,11 +334,11 @@ wg.Wait()
 | **Détecteur de deadlock (runtime)** | blocage **total**                  | automatique : `fatal error: all goroutines are asleep`                        |
 | **Vidage des goroutines**           | deadlock **partiel**               | `SIGQUIT` (Ctrl-\\) ou `GOTRACEBACK=all` → piles de **toutes** les goroutines |
 | **Profil `goroutine`**              | goroutines bloquées                | `/debug/pprof/goroutine?debug=2` (pile complète) — 🔁 Ch. 29                  |
-| **`goroutineleak`** (🆕 1.26)       | goroutines bloquées **à jamais**   | `GOEXPERIMENT=goroutineleakprofile` — 🔁 Ch. 23                               |
+| **`goroutineleak`** (🆕 1.27)       | goroutines bloquées **à jamais**   | `/debug/pprof/goroutineleak` ou `pprof.Lookup("goroutineleak")` — 🔁 Ch. 23   |
 | **Profil `mutex`**                  | contention de verrous              | `go test -mutexprofile=mu.out` → `go tool pprof`                              |
 | **Profil `block`**                  | attentes longues (canaux, verrous) | `go test -blockprofile=bl.out`                                                |
 | **`go vet`**                        | bugs statiques                     | `waitgroup` (Add mal placé), `loopclosure`, `copylocks`                       |
-| **`testing/synctest`** (🆕 1.25)    | logique temporelle                 | horloge virtuelle, déterministe — 🔁 Ch. 23                                   |
+| **`testing/synctest`** (🆕 1.25)    | logique temporelle                 | horloge virtuelle, déterministe ; `synctest.Sleep` 🆕 1.27 — 🔁 Ch. 23        |
 
 **Lire un rapport `-race`** : il donne **deux** piles — l'accès courant et l'accès
 précédent en conflit — plus l'adresse mémoire. Cherchez la variable commune et

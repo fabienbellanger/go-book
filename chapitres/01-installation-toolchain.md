@@ -35,7 +35,7 @@ Vérifiez l'installation :
 
 ```bash
 go version
-# go version go1.26.4 darwin/arm64
+# go version go1.27.0 darwin/arm64
 ```
 
 La sortie indique la **version** et la cible **`OS/architecture`** courante.
@@ -73,10 +73,11 @@ go env GOROOT GOPATH GOBIN GOTOOLCHAIN
 
 Depuis Go 1.21, `go.mod` distingue deux directives :
 
-- **`go 1.26`** — la version **minimale** requise ; elle fixe aussi les fonctionnalités
+- **`go 1.27`** — la version **minimale** requise ; elle fixe aussi les fonctionnalités
   du langage disponibles (un module en `go 1.20` ne peut pas utiliser `range` sur un
-  entier ni les built-ins `min`/`max`, apparus en 1.21-1.22).
-- **`toolchain go1.26.4`** — la version **précise préférée** pour construire ce module ;
+  entier ni les built-ins `min`/`max`, apparus en 1.21-1.22 ; un module en `go 1.26` ne
+  peut pas déclarer de **méthode générique**, apparue en 1.27).
+- **`toolchain go1.27.0`** — la version **précise préférée** pour construire ce module ;
   elle doit être supérieure ou égale à la ligne `go`. Absente, elle vaut implicitement
   `go<version de la ligne go>`.
 
@@ -91,24 +92,24 @@ toolchain locale déjà plus récente que celle exigée. Conséquence : plus de 
 chez moi mais pas chez toi » dû à une version différente.
 
 ```
-   go local = 1.24              go.mod exige go 1.26 (ligne go ou toolchain)
+   go local = 1.25              go.mod exige go 1.27 (ligne go ou toolchain)
         |                                |
         +------------- comparaison ------+
                         |
-              1.24 < 1.26 : version locale insuffisante
+              1.25 < 1.27 : version locale insuffisante
                         |
                         v
-       téléchargement de golang.org/toolchain@go1.26.x
+       téléchargement de golang.org/toolchain@go1.27.x
        (via GOPROXY, vérifié par GOSUMDB, mis en cache dans GOMODCACHE)
                         |
                         v
-              cette toolchain 1.26.x exécute la commande go
+              cette toolchain 1.27.x exécute la commande go
 ```
 
 > ⚠️ Ce téléchargement suppose un accès réseau au proxy de modules. Derrière un proxy
 > d'entreprise qui ne mirrore pas `golang.org/toolchain`, ou sur une machine sans accès
 > Internet, la bascule échoue. Solutions : épingler `GOTOOLCHAIN=local` (jamais de
-> bascule, on garde la toolchain installée telle quelle) ou `GOTOOLCHAIN=go1.26.4+path`
+> bascule, on garde la toolchain installée telle quelle) ou `GOTOOLCHAIN=go1.27.0+path`
 > (cherche uniquement dans le `PATH`, sans télécharger) — utile en CI ou sur un poste
 > isolé où la version exacte est déjà pré-installée.
 
@@ -254,6 +255,27 @@ combinaisons : Linux, macOS, Windows, BSD, WebAssembly...).
 - **🆕 Go 1.26** : **`go fix`** intègre des _modernizers_ — il réécrit automatiquement le
   code vers des formes plus modernes (ex. boucles `for range N`, usage de `min`/`max`,
   `any` au lieu de `interface{}`). Lancez-le avec `go fix ./...`.
+- **🆕 Go 1.27** : quatre modernizers de plus (`atomictypes`, `embedlit`,
+  `slicesbackward`, `unsafefuncs`) ; **`go test` lance `stdversion`**, qui refuse un
+  symbole de la stdlib plus récent que la ligne `go` du module ; **`go doc`** accepte une
+  version (`go doc example.com/lib@v1.2.3`) et sait montrer les exemples (`-ex`) ;
+  **`go mod tidy`** normalise les blocs `require` ; **`go tool trace -http=:6060`**
+  n'écoute plus que sur `localhost`.
+
+### La routine de montée de version
+
+Après avoir installé une nouvelle toolchain, quatre commandes dans cet ordre :
+
+```bash
+go mod edit -go=1.27   # relève la ligne go : ouvre les nouveautés de langage
+go mod tidy            # réaligne (et, en 1.27+, normalise) les require
+go fix ./...           # applique les modernizers ; relire le diff avant de committer
+go test ./...          # stdversion vérifie qu'aucun symbole n'est en avance sur go.mod
+```
+
+> ⚠️ `go mod edit -go=` est le seul de ces gestes qui change la **sémantique** du
+> module : il active des règles de langage (portée de la variable de boucle, `new(expr)`,
+> méthodes génériques…). Faites-en un commit à part, testé isolément.
 
 ## 🧪 À tester soi-même
 

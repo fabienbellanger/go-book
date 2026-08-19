@@ -76,7 +76,7 @@ func ReadSnapshot() Snapshot {
 
 ```
 $ go run ./ch29-observabilite-runtime
-Go go1.26.4, GOMAXPROCS=8
+Go go1.27.0, GOMAXPROCS=8
 au repos : goroutines utilisateur=1, toutes=7 (écart = système)
 50 lancées : goroutines=51, toutes=57, créées (cumul)=57
 ```
@@ -113,7 +113,7 @@ révèle un **flux** de goroutines éphémères. 🔁 [Ch. 23](23-patterns-concu
 
 ```go
 if bi, ok := debug.ReadBuildInfo(); ok {
-	s.GoVersion = bi.GoVersion // ex. "go1.26.4"
+	s.GoVersion = bi.GoVersion // ex. "go1.27.0"
 }
 ```
 
@@ -141,9 +141,16 @@ GODEBUG=gctrace=1,schedtrace=1000 ./binaire   # GC et ordonnanceur tracés simul
 Pour une bascule de compatibilité, fixer la valeur **dans le module** évite de devoir penser à
 repositionner la variable à chaque déploiement : `go mod edit -godebug=httpmuxgo121=1` ajoute une
 ligne `godebug` à `go.mod` (alternative : une directive `//go:debug` en tête d'un fichier du
-`package main`). Implicitement, la ligne `go 1.26` de `go.mod` fixe déjà **tous** les défauts de
-compatibilité tels qu'ils étaient en 1.26 — c'est ce mécanisme qui permet aux défauts de changer
+`package main`). Implicitement, la ligne `go 1.27` de `go.mod` fixe déjà **tous** les défauts de
+compatibilité tels qu'ils étaient en 1.27 — c'est ce mécanisme qui permet aux défauts de changer
 d'une version à l'autre sans rompre le code existant.
+
+> ⚠️ 🆕 **Go 1.27 refuse désormais les réglages périmés.** Le `go` reconnaît les `GODEBUG` posés
+> dans `go.mod` (`godebug …`) et dans les sources (`//go:debug …`), et **rejette** ceux qui ont été
+> supprimés — ou qui sont fixés à une **ancienne** valeur d'un réglage en fin de vie. Un
+> `godebug asynctimerchan=1` (retiré en 1.27, 🔁 [Ch. 44](44-temps.md)) fait donc échouer le build
+> au lieu d'être silencieusement ignoré. C'est voulu : un `GODEBUG` est un **sursis**, pas un
+> réglage permanent, et le compilateur vous force à traiter la dette plutôt qu'à l'oublier.
 
 Diagnostics les plus utiles pour ce chapitre :
 
@@ -215,11 +222,18 @@ trouver la cause.
   anonymes (VMA) : dans `/proc/PID/maps` et les outils, on lit `[anon: Go: heap]`, `[anon: Go: stacks]`…
   L'attribution mémoire devient lisible. (Non visible sous macOS/Windows.)
 - **1.26** — la famille **`/sched/*`** est enrichie (`goroutines-created`, ventilation
-  `running`/`runnable`/`waiting`, `threads/total`) — vérifié sur 1.26.4. Le profil expérimental
-  **`goroutineleak`** ([Ch. 23](23-patterns-concurrence.md)) est exposé via
-  `/debug/pprof/goroutineleak`, mais **gated** par `GOEXPERIMENT=goroutineleakprofile` : sans cette
-  variable au build, le profil n'existe simplement pas (🔁 [Ch. 37](37-profiling-pprof.md)).
+  `running`/`runnable`/`waiting`, `threads/total`). Le profil **`goroutineleak`**
+  ([Ch. 23](23-patterns-concurrence.md)) y apparaît, mais **gated** par
+  `GOEXPERIMENT=goroutineleakprofile`.
 - **1.26** — l'UI web de **pprof** passe au **flame graph par défaut** ([Ch. 37](37-profiling-pprof.md)).
+- **1.27** — le profil **`goroutineleak`** devient **stable** : plus de `GOEXPERIMENT` (celui de 1.26 a
+  été supprimé), `/debug/pprof/goroutineleak` est disponible d'office dans tout binaire important
+  `net/http/pprof` (🔁 [Ch. 37](37-profiling-pprof.md)).
+- **1.27** — les **étiquettes de goroutine** posées avec `pprof.Do`/`pprof.SetGoroutineLabels`
+  apparaissent désormais dans l'**en-tête des tracebacks** : un `panic` ou un `SIGQUIT` montre à quelle
+  requête appartenait chaque goroutine. Le lien profil ↔ crash devient direct. Opt-out permanent :
+  `GODEBUG=tracebacklabels=0`, prévu pour rester au cas où des labels porteraient des données
+  sensibles (🔁 [Ch. 17](17-panic-recover.md)).
 
 ## ⚠️ Pièges
 
@@ -281,7 +295,9 @@ go doc runtime/metrics            # parcourir les ~112 métriques disponibles
 - **`runtime/metrics`** est l'API **moderne** : stable, ~112 métriques, histogrammes, **sans STW** ;
   préférez-la dans tout code neuf.
 - Les métriques **`/sched/*`** (enrichies en **1.26**) diagnostiquent la concurrence : ventilation
-  `running`/`runnable`/`waiting`, cumul `goroutines-created` (fuites).
+  `running`/`runnable`/`waiting`, cumul `goroutines-created` (fuites) ; 🆕 **1.27** le profil
+  **`goroutineleak`** nomme précisément les fuites, et les **labels pprof** remontent dans les
+  tracebacks.
 - **`runtime/debug`** : `ReadBuildInfo` (version/VCS), réglage du GC, `FreeOSMemory`, `Stack`.
 - **`GODEBUG`** a un double rôle : **diagnostics** (`gctrace`, `schedtrace`, `inittrace`...) et
   **bascules de compatibilité** (`httpmuxgo121`, `panicnil`...), ces dernières comptabilisées dans

@@ -232,7 +232,7 @@ tâche est enveloppée ainsi, et une panique isolée ne fait perdre **que** cett
 
 - **1.25** — le format d'une panique **re-déclenchée avec la même valeur** (`panic(recover())`) est
   désormais condensé en **`[recovered, repanicked]`** sur une seule ligne, au lieu d'afficher deux
-  fois la même panique. Vérifié sur go1.26.4 :
+  fois la même panique. Vérifié sur go1.27.0 :
 
 ```
 $ go run .   # defer { panic(recover()) } ; panic("boom")
@@ -242,12 +242,42 @@ panic: boom [recovered, repanicked]
 Re-paniquer avec une valeur **différente** donne toujours la chaîne `panic: … [recovered]` suivie
 de la nouvelle panique.
 
+- **1.27** — les **étiquettes de goroutine** de `runtime/pprof` sont imprimées dans l'**en-tête** de
+  chaque pile. Une panique en production dit désormais *quelle* requête l'a provoquée, sans corréler
+  quoi que ce soit à la main :
+
+```go
+ctx := pprof.WithLabels(ctx, pprof.Labels("requete", "GET /users/42", "tenant", "acme"))
+pprof.Do(ctx, pprof.Labels(), func(context.Context) {
+	traiter(ctx) // …qui panique
+})
+```
+
+```
+panic: boum
+
+goroutine 1 [running] {requete: "GET /users/42", tenant: acme}:
+main.main.func1(…)
+```
+
+  Les étiquettes n'apparaissent que pour les modules dont la ligne `go` est ≥ 1.27. Désactivation
+  par `GODEBUG=tracebacklabels=0` — opt-out annoncé comme **permanent**, précisément parce qu'une
+  étiquette peut contenir une donnée qu'on ne veut pas voir dans un rapport de crash.
+
+> ⚠️ Corollaire de sécurité : **n'étiquetez jamais une goroutine avec un secret** (jeton, mot de
+> passe, identifiant personnel). Avant 1.27, ces valeurs ne sortaient que dans un profil pprof, en
+> principe interne ; elles atterrissent maintenant dans les logs d'erreur. 🔁
+> [Ch. 47](47-securite-supply-chain.md).
+
 ## ⚠️ Pièges
 
 - **`recover` hors d'un `defer`** : sans effet (renvoie `nil`). Il doit être appelé **directement**
   dans la fonction différée, pas dans une fonction qu'elle appelle.
 - **Recover trop large** : avaler toutes les paniques masque les bugs. Reconnaissez et
   **re-paniquez** l'inattendu.
+- **Étiquette pprof contenant une donnée sensible** (🆕 1.27) : elle est maintenant imprimée dans le
+  traceback, donc dans les logs. Étiquetez avec des identifiants d'acheminement (route, tenant, id de
+  requête), jamais avec des secrets.
 - **Paniquer pour le contrôle de flux** : remplacer les erreurs par des paniques rend le code
   imprévisible et lent. Réservez `panic` aux bugs.
 - **Panique de goroutine** : non rattrapable de l'extérieur → crash global. Posez une frontière

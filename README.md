@@ -1,4 +1,4 @@
-# Comprendre et maîtriser Go 1.26
+# Comprendre et maîtriser Go 1.27
 
 [![Site](https://github.com/fabienbellanger/go-book/actions/workflows/site.yml/badge.svg)](https://github.com/fabienbellanger/go-book/actions/workflows/site.yml)
 
@@ -6,7 +6,7 @@
 
 Un livre en français pour **apprendre à écrire** du Go idiomatique **et comprendre comment
 il fonctionne** sous le capot (runtime, GC, scheduler, layout mémoire), à jour pour
-**Go 1.26**.
+**Go 1.27**.
 
 Destiné aux développeur·se·s ayant déjà des bases en programmation et en algorithmique,
 mais **nouveaux en Go**. Contenu détaillé et précis, sans verbosité : schémas ASCII,
@@ -65,7 +65,7 @@ go test ./...   # tous les exemples et tests passent
 go vet ./...    # analyse statique propre
 ```
 
-**Prérequis** : Go **1.26** ou supérieur (`go version`).
+**Prérequis** : Go **1.27** ou supérieur (`go version`).
 
 ## 🌐 Générer le site
 
@@ -77,7 +77,7 @@ make serve                     # build + sert sur http://localhost:8180
 make build VERSION=v1.2.0      # change la version affichée dans le pied de page
 ```
 
-La version par défaut (`VERSION := v1.0.0`) et l'année de copyright s'affichent dans le
+La version par défaut (`VERSION := v1.1.0`) et l'année de copyright s'affichent dans le
 pied de page du site. `public/` est régénéré à la volée (jamais commité).
 
 ## ✍️ Conventions

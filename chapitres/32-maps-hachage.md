@@ -168,11 +168,74 @@ et souvent plus rapide**. Mesurez avant de choisir `sync.Map`.
 
 ---
 
+## 🆕 `hash/maphash.Hasher[T]` : hacher hors de la map (1.27)
+
+Le hachage interne de la map est inaccessible depuis Go — délibérément. Quand on écrit sa **propre**
+structure à hachage (table ouverte spécialisée, filtre de Bloom, cache LRU indexé, ensemble
+probabiliste), il faut donc fournir sa propre fonction. Jusqu'ici, chacun définissait sa convention ;
+Go 1.27 en normalise une :
+
+```go
+// Le contrat, dans hash/maphash :
+type Hasher[T any] interface {
+	Hash(h *maphash.Hash, v T) // écrit v dans l'état de hachage h
+	Equal(a, b T) bool         // égalité cohérente avec Hash
+}
+```
+
+Deux méthodes, et une **obligation** : si `Equal(a, b)` est vrai, alors `Hash` doit produire le même
+état pour `a` et `b`. C'est le même contrat que `hashCode`/`equals` ailleurs — et la même source de
+bugs quand on l'oublie.
+
+Pour les types simplement `comparable`, l'implémentation est fournie :
+
+```go
+// code/ch32-maps-hachage/hasher.go
+type StringSet struct {
+	hasher maphash.Hasher[string] // le contrat
+	seed   maphash.Seed
+	// … slots, occupé, nombre
+}
+
+func NewStringSet(taille int) *StringSet {
+	return &StringSet{
+		hasher: maphash.ComparableHasher[string]{}, // implémentation fournie
+		seed:   maphash.MakeSeed(),                 // graine aléatoire par processus
+		// …
+	}
+}
+
+func (s *StringSet) hash(v string) uint64 {
+	var h maphash.Hash
+	h.SetSeed(s.seed)
+	s.hasher.Hash(&h, v)
+	return h.Sum64()
+}
+```
+
+Le code d'appui implémente un ensemble à **adressage ouvert** complet sur cette base
+(`Add`, `Contains`, redimensionnement). Notez l'usage de `s.hasher.Equal(a, b)` plutôt que
+`a == b` dans la boucle de sondage : c'est le `Hasher` qui définit l'égalité, et lui seul garantit
+qu'elle reste cohérente avec `Hash`.
+
+Le point à retenir est la **graine** : `maphash` est ensemencé aléatoirement à chaque démarrage du
+processus, exactement comme les maps natives. Une structure bâtie dessus hérite donc de la même
+protection contre les attaques par **collisions choisies** (envoyer des clés qui tombent toutes dans
+le même seau pour dégrader la structure en liste chaînée). Corollaire : **les valeurs de hachage ne
+sont pas stables entre deux exécutions** — jamais de `maphash` dans un fichier, un cache sur disque
+ou un protocole réseau. Pour cela, il faut un hachage à valeur fixe (`fnv`, `crc32`, `sha256`).
+
+> 💡 En pratique, ce package intéresse les auteurs de bibliothèques de structures de données. Pour
+> un besoin ordinaire, la `map` native reste le bon outil : elle est déjà Swiss Table, déjà ensemencée
+> et déjà optimisée.
+
 ## 🆕 Go 1.2x
 
 - **1.24** — l'implémentation des maps passe aux **Swiss Tables** : groupes de 8 slots, mot de contrôle,
   recherche `h2` parallèle (SWAR), annuaire de tables pour une croissance incrémentale. Gains de mémoire
   et de CPU **sans changement d'API** : votre code en profite gratuitement.
+- **1.27** — **`hash/maphash.Hasher[T]`** et **`ComparableHasher[T]`** (voir la section ci-dessus) :
+  le contrat commun pour brancher un type sur une structure de hachage **maison**.
 - **continuité** — l'**ordre d'itération reste randomisé** (ce n'est pas un effet de bord, c'est
   garanti) ; ne vous y fiez jamais.
 
@@ -227,6 +290,9 @@ go test -bench=. -benchmem -run=^$ ./ch32-maps-hachage/...
   `sync.Map` dans ses cas d'usage.
 - **Préallouez** (`make(map, n)`), évitez `&m[k]` (entrées déplacées), utilisez `map[K]*V` pour muter
   en place.
+- 🆕 **1.27** — pour une structure à hachage **maison**, implémentez `maphash.Hasher[T]`
+  (`Hash` + `Equal` cohérents) ou réutilisez `maphash.ComparableHasher[T]`. La graine étant
+  aléatoire par processus, ces empreintes ne se **persistent jamais**.
 
 ## 🔁 Pour aller plus loin
 

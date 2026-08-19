@@ -65,8 +65,8 @@ func TestSlugify(t *testing.T) {
 		want string
 	}{
 		{"simple", "Hello, World!", "hello-world"},
-		{"ponctuation", "  Go 1.26 : Top!  ", "go-1-26-top"},
-		{"déjà slug", "go-1-26-top", "go-1-26-top"},
+		{"ponctuation", "  Go 1.27 : Top!  ", "go-1-27-top"},
+		{"déjà slug", "go-1-27-top", "go-1-27-top"},
 		{"vide", "", ""},
 	}
 	for _, tc := range cases {
@@ -167,10 +167,10 @@ un test : le commentaire **`// Output:`** est comparé à la sortie réelle ([Ch
 ```go
 func ExampleSlugify() {
 	fmt.Println(Slugify("Hello, World!"))
-	fmt.Println(Slugify("  Go 1.26 : Top!  "))
+	fmt.Println(Slugify("  Go 1.27 : Top!  "))
 	// Output:
 	// hello-world
-	// go-1-26-top
+	// go-1-27-top
 }
 ```
 
@@ -281,7 +281,7 @@ Le même package `testing` gère deux autres familles, détaillées au [Ch. 36](
 // Benchmark : b.Loop (🆕 1.24) cadence les itérations.
 func BenchmarkSlugify(b *testing.B) {
 	for b.Loop() {
-		sink = Slugify("  Go 1.26 : Top!  ")
+		sink = Slugify("  Go 1.27 : Top!  ")
 	}
 }
 
@@ -326,6 +326,45 @@ func TestObservability(t *testing.T) {
 	_ = dir
 }
 ```
+
+- **1.27** — **`go test` lance `stdversion`** parmi les analyseurs par défaut. Il signale l'usage
+  d'un symbole de la bibliothèque standard **plus récent que la ligne `go`** du module. Le cas
+  typique : vous écrivez `strings.CutLast` (1.27) dans un module resté en `go 1.26` — cela compile
+  chez vous, où la toolchain est récente, mais casse chez quiconque construit avec une 1.26. Le test
+  échoue désormais avant la mise en production.
+
+```
+$ go test ./...
+./main.go:12:9: strings.CutLast requires go1.27 or later (module is go1.26)
+```
+
+- **1.27** — **`httptest.NewTestServer(t, handler)`** : serveur de test sur un réseau **en mémoire**,
+  fermé automatiquement par le `testing.TB`, utilisable **dans une bulle `synctest`**
+  (🔁 [Ch. 45](45-net-http.md)).
+- **1.27** — **`synctest.Sleep(d)`** = `time.Sleep(d)` + `synctest.Wait()`
+  (🔁 [Ch. 23](23-patterns-concurrence.md)).
+- **1.27** — **`go doc -ex <pkg>`** liste les exemples exécutables d'un paquet, et
+  `go doc pkg.ExampleXxx` en imprime le **source**. Un `Example` devient une entrée de documentation
+  consultable depuis le terminal, pas seulement une page godoc.
+- **1.27** — **`go test -json`** annote les lignes `"Action":"output"` d'un champ **`OutputType`**
+  (`error`, `error-continue`, `frame`) : un outil de CI peut enfin distinguer un message d'échec
+  d'une ligne de pile ou d'une sortie ordinaire, sans deviner par expression régulière.
+
+### 🆕 Les modernizers de `go fix` (1.26, élargis en 1.27)
+
+`go fix ./...` applique des réécritures **analysables** vers les idiomes récents. La liste complète
+est donnée par `go tool fix help`. Les ajouts de 1.27 :
+
+| Fixer            | Réécriture                                                             |
+| ---------------- | ---------------------------------------------------------------------- |
+| `atomictypes`    | `var x int32` + `atomic.AddInt32(&x,1)` → `var x atomic.Int32` + `x.Add(1)` |
+| `embedlit`       | `T{U: U{x: 1}}` → `T{x: 1}` (clés promues, 🔁 [Ch. 8](08-structs-methodes.md)) |
+| `slicesbackward` | `for i := len(s)-1; i >= 0; i--` → `for _, v := range slices.Backward(s)` |
+| `unsafefuncs`    | `unsafe.Pointer(uintptr(p) + uintptr(n))` → `unsafe.Add(p, n)`         |
+
+⚠️ Deux ruptures dans la même version : le fixer `waitgroup` s'appelle désormais **`waitgroupgo`**
+(pour ne plus être confondu avec l'analyseur `go vet` du même nom) — adaptez un éventuel
+`-waitgroup=false` en CI ; et **`fmtappendf` a été retiré**, jugé purement stylistique.
 
 ## ⚠️ Pièges
 
@@ -379,6 +418,10 @@ go test -fuzz=FuzzSlugify -fuzztime=5s ./ch13-tests/...
   mesurent l'exécution (sans juger la pertinence) ; `go vet` complète le compilateur.
 - 🆕 `b.Loop`/`T.Chdir`/`T.Context` (1.24), `T.Attr`/`T.Output` (1.25), `T.ArtifactDir` (1.26) ;
   benchmarks & fuzzing partagent le package `testing`.
+- 🆕 **1.27** : `go test` refuse (via **`stdversion`**) un symbole de la stdlib plus récent que la
+  ligne `go` du module ; `httptest.NewTestServer(t, h)` teste sans réseau réel ; `go doc -ex`
+  expose les exemples ; `go fix` gagne `atomictypes`, `embedlit`, `slicesbackward`, `unsafefuncs`
+  (et renomme `waitgroup` en `waitgroupgo`).
 
 ## 🔁 Pour aller plus loin
 

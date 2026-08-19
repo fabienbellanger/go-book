@@ -248,6 +248,14 @@ récupérer, et le ticker continue de produire des tops jusqu'à un `Stop` expli
 de 1.23 supprime la fuite **mémoire** sur un timer devenu inaccessible ; il ne supprime
 pas le besoin de `Stop` pour arrêter un timer encore référencé.
 
+> 🆕 **Go 1.27 — la bascule de compatibilité a disparu.** La refonte de 1.23 rendait aussi les
+> canaux de `time` **non bufferisés** (synchrones) : un top n'est plus « en attente » dans le
+> canal, il est remis directement à un récepteur prêt. Un `GODEBUG=asynctimerchan=1` permettait de
+> retrouver l'ancien comportement bufferisé. Ce réglage est **supprimé en 1.27** : les canaux de
+> `time` sont désormais toujours synchrones, sans échappatoire. Si votre code dépendait encore de
+> `asynctimerchan=1` — typiquement un test qui lit un top **après** coup dans un canal supposé
+> l'avoir mémorisé — il faut le corriger maintenant.
+
 ### `NewTimer` / `Reset` / `Stop` et le drainage du canal
 
 ```go
@@ -367,6 +375,11 @@ cd code && go test -race ./ch44-time/...
 4. Retirez le `defer ticker.Stop()` de `countTicks` et lancez le test avec `-race` :
    le test passe encore (le GC récupère le ticker devenu inaccessible depuis 1.23),
    mais gardez le `Stop` comme réflexe pour les tickers encore référencés.
+5. 🆕 **1.27** — remplacez un `time.Sleep(d)` de test par **`synctest.Sleep(d)`** et observez
+   qu'il ne change rien… jusqu'au jour où le code testé dort **exactement** la même durée. Dans ce
+   cas, `time.Sleep` seul laisse l'ordre de réveil indéterminé, alors que `synctest.Sleep`
+   (= `time.Sleep` + `synctest.Wait`) attend en plus que la bulle se **stabilise** : le test
+   observe toujours l'état d'après.
 
 🔁 `testing/synctest` est détaillé au [Ch. 23](23-patterns-concurrence.md) (tests concurrents déterministes).
 
@@ -385,6 +398,10 @@ cd code && go test -race ./ch44-time/...
   lecture) — depuis **1.23**, le GC ne récupère que les timers/tickers devenus
   **inaccessibles**, quel que soit leur mode de création (`After`, `Tick`, `NewTimer`,
   `NewTicker`). `NewTimer`+`Reset` reste préférable pour réutiliser/contrôler un timer.
+- 🆕 **1.27** — les canaux de `time` sont **définitivement synchrones** : le `GODEBUG`
+  `asynctimerchan` qui restaurait l'ancien comportement bufferisé a été supprimé.
+- 🆕 **1.27** — en test, **`synctest.Sleep(d)`** remplace avantageusement `time.Sleep(d)` : il
+  attend en plus que la bulle se stabilise (`synctest.Wait`).
 - Pour propager un délai dans une API, passer un **`context` avec deadline**, pas une durée.
 
 ## 🔁 Pour aller plus loin

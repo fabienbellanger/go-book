@@ -155,6 +155,15 @@ func (s *Server) Serve(ctx context.Context, srv *http.Server) error {
 // registerPprof monte les handlers de net/http/pprof sur le mux fourni. En
 // production réelle on les protégerait (auth, réseau interne) — ici, c'est l'outil
 // de travail du capstone.
+//
+// pprof.Index sert tous les profils NOMMÉS sous /debug/pprof/<nom> : heap,
+// allocs, goroutine, block, mutex, threadcreate — et, 🆕 depuis Go 1.27,
+// goroutineleak, qui liste les goroutines définitivement bloquées :
+//
+//	curl 'localhost:8080/debug/pprof/goroutineleak?debug=2'
+//
+// Aucune route à ajouter : le profil était expérimental (GOEXPERIMENT) en 1.26,
+// il est stable en 1.27 et pprof.Index le publie automatiquement.
 func registerPprof(mux *http.ServeMux) {
 	mux.HandleFunc("GET /debug/pprof/", pprof.Index)
 	mux.HandleFunc("GET /debug/pprof/cmdline", pprof.Cmdline)

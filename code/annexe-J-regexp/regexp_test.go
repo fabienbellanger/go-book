@@ -6,7 +6,7 @@ import (
 )
 
 func TestFirstWord(t *testing.T) {
-	if got := firstWord("  Go 1.26 !"); got != "Go" {
+	if got := firstWord("  Go 1.27 !"); got != "Go" {
 		t.Errorf("firstWord = %q, veut %q", got, "Go")
 	}
 	if got := firstWord("  !!! "); got != "" {

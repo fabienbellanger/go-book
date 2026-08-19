@@ -25,8 +25,8 @@ func TestSlugify(t *testing.T) {
 		want string
 	}{
 		{"simple", "Hello, World!", "hello-world"},
-		{"ponctuation", "  Go 1.26 : Top!  ", "go-1-26-top"},
-		{"déjà slug", "go-1-26-top", "go-1-26-top"},
+		{"ponctuation", "  Go 1.27 : Top!  ", "go-1-27-top"},
+		{"déjà slug", "go-1-27-top", "go-1-27-top"},
 		{"vide", "", ""},
 		{"que des séparateurs", "  ---  ", ""},
 		{"chiffres", "Room 101", "room-101"},
@@ -41,10 +41,10 @@ func TestSlugify(t *testing.T) {
 // ExampleSlugify est À LA FOIS doc et test : la sortie est comparée à // Output:.
 func ExampleSlugify() {
 	fmt.Println(Slugify("Hello, World!"))
-	fmt.Println(Slugify("  Go 1.26 : Top!  "))
+	fmt.Println(Slugify("  Go 1.27 : Top!  "))
 	// Output:
 	// hello-world
-	// go-1-26-top
+	// go-1-27-top
 }
 
 // TestSaveLines exerce t.TempDir : un répertoire isolé, effacé automatiquement.
@@ -91,13 +91,13 @@ var sink string
 
 func BenchmarkSlugify(b *testing.B) {
 	for b.Loop() { // 🆕 1.24
-		sink = Slugify("  Go 1.26 : Maîtriser les Tests !  ")
+		sink = Slugify("  Go 1.27 : Maîtriser les Tests !  ")
 	}
 }
 
 func FuzzSlugify(f *testing.F) {
 	f.Add("Hello, World!") // graines du corpus
-	f.Add("  Go 1.26 : Top!  ")
+	f.Add("  Go 1.27 : Top!  ")
 	f.Add("")
 	f.Fuzz(func(t *testing.T, s string) {
 		out := Slugify(s)

@@ -3,7 +3,7 @@
 > **Objectif** — Contourner le typage **en connaissance de cause** : `unsafe.Pointer` et ses **règles de
 > conversion** (les patterns valides), `Sizeof`/`Alignof`/`Offsetof`, l'**alignement** et le **padding**,
 > `unsafe.Slice`/`unsafe.String` (zéro-copie), `//go:linkname` ; et l'**interop** avec C (**cgo**) et le
-> **SIMD**, avec leurs nouveautés Go 1.26.
+> **SIMD**, avec leurs nouveautés Go 1.26 et 1.27.
 >
 > **Prérequis** — [Ch. 8](08-structs-methodes.md), [Ch. 33](33-interfaces-profondeur.md)
 
@@ -205,7 +205,19 @@ dès que `GOOS`/`GOARCH` diffère de la machine hôte, donc **sans cgo** — d'o
 - **1.26** — **SIMD expérimental** : avec `GOEXPERIMENT=simd`, la bibliothèque expose `simd/archsimd`
   (types vectoriels `Float32x8`, `Int8x16`… — **AMD64** pour l'instant). Hors promesse de compatibilité Go 1.
 - **1.26** — **`runtime/secret`** (expérimental, `GOEXPERIMENT=runtimesecret`) : zones mémoire pour
-  données sensibles. Ces deux expériences sont **désactivées par défaut** (vérifié sur 1.26.4).
+  données sensibles. Ces expériences sont **désactivées par défaut** (vérifié sur 1.27.0).
+- **1.27** — le SIMD se dédouble. `simd/archsimd` s'élargit (API amd64 revue, ajout de **arm64 Neon**
+  128 bits et du SIMD 128 bits **WebAssembly**), et un nouveau package **`simd`** apparaît : des types
+  vectoriels **agnostiques de la largeur** (`Int8s`, `Float32s`…) qui utilisent les instructions
+  matérielles quand elles existent et s'émulent ailleurs. Le premier est rapide mais **non portable**,
+  le second portable mais restreint aux opérations émulables partout. Les deux restent derrière
+  `GOEXPERIMENT=simd` et hors promesse Go 1.
+- **1.27** — `runtime/secret` propage le mode secret : une goroutine **créée depuis** un contexte
+  secret s'exécute elle aussi en mode secret.
+- **1.27** — nouveau modernizer **`unsafefuncs`** (`go fix ./...`) : il remplace l'arithmétique de
+  pointeurs écrite à la main, `unsafe.Pointer(uintptr(p) + uintptr(n))`, par **`unsafe.Add(p, n)`** —
+  précisément la forme sûre que le piège ci-dessous réclame. Un passage de `go fix` sur du vieux code
+  `unsafe` est le premier geste à faire.
 
 ## ⚠️ Pièges
 
@@ -253,8 +265,11 @@ go test -bench=. -benchmem -run=^$ ./ch35-unsafe-cgo/...
   du backing.
 - **cgo** appelle du C (`import "C"`) mais coûte (pile, ordonnanceur, build) ; **1.26** le rend ~30 %
   plus rapide. Regroupez les appels.
-- **SIMD** (`simd/archsimd`) et **`runtime/secret`** sont **expérimentaux** (1.26, off par défaut, hors
-  compat Go 1). `unsafe` : avec **parcimonie** et **mesure**.
+- **SIMD** et **`runtime/secret`** sont **expérimentaux** (off par défaut, hors compat Go 1) : 🆕 1.27
+  ajoute `simd` (portable, agnostique de la largeur) à côté d'`archsimd` (spécifique, désormais aussi
+  arm64 et wasm). `unsafe` : avec **parcimonie** et **mesure**.
+- 🆕 **1.27** — `go fix ./...` (modernizer **`unsafefuncs`**) convertit tout seul l'arithmétique
+  `uintptr` en `unsafe.Add`.
 
 ## 🔁 Pour aller plus loin
 
@@ -262,4 +277,4 @@ go test -bench=. -benchmem -run=^$ ./ch35-unsafe-cgo/...
 - [Ch. 31 — Strings en profondeur](31-strings-profondeur.md) : la conversion sûre que `unsafe` court-circuite.
 - [Ch. 33 — Interfaces en profondeur](33-interfaces-profondeur.md) : réinterpréter `eface`/`iface` (à vos risques).
 - [Ch. 37 — Profiling pprof](37-profiling-pprof.md) : prouver qu'`unsafe` apporte vraiment le gain.
-- Doc : `go doc unsafe` ; `go doc cmd/cgo` ; notes de version Go 1.26.
+- Doc : `go doc unsafe` ; `go doc cmd/cgo` ; notes de version Go 1.27.

@@ -45,3 +45,52 @@ func TestTimeoutVirtual(t *testing.T) {
 		}
 	})
 }
+
+// synctest.Sleep (🆕 1.27) : équivaut à time.Sleep(d) suivi de synctest.Wait().
+//
+// POURQUOI ÇA COMPTE. Quand le test ET le code testé dorment EXACTEMENT la même
+// durée virtuelle, les deux goroutines redeviennent exécutables au même instant
+// et l'ordre de reprise n'est pas défini : le test observe tantôt l'état
+// d'avant, tantôt celui d'après. synctest.Sleep supprime l'ambiguïté en
+// attendant en plus que la bulle se STABILISE — toutes les autres goroutines
+// durablement bloquées — avant de rendre la main.
+func TestSynctestSleepAttendLaStabilisation(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var prêt atomic.Bool
+
+		// Le code « sous test » bascule un drapeau après exactement 100 ms.
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			prêt.Store(true)
+		}()
+
+		// Même durée que la goroutine ci-dessus : c'est le cas ambigu.
+		// synctest.Sleep garantit qu'au retour, la goroutine a fini.
+		synctest.Sleep(100 * time.Millisecond)
+
+		if !prêt.Load() {
+			t.Error("après synctest.Sleep, la goroutine aurait dû avoir terminé")
+		}
+	})
+}
+
+// Variante explicite : le duo time.Sleep + synctest.Wait, que synctest.Sleep
+// condense en un seul appel. Les deux formes sont exactement équivalentes.
+func TestSleepPuisWaitEquivalent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var compteur atomic.Int64
+		for range 3 {
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				compteur.Add(1)
+			}()
+		}
+
+		time.Sleep(50 * time.Millisecond)
+		synctest.Wait() // ce que synctest.Sleep ferait tout seul
+
+		if got := compteur.Load(); got != 3 {
+			t.Errorf("compteur = %d ; attendu 3", got)
+		}
+	})
+}

@@ -35,4 +35,16 @@ func main() {
 	}
 	wg.Wait()
 	fmt.Printf("SafeCounter après 100x100 Inc concurrents : hits=%d\n", c.Get("hits"))
+
+	// 🆕 Go 1.27 : hash/maphash.Hasher[T], le contrat pour une structure de
+	// hachage MAISON (voir hasher.go). La graine étant aléatoire par processus,
+	// les empreintes changent à chaque exécution : ne les persistez jamais.
+	set := NewStringSet(4)
+	for _, lang := range []string{"go", "rust", "zig", "go"} {
+		set.Add(lang)
+	}
+	fmt.Printf("StringSet (maphash.Hasher) : %d éléments, contient \"zig\" ? %v\n",
+		set.Len(), set.Contains("zig"))
+	fmt.Printf("empreinte de \"go\" cette fois-ci : %#x (différente au prochain lancement)\n",
+		set.hash("go"))
 }

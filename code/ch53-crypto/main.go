@@ -250,4 +250,22 @@ func main() {
 		return
 	}
 	fmt.Printf("écho TLS         = %q\n", echo)
+
+	// 6. Signature POST-QUANTIQUE ML-DSA (🆕 1.27, voir postquantum.go).
+	pqPriv, err := GenerateMLDSAKey()
+	if err != nil {
+		fmt.Println("ML-DSA:", err)
+		return
+	}
+	pqMsg := []byte("mise à jour du firmware v2.1")
+	pqSig, err := SignPQ(pqPriv, pqMsg)
+	if err != nil {
+		fmt.Println("ML-DSA:", err)
+		return
+	}
+	clePub, tailleSig := TaillesMLDSA()
+	fmt.Printf("ML-DSA-65        = signature %d o, clé publique %d o, graine privée %d o\n",
+		tailleSig, clePub, len(pqPriv.Bytes()))
+	fmt.Printf("ML-DSA vérifiée  = %v (vs %d o pour une signature Ed25519 : ~%dx plus gros)\n",
+		VerifyPQ(pqPriv.PublicKey(), pqMsg, pqSig) == nil, 64, len(pqSig)/64)
 }

@@ -194,6 +194,14 @@ chaque emplacement (corps, attribut, URL, bloc `<script>`, bloc `<style>`).
 | Bloc `<script>`           | littéral JavaScript         |
 | Bloc `<style>`            | valeur CSS                  |
 
+> 🆕 **Go 1.27 — un contexte de plus : `<meta … content="…; url=…">`.** L'URL portée par la partie
+> `url=` de l'attribut `content` d'une balise `<meta>` (typiquement un
+> `<meta http-equiv="refresh" content="0; url={{.Cible}}">`) est désormais **échappée** comme une
+> URL. Sans cela, une valeur contrôlée par l'utilisateur pouvait y injecter une redirection —
+> `javascript:` compris. Ce durcissement a été rétroporté en 1.25.8 et 1.26.1 : c'est un correctif
+> de sécurité, pas une nouveauté de confort. `GODEBUG=htmlmetacontenturlescape=0` restaure l'ancien
+> comportement, mais il n'y a aucune bonne raison de le faire.
+
 ⚠️ Cet échappement est **contextuel**, pas un simple filtrage de caractères :
 `html/template` analyse la **structure** du gabarit dès `Parse`. Le _pourquoi_
 sécurité (anti-XSS) et le détail de cette analyse sont traités au

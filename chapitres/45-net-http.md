@@ -254,6 +254,14 @@ data, err := io.ReadAll(resp.Body) // drainer jusqu'au bout
 > de la connexion (keep-alive) — lisez-le entièrement (`io.ReadAll`, ou `io.Copy(io.Discard, body)`)
 > avant de le fermer.
 
+> 🆕 **Go 1.27 — `Close()` draine un peu tout seul.** En HTTP/1, fermer un `Response.Body` non lu
+> tente désormais de consommer le reliquat, dans la limite d'un plafond volontairement bas. Le
+> keep-alive survit donc aux oublis de drainage sur les petites réponses. **Ne changez rien pour
+> autant** : le plafond est conservateur, un gros corps reste non réutilisable, et le drainage
+> explicite documente l'intention. Le seul effet de bord notable est un `Close()` marginalement plus
+> lent sur les corps non lus ; si cela vous gêne (client qui abandonne massivement de grosses
+> réponses), `Transport.DisableKeepAlives = true` retire le mécanisme.
+
 ### Annulation par contexte
 
 Pour qu'une requête sortante respecte un délai ou l'abandon du client, attachez-lui un **contexte** :
@@ -349,10 +357,38 @@ mux.Handle("GET /static/", http.FileServerFS(assets))
   handler := csrf.Handler(mux) // rejette les requêtes cross-origin non sûres
   ```
 
-- Le `net/http/pprof` expose les profils via le mux par défaut — utilisé au **Projet 7** (🔁
-  [Ch. 37](37-profiling-pprof.md)).
+- **1.27** — **`httptest.NewTestServer(t, handler)`** : un serveur de test sur un réseau **en
+  mémoire**, sans socket ni port. Il se referme tout seul via le `testing.TB`, et il est compatible
+  avec **`testing/synctest`** — ce que `httptest.NewServer` ne pouvait pas être, un vrai socket
+  faisant sortir de la bulle.
 
-> Vérifié sur Go 1.26.4 (`go doc net/http.CrossOriginProtection`).
+  ```go
+  func TestAPI(t *testing.T) {
+  	srv := httptest.NewTestServer(t, mux) // pas de defer Close() : lié au t
+  	resp, err := srv.Client().Get(srv.URL + "/items/42")
+  	// …
+  }
+  ```
+
+  ⚠️ `srv.URL` vaut ici `http://example.com` — **sans port**, puisqu'il n'y a pas de socket. Le
+  client renvoyé par `srv.Client()` sait joindre ce faux hôte ; un client construit à la main, non.
+
+- **1.27** — **`url.URL.Clone()`** et **`url.Values.Clone()`** : copies **profondes**. Indispensable
+  dans un `RoundTripper` ou un middleware, où muter l'URL de la requête reçue est un effet de bord
+  partagé.
+- **1.27** — le serveur HTTP/2 honore les **signaux de priorité** du client (RFC 9218) au lieu de
+  servir les flux en tourniquet. `Server.DisableClientPriority = true` rétablit l'ancien
+  comportement.
+- **1.27** — **`Server.MaxHeaderValueCount`** borne le **nombre de valeurs** d'en-tête d'une requête
+  (défaut : `http.DefaultMaxHeaderValueCount`, soit 500). Complète `MaxHeaderBytes`, qui bornait la
+  taille mais pas le nombre — un vecteur de déni de service par en-têtes nombreux mais courts.
+- **1.27** — en HTTP/1, `Response.Body.Close()` **draine** le reliquat non lu, dans une limite
+  conservatrice : meilleure réutilisation des connexions (voir plus haut).
+- Le `net/http/pprof` expose les profils via le mux par défaut — utilisé au **Projet 7** (🔁
+  [Ch. 37](37-profiling-pprof.md)). 🆕 1.27 : il sert aussi `/debug/pprof/goroutineleak`
+  (🔁 [Ch. 23](23-patterns-concurrence.md)).
+
+> Vérifié sur Go 1.27.0 (`go doc net/http.CrossOriginProtection`).
 
 ## ⚠️ Pièges
 
@@ -376,6 +412,8 @@ mux.Handle("GET /static/", http.FileServerFS(assets))
   Bornez le travail par **contexte** et les ressources partagées par les primitives du
   [Ch. 21](21-synchronisation.md).
 - `httptest` permet de **benchmarker** un handler sans réseau (🔁 [Ch. 36](36-tests-benchmarks-fuzzing.md)).
+  🆕 1.27 : `httptest.NewTestServer` va plus loin — le réseau lui-même est **en mémoire**, donc pas
+  de socket, pas de port à réserver, et des tests parallélisables sans collision.
 
 ## 🧪 À tester soi-même
 
@@ -391,6 +429,8 @@ go run ./ch45-http      # serveur sur :8080 ; curl http://localhost:8080/items/4
 2. Écrivez un middleware `recover` qui transforme une panique en `500`, et placez-le autour du mux.
 3. Donnez au `headerRoundTripper` un compteur de retries sur erreur réseau, et testez-le contre un
    `httptest.Server` qui échoue les deux premières fois.
+4. 🆕 **1.27** — remplacez ce `httptest.NewServer(h)` (+ `defer srv.Close()`) par
+   `httptest.NewTestServer(t, h)` : le `Close` disparaît, et le test ne réserve plus de port.
 
 ---
 
@@ -404,6 +444,9 @@ go run ./ch45-http      # serveur sur :8080 ; curl http://localhost:8080/items/4
   **`Shutdown(ctx)`**.
 - Côté client : **réutilisez** un `http.Client` à `Timeout`, **`defer Body.Close()` + drainer**,
   annulez par **contexte**, et étendez via **`RoundTripper`** (le pendant client du `Handler`).
+- 🆕 **1.27** : `httptest.NewTestServer(t, h)` teste sur un réseau **en mémoire** (compatible
+  `synctest`) ; `url.URL.Clone()` évite les mutations partagées ; `Server.MaxHeaderValueCount` borne
+  le **nombre** d'en-têtes, là où `MaxHeaderBytes` ne bornait que leur taille.
 
 ## 🔁 Pour aller plus loin
 

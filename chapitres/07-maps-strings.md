@@ -260,7 +260,38 @@ strings.Fields("  go  rust ")       // ["go" "rust"]  (découpe sur les espaces)
 strings.Join([]string{"x", "y"}, "/")  // "x/y"
 strings.ReplaceAll("a.b", ".", "/") // "a/b"
 strings.TrimSpace("  hi  ")         // "hi"
+
+// Découper autour d'un séparateur, sans calculer d'indices :
+strings.Cut("cle=valeur", "=")      // "cle", "valeur", true  (PREMIÈRE occurrence)
+strings.CutLast("a/b/c", "/")       // "a/b", "c",     true   🆕 1.27 (DERNIÈRE occurrence)
 ```
+
+> 💡 🆕 **`strings.CutLast` (1.27)** complète `strings.Cut` (1.18). Le couple couvre les deux
+> découpes que l'on écrivait à la main avec `Index`/`LastIndex` : `Cut` pour « la clé avant le
+> premier `=` », `CutLast` pour « l'extension après le dernier `.` », le nom de fichier après le
+> dernier `/`, le domaine après le dernier `@`. Le booléen renvoyé évite le piège classique de
+> `LastIndex` — oublier de tester `-1` et découper à l'index `0`. `bytes.CutLast` en est le
+> jumeau pour `[]byte`.
+
+```go
+// code/ch07-maps-strings/strings_demo.go
+
+// Avant : trois lignes et un test facile à oublier.
+if i := strings.LastIndex(nom, "."); i >= 0 {
+	base, ext = nom[:i], nom[i+1:]
+}
+
+// 🆕 1.27 : l'intention est dans le nom, et le cas « pas de point » est explicite.
+func splitName(nom string) (base, ext string, ok bool) {
+	return strings.CutLast(nom, ".")
+}
+```
+
+| Entrée          | `Cut(s, ".")`         | `CutLast(s, ".")`      |
+| --------------- | --------------------- | ---------------------- |
+| `archive.tar.gz`| `archive`, `tar.gz`   | `archive.tar`, `gz`    |
+| `LICENSE`       | `LICENSE`, `""`, faux | `LICENSE`, `""`, faux  |
+| `.gitignore`    | `""`, `gitignore`     | `""`, `gitignore`      |
 
 **`strconv`** — conversions texte ↔ nombres/booléens (avec **gestion d'erreur**) :
 
@@ -407,6 +438,11 @@ prédéfinies** du package `time` :
   matérialise pas la tranche de mots.
 - **1.24** — les maps reposent désormais sur les **Swiss Tables** (gains mémoire/CPU,
   transparents ; détail [Ch. 32](32-maps-hachage.md)).
+- **1.27** — **`strings.CutLast`** et **`bytes.CutLast`** : découpe autour de la **dernière**
+  occurrence d'un séparateur, pendant de `Cut`.
+- **1.27** — **`hash/maphash.Hasher[T]`** : le contrat (`Hash`, `Equal`) à implémenter pour
+  brancher un type sur une structure de hachage maison ([Ch. 32](32-maps-hachage.md)).
+- **1.27** — `unicode` passe à **Unicode 17** (nouveaux scripts, nouvelles `RangeTable`).
 
 ## ⚠️ Pièges
 

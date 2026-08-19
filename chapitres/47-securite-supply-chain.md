@@ -101,8 +101,8 @@ un nouveau tag. La mise à jour est un acte explicite (`go get module@version`).
 🆕 Depuis Go 1.21, `go.mod` peut figer la version du compilateur :
 
 ```
-  go 1.26
-  toolchain go1.26.4
+  go 1.27
+  toolchain go1.27.0
 ```
 
 Combiné à `GOTOOLCHAIN` (`auto`, `local`, ou une version exacte), cela garantit que
@@ -359,6 +359,26 @@ func hardenedTLSConfig() *tls.Config {
 ⚠️ `InsecureSkipVerify: true` **désactive la vérification de certificat** : la
 connexion devient interceptable (_man-in-the-middle_). C'est un réglage de débogage,
 **jamais** de production. Si vous le voyez en revue de code, c'est un signal d'alarme.
+
+🆕 **Go 1.27 — le ménage dans les échappatoires TLS.** Cinq `GODEBUG` de compatibilité qui
+permettaient encore de réactiver des comportements jugés non sûrs ont été **supprimés** :
+`tlsrsakex` (échange de clés RSA), `tls3des` (chiffrement 3DES), `tls10server` (TLS 1.0 côté
+serveur), `tlsunsafeekm` et `x509keypairleaf`. Un service qui s'appuyait encore sur l'un d'eux
+cessera de fonctionner : il faut corriger la cause (mettre à jour le pair, changer de suite
+cryptographique), l'échappatoire n'existe plus. C'est le fonctionnement normal du mécanisme
+`GODEBUG` — un sursis, pas un réglage permanent (🔁 [Ch. 29](29-observabilite-runtime.md)).
+
+🆕 **Go 1.27 — `SSL_CERT_FILE`/`SSL_CERT_DIR` désormais honorés sur Windows et macOS.**
+`x509.SystemCertPool` respectait déjà ces variables sous Linux ; c'est maintenant le cas partout.
+Quand elles sont posées, les racines sont **chargées depuis le disque** et c'est le vérificateur
+Go — non l'API de la plateforme — qui valide la chaîne. C'est très pratique pour un proxy
+d'entreprise ou un environnement de test, mais l'implication de sécurité mérite d'être vue : une
+variable d'environnement suffit à substituer le magasin de confiance. Si votre modèle de menace
+l'interdit, `GODEBUG=x509sslcertoverrideplatform=0` rétablit l'usage du magasin système.
+
+🆕 **Go 1.27 — signatures post-quantiques.** `crypto/mldsa` (FIPS 204) rejoint `crypto/mlkem`
+(FIPS 203, 1.24) : l'échange de clés hybride était déjà le défaut TLS, la **signature** devient
+possible (🔁 [Ch. 53](53-crypto.md)).
 
 🆕 **FIPS 140-3** : Go 1.24 introduit un mode de conformité cryptographique. Au
 **build**, `GOFIPS140=latest` (ou une version figée, ex. `v1.0.0`) embarque le module

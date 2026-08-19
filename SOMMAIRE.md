@@ -1,4 +1,4 @@
-# Sommaire — Comprendre et maîtriser Go 1.26
+# Sommaire — Comprendre et maîtriser Go 1.27
 
 > Table des matières cliquable. Elle pilote la navigation du site généré (l'ordre des
 > pages vient de ce fichier).
@@ -99,7 +99,7 @@
 
 - A — [Glossaire](annexes/A-glossaire.md)
 - B — [Antisèche des commandes `go`](annexes/B-antiseche-go.md)
-- C — [Carte des nouveautés Go 1.21 → 1.26](annexes/C-nouveautes-1.21-1.26.md)
+- C — [Carte des nouveautés Go 1.21 → 1.27](annexes/C-nouveautes-1.21-1.27.md)
 - D — [Algorithmes & structures de données en Go](annexes/D-algorithmes.md)
 - E — [Démonstrations techniques & benchmarks](annexes/E-demonstrations-benchmarks.md)
 - F — [Idiomes & style](annexes/F-idiomes-style.md)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -95,5 +96,71 @@ func TestSafeCounterConcurrent(t *testing.T) {
 	wg.Wait()
 	if got := c.Get("k"); got != goroutines*perG {
 		t.Errorf("compteur = %d ; attendu %d", got, goroutines*perG)
+	}
+}
+
+// --- hash/maphash.Hasher[T] (🆕 Go 1.27) ---
+
+// TestStringSet vérifie la table de hachage maison bâtie sur le contrat
+// maphash.Hasher[string].
+func TestStringSet(t *testing.T) {
+	s := NewStringSet(4)
+
+	for _, v := range []string{"go", "rust", "zig", "go"} {
+		s.Add(v)
+	}
+	if got := s.Len(); got != 3 {
+		t.Errorf("Len = %d ; attendu 3 (le doublon \"go\" est absorbé)", got)
+	}
+	for _, v := range []string{"go", "rust", "zig"} {
+		if !s.Contains(v) {
+			t.Errorf("Contains(%q) = false ; attendu true", v)
+		}
+	}
+	if s.Contains("ocaml") {
+		t.Error(`Contains("ocaml") = true ; attendu false`)
+	}
+}
+
+// TestStringSetGrow force plusieurs redimensionnements : les éléments doivent
+// survivre au réhachage.
+func TestStringSetGrow(t *testing.T) {
+	s := NewStringSet(2)
+	const n = 500
+	for i := range n {
+		s.Add(fmt.Sprintf("clé-%d", i))
+	}
+	if s.Len() != n {
+		t.Fatalf("Len = %d ; attendu %d", s.Len(), n)
+	}
+	for i := range n {
+		if !s.Contains(fmt.Sprintf("clé-%d", i)) {
+			t.Fatalf("clé-%d perdue après redimensionnement", i)
+		}
+	}
+}
+
+// TestHasherSeedIsPerProcess documente la propriété la plus importante de
+// maphash : la graine est aléatoire par processus. Deux ensembles distincts
+// rangent donc les MÊMES clés à des positions différentes — d'où l'interdiction
+// de persister ces empreintes (fichier, cache disque, protocole réseau).
+func TestHasherSeedIsPerProcess(t *testing.T) {
+	a, b := NewStringSet(8), NewStringSet(8)
+
+	différent := false
+	for i := range 50 {
+		v := fmt.Sprintf("clé-%d", i)
+		if a.hash(v) != b.hash(v) {
+			différent = true
+			break
+		}
+	}
+	if !différent {
+		t.Error("deux graines distinctes devraient produire des empreintes différentes")
+	}
+
+	// En revanche, une même graine est stable au sein du même ensemble.
+	if a.hash("go") != a.hash("go") {
+		t.Error("le hachage doit être déterministe à graine constante")
 	}
 }

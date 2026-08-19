@@ -3,6 +3,7 @@ package main
 import (
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -60,5 +61,44 @@ func TestTruncate(t *testing.T) {
 		if got := truncate(c.s, c.max); got != c.want {
 			t.Errorf("truncate(%q, %d) = %q ; attendu %q", c.s, c.max, got, c.want)
 		}
+	}
+}
+
+// TestCutLast couvre strings.CutLast (🆕 Go 1.27) : découpe autour de la
+// DERNIÈRE occurrence du séparateur, pendant de strings.Cut.
+func TestCutLast(t *testing.T) {
+	cases := []struct {
+		name              string
+		in                string
+		wantBase, wantExt string
+		wantOK            bool
+	}{
+		{"extension simple", "rapport.pdf", "rapport", "pdf", true},
+		{"plusieurs points", "archive.tar.gz", "archive.tar", "gz", true},
+		{"sans point", "LICENSE", "LICENSE", "", false},
+		{"point final", "fin.", "fin", "", true},
+		{"point initial", ".gitignore", "", "gitignore", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			base, ext, ok := splitName(c.in)
+			if base != c.wantBase || ext != c.wantExt || ok != c.wantOK {
+				t.Errorf("splitName(%q) = (%q, %q, %t) ; attendu (%q, %q, %t)",
+					c.in, base, ext, ok, c.wantBase, c.wantExt, c.wantOK)
+			}
+		})
+	}
+}
+
+// TestCutVsCutLast montre la différence sur une même entrée : Cut prend la
+// première occurrence, CutLast la dernière.
+func TestCutVsCutLast(t *testing.T) {
+	const in = "a=b=c"
+
+	if cle, val, _ := firstKeyValue(in); cle != "a" || val != "b=c" {
+		t.Errorf("Cut(%q) = (%q, %q) ; attendu (\"a\", \"b=c\")", in, cle, val)
+	}
+	if avant, apres, _ := strings.CutLast(in, "="); avant != "a=b" || apres != "c" {
+		t.Errorf("CutLast(%q) = (%q, %q) ; attendu (\"a=b\", \"c\")", in, avant, apres)
 	}
 }

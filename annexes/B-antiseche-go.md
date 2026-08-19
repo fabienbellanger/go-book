@@ -118,6 +118,11 @@ go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
 go vet -vettool=$(which shadow) ./...   # détecte le masquage de variables
 ```
 
+> 🆕 Go 1.27 — `go test` lance désormais `stdversion` par défaut : il signale
+> l'usage d'un symbole de la bibliothèque standard **trop récent** pour la ligne
+> `go` de votre `go.mod`. Un `strings.CutLast` dans un module `go 1.26` est
+> attrapé au test plutôt qu'en production sur une vieille toolchain.
+
 ---
 
 ## `go doc`
@@ -130,12 +135,17 @@ terminal.
 | `-all`  | Toute la doc du paquet (pas seulement le résumé) |
 | `-src`  | Montre aussi le code source                      |
 | `-u`    | Inclut les symboles non exportés                 |
+| `-ex`   | Liste les exemples exécutables (🆕 1.27)          |
 
 ```bash
 go doc strings                 # synthèse du paquet
 go doc strings.Builder         # un type
 go doc -all sync.Once          # tout, y compris exemples
 go doc -src io.Copy            # avec le source
+
+go doc -ex bytes               # 🆕 1.27 : les exemples exécutables du paquet
+go doc bytes.ExampleBuffer     # 🆕 1.27 : le source d'un exemple, commentaires inclus
+go doc example.com/lib@v1.2.3  # 🆕 1.27 : la doc d'une version précise, sans l'installer
 ```
 
 ---
@@ -166,6 +176,19 @@ go tool fix help hostport   # détail d'un fixer précis
 > entier), `slicessort` (`sort.Slice` → `slices.Sort`), `newexpr` (🆕 1.26,
 > syntaxe `new(expr)`). La directive `//go:fix inline` sur une fonction
 > permet de définir ses propres migrations automatiques.
+
+🆕 Go 1.27 enrichit le catalogue et fait le ménage :
+
+| Fixer            | Effet                                                                 |
+| ---------------- | --------------------------------------------------------------------- |
+| `atomictypes`    | Types de base dans `sync/atomic` → types atomiques (`atomic.Int64`…)  |
+| `embedlit`       | `T{U: U{x: 1}}` → `T{x: 1}` (application directe des clés promues)    |
+| `slicesbackward` | Boucle décroissante sur une tranche → `slices.Backward`               |
+| `unsafefuncs`    | Arithmétique de pointeurs → `unsafe.Add` / `unsafe.Slice`             |
+
+> ⚠️ Deux changements de nom/retrait en 1.27 : `waitgroup` s'appelle désormais
+> `waitgroupgo` (adaptez vos `-waitgroup=false` en CI) et `fmtappendf` a été
+> retiré (jugé purement stylistique).
 
 ---
 
@@ -252,8 +275,14 @@ go mod tidy                       # LE réflexe après avoir ajouté/retiré un 
 go mod why golang.org/x/sync/errgroup
 go mod graph | grep example.com   # qui dépend de quoi, brut
 go mod vendor                     # peuple vendor/ (puis go build -mod=vendor)
-go mod edit -go=1.26              # change la version de langage cible
+go mod edit -go=1.27              # change la version de langage cible
 ```
+
+> 🆕 Go 1.27 — Sur un module déclarant `go 1.27` ou plus, `go mod tidy` **normalise
+> les blocs `require`** : les doublons sont fusionnés et il ne reste au plus que
+> deux blocs, l'un pour les dépendances directes, l'autre pour les indirectes
+> (`// indirect`). Les commentaires attachés à une dépendance sont conservés.
+> Attendez-vous à un `go.mod` remanié au premier `tidy` après la montée de version.
 
 ---
 
@@ -376,14 +405,14 @@ go clean -cache
 | `GOBIN`        | Destination des binaires de `go install`                                        |
 | `GOMODCACHE`   | Emplacement du cache des modules (défaut `$GOPATH/pkg/mod`)                     |
 | `GOPROXY`      | Proxy(s) de modules (ex. `https://proxy.golang.org,direct`, ou `off`)           |
-| `GOTOOLCHAIN`  | Toolchain `go` à utiliser : `auto`, `local`, ou une version exacte (`go1.26.4`) |
+| `GOTOOLCHAIN`  | Toolchain `go` à utiliser : `auto`, `local`, ou une version exacte (`go1.27.0`) |
 
 ```bash
 GODEBUG=gctrace=1 ./app                 # une ligne par cycle de GC sur stderr
 GODEBUG=schedtrace=1000 ./app           # état de l'ordonnanceur chaque seconde
 GOFLAGS=-mod=readonly go build ./...     # interdit la modif implicite de go.mod
 GOTOOLCHAIN=local go version             # ignore go.mod, force la toolchain installée
-go get go@1.26.4                         # relève go.mod -> bascule (et télécharge) la toolchain
+go get go@1.27.0                         # relève go.mod -> bascule (et télécharge) la toolchain
 ```
 
 > 🔁 `GOGC`, `GOMEMLIMIT` et `GODEBUG=gctrace=1` sont détaillés au Ch. 27 (GC) ;
@@ -430,7 +459,11 @@ go tool dist list          # toutes les paires GOOS/GOARCH supportées
   chaîne d'outils externe nécessaire.
 - `GODEBUG=gctrace=1` et `GOMAXPROCS`/`GOGC`/`GOMEMLIMIT` ouvrent une fenêtre sur
   le runtime sans recompiler.
-- `go fix` (🆕 1.26) modernise le code via des fixers analysables ; `go tool`
-  exécute aussi les outils déclarés par `tool` dans `go.mod` (ex.
-  `govulncheck`) ; `GOTOOLCHAIN`/la ligne `toolchain` de `go.mod` pilotent la
-  version de l'outil `go` utilisée.
+- `go fix` (🆕 1.26, élargi en 1.27) modernise le code via des fixers
+  analysables ; `go tool` exécute aussi les outils déclarés par `tool` dans
+  `go.mod` (ex. `govulncheck`) ; `GOTOOLCHAIN`/la ligne `toolchain` de `go.mod`
+  pilotent la version de l'outil `go` utilisée.
+- 🆕 1.27 : après une montée de version, l'enchaînement utile est
+  `go mod edit -go=1.27 && go mod tidy && go fix ./... && go test ./...` —
+  `tidy` normalise les blocs `require`, `fix` modernise, et `stdversion`
+  (lancé par `go test`) vérifie qu'aucun symbole n'est en avance sur la ligne `go`.

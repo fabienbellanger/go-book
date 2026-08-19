@@ -146,6 +146,15 @@ axes**, un gain n'est validé que rapporté à la **cible**.
 - **1.26** — **Green Tea GC** par défaut ([Ch. 27](27-garbage-collector.md)) réduit l'overhead GC ;
   l'escape analysis alloue **davantage de slices sur la pile** ([Ch. 39](39-compilation-inlining-pgo.md)).
   Le runtime optimise **pour** vous — encore faut-il **mesurer** l'effet.
+- **1.27** — **allocation spécialisée par taille** (jusqu'à ~30 % sur les petits objets,
+  [Ch. 26](26-allocation-escape.md)) et **décodage JSON nettement plus rapide** via le moteur v2 sous
+  `encoding/json` ([Ch. 42](42-encodages-serialisation.md)). Deux gains obtenus **en recompilant**,
+  sans toucher au code : d'où l'intérêt de refaire tourner sa base de mesures après une montée de
+  version, avant d'attribuer une amélioration à son propre travail.
+- **1.27** — côté diagnostic : profil **`goroutineleak`** stable ([Ch. 23](23-patterns-concurrence.md)),
+  **labels pprof dans les tracebacks** ([Ch. 29](29-observabilite-runtime.md)), et
+  `go tool trace -http=:PORT` qui n'écoute plus que sur `localhost`
+  ([Ch. 38](38-traces-flight-recorder.md)).
 
 ## ⚠️ Pièges
 

@@ -239,6 +239,36 @@ Options : `-dir`, `-out`, `-n` (dry-run), `-version`.
 
 ---
 
+## 10 bis. 🆕 Go 1.27 — deux points d'attention pour un générateur
+
+Aucune des nouveautés 1.27 ne change le pipeline d'`enumgen`, mais deux d'entre elles touchent
+directement le métier de la génération de code.
+
+**1. Directives `//line` : les chemins relatifs se résolvent autrement.** Un générateur qui
+émet des directives `//line fichier.src:12` pour que les erreurs du compilateur pointent la
+**source d'origine** plutôt que le fichier généré est concerné. Jusqu'en 1.26, un nom de
+fichier **relatif** y était résolu par rapport au répertoire de travail du compilateur ; en
+1.27, il l'est par rapport au **répertoire du fichier qui contient la directive** — le
+comportement de `go/scanner`, et celui auquel on s'attend. Les chemins **absolus** ne changent
+pas. `enumgen` n'émet pas de `//line` (son gabarit produit du Go ordinaire), mais un générateur
+qui part d'un DSL externe doit revoir ses chemins.
+
+**2. Le test golden peut se remettre à échouer sans que vous ayez rien touché.** `go/format`
+reformate selon les règles de la version courante ; toute évolution de `gofmt` déplace le
+fichier de référence. C'est le prix — assumé — d'un golden : il vérifie l'égalité **exacte**.
+Après une montée de version, la marche à suivre est toujours la même : relancer
+`go generate ./...`, **relire le diff** (il doit être purement cosmétique), puis committer le
+fichier régénéré. Un diff qui n'est *pas* cosmétique signale un vrai changement de
+comportement.
+
+> 💡 Vérifiez au passage que `go test` ne signale plus rien : depuis 1.27, il lance
+> l'analyseur **`stdversion`**, qui refuse un symbole de la bibliothèque standard plus récent
+> que la ligne `go` du module. Un générateur qui **émet** du code utilisant une API récente
+> doit produire, ou exiger, un `go.mod` à la hauteur — sinon l'erreur tombera chez
+> l'utilisateur, pas chez vous.
+
+---
+
 ## 11. Pour aller plus loin
 
 - **`go/types`** : évaluer n'importe quelle expression constante (et vérifier que
@@ -247,6 +277,9 @@ Options : `-dir`, `-out`, `-n` (dry-run), `-version`.
   (`MarshalJSON` par libellé), une variante `Parse<Type>(string)`.
 - **`golang.org/x/tools/go/packages`** : charger un paquet avec ses dépendances
   résolues, comme le font `stringer` et la plupart des outils réels.
+- Émettre des directives **`//line`** pointant la source d'origine, pour que les erreurs du
+  compilateur dans le code généré désignent le fichier que l'utilisateur a réellement écrit
+  (attention à la résolution des chemins relatifs, §10 bis).
 
 ---
 

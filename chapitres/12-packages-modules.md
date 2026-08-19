@@ -39,7 +39,7 @@ minimale, et les **dépendances** :
 ```
 module github.com/alice/billing   // chemin d'import racine
 
-go 1.26                            // version de langage minimale, vérifiée strictement
+go 1.27                            // version de langage minimale, vérifiée strictement
 
 require (
 	github.com/google/uuid v1.6.0  // dépendance directe : importée par votre code
@@ -53,7 +53,7 @@ require (
 - **`go.sum`** enregistre, pour chaque version retenue, deux **empreintes** SHA-256 (le contenu
   du module et son `go.mod`) : `go build`/`go mod verify` les recontrôlent et refusent de
   continuer en cas de divergence. On le **commit**, on ne l'édite **jamais** à la main.
-- La ligne **`go 1.26`** n'est pas qu'indicative : depuis Go 1.21, elle est **vérifiée
+- La ligne **`go 1.27`** n'est pas qu'indicative : depuis Go 1.21, elle est **vérifiée
   strictement**. Un module qui l'exige refuse de compiler avec une toolchain plus ancienne, sauf
   bascule automatique pilotée par `GOTOOLCHAIN` (🔁 [Ch. 1](01-installation-toolchain.md)).
 
@@ -162,7 +162,7 @@ go work use ./nouveau-module           # ajoute un module
 
 ```
 go.work :
-   go 1.26
+   go 1.27
 
    use (
    	./billing
@@ -249,6 +249,35 @@ go.mod :
    ignore ./web/dist    // assets buildés, ignorés par go build ./...
 ```
 
+- **1.27** — pour un module déclarant `go 1.27` ou plus, **`go mod tidy` normalise les blocs
+  `require`** : les doublons sont fusionnés et il n'en reste **au plus deux**, l'un pour les
+  dépendances directes, l'autre pour les indirectes. Les commentaires attachés à une dépendance
+  sont préservés ; un bloc mixte est fusionné dans celui des directes.
+
+```
+avant tidy (1.27)                    après tidy (1.27)
+
+require github.com/a/x v1.2.0        require (
+require (                            	github.com/a/x v1.2.0
+	github.com/b/y v0.4.0            	github.com/b/y v0.4.0
+)                                    )
+require (
+	golang.org/x/text v0.20.0 // indirect   require golang.org/x/text v0.20.0 // indirect
+)
+```
+
+  ⚠️ Attendez-vous donc à un **`go.mod` remanié** au premier `tidy` après la montée de version :
+  c'est du bruit **une seule fois**, mais autant l'isoler dans son propre commit.
+
+- **1.27** — `go` **ne sait plus récupérer un module hébergé sur `bzr`** (Bazaar) : le support de
+  ce système de gestion de versions a été retiré. Les autres (`git`, `hg`, `svn`, `fossil`)
+  restent gérés.
+- **1.27** — le `go` reconnaît les réglages **`GODEBUG`** posés dans `go.mod` (`godebug …`) et dans
+  les sources (`//go:debug …`), et **refuse** ceux qui ont été supprimés — par exemple
+  `asynctimerchan`, retiré en 1.27 (🔁 [Ch. 44](44-temps.md)). Un réglage n'est accepté que s'il
+  vaut sa valeur par défaut finale : impossible de ressusciter un ancien comportement par
+  inadvertance.
+
 ## ⚠️ Pièges
 
 - **`replace` oublié** dans `go.mod` au moment de publier : pointe vers un chemin local, casse le
@@ -261,6 +290,9 @@ go.mod :
   package (types/interfaces partagés) doit être extrait.
 - **Package `utils`/`common`** : aimant à dépendances et à cycles. Nommez par domaine.
 - **Ne pas commiter `go.sum`** → builds non vérifiables. Toujours le versionner.
+- **Relever la ligne `go` et le reste dans le même commit** : `go mod edit -go=1.27` change la
+  **sémantique** du module (règles de langage, défauts `GODEBUG`). Faites-en un commit isolé et
+  testé, séparé du `go mod tidy` qui remaniera les blocs `require`.
 - **Tout mettre sous `internal/` par réflexe** : pratique au départ, mais si une partie de ce
   code doit un jour devenir une bibliothèque publique (la vôtre, ou partagée avec un autre
   module du même dépôt), il faut **déplacer** les fichiers — donc changer leur chemin d'import

@@ -100,7 +100,7 @@ que Python, avec une concurrence que peu de langages égalent.
 ## Cycle de release & la « Go 1 promise »
 
 Go suit un **rythme semestriel** : une version mineure tous les ~6 mois
-(février et août), nommées `1.21`, `1.22`, … jusqu'à **`1.26`** que cible ce livre.
+(février et août), nommées `1.21`, `1.22`, … jusqu'à **`1.27`** que cible ce livre.
 
 La **Go 1 promise** (« promesse de compatibilité ») garantit que du code valide écrit
 pour Go 1.x continuera de compiler et de fonctionner avec les versions ultérieures de
@@ -116,9 +116,9 @@ Go 1.x. En pratique : **on met à jour la toolchain sans réécrire son code**. 
 > compilateur tout en pouvant mériter un nouveau passage de `go vet ./...`.
 
 > 🆕 Tout au long du livre, un encart **🆕** signale ce qui a été introduit récemment
-> (1.21 → 1.26), pour distinguer le Go « classique » des ajouts récents.
+> (1.21 → 1.27), pour distinguer le Go « classique » des ajouts récents.
 
-## Panorama des nouveautés 1.21 → 1.26
+## Panorama des nouveautés 1.21 → 1.27
 
 Un aperçu de ce qui a marqué les versions récentes (détail en **annexe C**) :
 
@@ -130,13 +130,17 @@ Un aperçu de ce qui a marqué les versions récentes (détail en **annexe C**) 
 | **1.24** | **Swiss Tables** pour les maps ; pointeurs faibles (`weak`) ; `runtime.AddCleanup` ; alias de type génériques     |
 | **1.25** | `testing/synctest` (GA) ; `GOMAXPROCS` conscient des cgroups ; `FlightRecorder` ; GC **Green Tea** (expérimental) |
 | **1.26** | **Green Tea GC par défaut** ; `go fix` (modernizers) ; cgo plus rapide ; `errors.AsType`                          |
+| **1.27** | **méthodes génériques** ; `encoding/json/v2` par défaut ; packages `uuid` et `crypto/mldsa` ; profil `goroutineleak` |
 
-Le fil conducteur de ces six versions : moins de **code répétitif** (packages `slices`/
+Le fil conducteur de ces sept versions : moins de **code répétitif** (packages `slices`/
 `maps`/`cmp`, itérateurs, `for range N`), un runtime plus **honnête envers son
 environnement d'exécution** (`GOMAXPROCS` conscient des limites cgroups, donc des
 conteneurs), et un GC qui réduit encore son **empreinte mémoire et ses pauses** (Swiss
-Tables pour les maps, GC Green Tea). Ne cherchez pas à tout retenir maintenant : chaque
-point est expliqué le moment venu.
+Tables pour les maps, GC Green Tea). La 1.27 y ajoute deux mouvements de fond : la
+**généricité arrive au bout de son déploiement** (les méthodes peuvent enfin déclarer
+leurs propres paramètres de type) et la bibliothèque standard **absorbe des dépendances
+devenues universelles** (`uuid`, JSON v2). Ne cherchez pas à tout retenir maintenant :
+chaque point est expliqué le moment venu.
 
 ## Comment lire ce livre
 
@@ -184,10 +188,10 @@ façon d'apprendre.
 - Sa philosophie : **la simplicité à grande échelle** — _« less is more »_.
 - Un **outillage intégré** (`gofmt`, `go test`, `pprof`…) fait partie du langage.
 - La **Go 1 promise** garantit la rétrocompatibilité : on met à jour sans réécrire.
-- Ce livre cible **Go 1.26** et signale les nouveautés par des encarts 🆕.
+- Ce livre cible **Go 1.27** et signale les nouveautés par des encarts 🆕.
 
 ## 🔁 Pour aller plus loin
 
 - Chapitre suivant : [Ch. 1 — Installation, toolchain & premier programme](01-installation-toolchain.md).
-- [Annexe C — Carte complète des nouveautés Go 1.21 → 1.26](../annexes/C-nouveautes-1.21-1.26.md).
+- [Annexe C — Carte complète des nouveautés Go 1.21 → 1.27](../annexes/C-nouveautes-1.21-1.27.md).
 - [Effective Go](https://go.dev/doc/effective_go) et le [blog officiel](https://go.dev/blog/).

@@ -168,7 +168,7 @@ func makeAdders() []func() int {
 }
 ```
 
-Vérifié sur go1.26.4 : `[0 1 2]`. Le même programme compilé avec `go 1.21` dans son `go.mod` donne
+Vérifié sur go1.27.0 : `[0 1 2]`. Le même programme compilé avec `go 1.21` dans son `go.mod` donne
 `[3 3 3]`. Cela valait aussi pour le piège le plus courant — lancer des goroutines dans une boucle :
 
 ```go
@@ -184,7 +184,7 @@ Avant 1.22, une seconde correction, équivalente à `i := i` mais plus visible, 
 une closure lancée reste bloquée pour toujours).
 
 > ⚠️ Ce changement est **silencieux** et dépend de la **version `go` du `go.mod`**. Un module
-> déclarant `go 1.21` garde l'ancienne sémantique même compilé avec Go 1.26 — la compatibilité
+> déclarant `go 1.21` garde l'ancienne sémantique même compilé avec Go 1.27 — la compatibilité
 > ascendante est préservée.
 
 ## Patterns à base de closures

@@ -82,7 +82,7 @@ func splitFields(s string) []string {
 }
 
 func main() {
-	fmt.Println("premier mot :", firstWord("  Go 1.26 !"))
+	fmt.Println("premier mot :", firstWord("  Go 1.27 !"))
 	fmt.Println("tous les mots :", allWords("un deux trois"))
 
 	if y, mo, d, ok := parseDate("release 2026-07-04 ok"); ok {

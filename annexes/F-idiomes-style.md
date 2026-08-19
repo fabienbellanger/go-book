@@ -231,6 +231,8 @@ func produce(ctx context.Context, out chan<- int) {
   en fin de test, dans l'ordre inverse — plus robuste qu'un `defer` éparpillé.
 - **Exemples testables** : une fonction `ExampleXxx` avec un commentaire
   `// Output:` sert à la fois de documentation (godoc) et de test.
+  🆕 1.27 : `go doc -ex <pkg>` les liste, et `go doc pkg.ExampleXxx` en imprime
+  la source — l'exemple devient une entrée de documentation à part entière.
 
 ```go
 func TestAdd(t *testing.T) {
@@ -282,6 +284,23 @@ type Service struct {
 
 > 💡 L'incorporation n'est pas de l'héritage : il n'y a pas de « super », pas de
 > redéfinition virtuelle. La méthode promue opère sur le champ incorporé.
+
+🆕 **Go 1.27 — initialiser un champ promu directement.** La clé d'un littéral de
+struct peut désigner n'importe quel champ atteignable par sélection, y compris à
+travers une incorporation. Le littéral suit enfin la même logique que l'accès :
+
+```go
+// Avant 1.27 : il fallait reconstruire le type incorporé.
+s := Service{Logger: Logger{prefix: "[svc]"}, name: "api"}
+
+// 1.27 : on écrit le champ comme on le lirait (s.prefix).
+s := Service{prefix: "[svc]", name: "api"}
+```
+
+> ⚠️ Deux limites : le chemin traversé ne doit contenir **aucun pointeur**, et
+> deux clés ne doivent pas se recouvrir — `Service{Logger: l, prefix: "x"}` est
+> refusé, `prefix` étant déjà fixé par `Logger`. Le modernizer `embedlit`
+> (`go fix ./...`) applique la réécriture pour vous.
 
 ---
 

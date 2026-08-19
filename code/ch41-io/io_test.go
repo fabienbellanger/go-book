@@ -14,7 +14,7 @@ func TestCopyThrough(t *testing.T) {
 	}{
 		{"simple", "abc", "ABC"},
 		{"déjà majuscule", "ABC", "ABC"},
-		{"mixte", "Go 1.26", "GO 1.26"},
+		{"mixte", "Go 1.27", "GO 1.27"},
 		{"vide", "", ""},
 	}
 	for _, tc := range cases {

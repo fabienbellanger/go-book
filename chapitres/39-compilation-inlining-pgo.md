@@ -238,6 +238,20 @@ réels — modestes mais **gratuits** (aucun changement de code), et **cumulatif
 - **1.26** — **davantage de backing stores de slices alloués sur la pile** : l'escape analysis progresse,
   réduisant les allocations sans changer le code (vérifié en [Ch. 26](26-allocation-escape.md)) ;
   **`b.Loop` n'empêche plus l'inlining** du corps de boucle ([Ch. 36](36-tests-benchmarks-fuzzing.md)).
+- **1.27** — **allocation spécialisée par taille** : quand le compilateur connaît statiquement le type
+  alloué, il appelle une routine d'allocation dédiée à sa classe de taille au lieu du `mallocgc`
+  générique. Jusqu'à **~30 %** de gain sous 80 octets, ~1 % sur un programme gourmand en allocations,
+  pour ~60 Kio de binaire en plus ([Ch. 26](26-allocation-escape.md)). Opt-out :
+  `GOEXPERIMENT=nosizespecializedmalloc` (retrait prévu en 1.28).
+- **1.27** — le compilateur donne des **noms plus simples aux littéraux de fonction** (closures) :
+  le nom ne dépend plus de l'inlining de la fonction englobante, et plusieurs instances d'un même
+  littéral peuvent **partager le code compilé**. Sans effet sur la sémantique — mais un test qui
+  s'appuie sur des noms de symboles (profil, `objdump`, `nm`) peut voir ses attentes changer, et un
+  code qui compare des pointeurs de fonction pour tester l'égalité (ce qui n'a jamais été défini
+  en Go) y est un peu plus exposé.
+- **1.27** — dans une directive `//line`, un **nom de fichier relatif** se résout désormais par
+  rapport au répertoire du fichier qui la contient (aligné sur `go/scanner`). Concerne les
+  générateurs de code ([Projet 6](../projets/6-codegen/)) ; les chemins absolus sont inchangés.
 
 ## ⚠️ Pièges
 

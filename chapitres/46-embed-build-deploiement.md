@@ -129,7 +129,7 @@ l'OS, l'architecture ou des **tags** maison.
    ```
 
    Opérateurs : `&&`, `||`, `!`, parenthèses. Les termes sont des OS (`linux`, `darwin`,
-   `windows`…), des archs (`amd64`, `arm64`…), `cgo`, la version de Go (`go1.26`), ou un
+   `windows`…), des archs (`amd64`, `arm64`…), `cgo`, la version de Go (`go1.27`), ou un
    **tag personnalisé**.
 
    Les deux mécanismes se **cumulent** quand ils coexistent sur le même fichier : un
@@ -271,6 +271,14 @@ GOOS=windows GOARCH=amd64 go build -o app-windows.exe   ./cmd/app
 
 > `go tool dist list` énumère **tous** les couples supportés.
 
+> ⚠️ 🆕 **Deux ports bougent en Go 1.27.** Sur **macOS**, la version minimale gérée passe à
+> **macOS 13 (Ventura)** — annoncé en 1.26, effectif en 1.27 : un binaire produit par la 1.27 ne
+> démarrera pas sur macOS 12 ou antérieur. Sur **`linux/ppc64`** (gros-boutiste), la toolchain
+> génère désormais du code à l'ABI système **ELFv2**, ce qui débloque cgo, les exécutables
+> **PIE** et l'édition de liens externe — au prix d'un noyau ≥ 3.13 et d'un environnement
+> d'exécution compatible ELFv2. Les programmes **purs Go** y restent liés en interne et
+> statiques par défaut ; avec cgo, `CGO_ENABLED=0` reste la voie du binaire statique.
+
 ---
 
 ## Lire ses propres infos de build : `runtime/debug`
@@ -327,7 +335,7 @@ seul binaire** dans une image finale minuscule.
 
 ```dockerfile
 # --- étape 1 : build ---
-FROM golang:1.26 AS build
+FROM golang:1.27 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -361,7 +369,7 @@ En pratique, le choix se fait entre quatre familles d'images de base :
 
 | Image de base                       | Taille (image + binaire) | Contenu                                             | Shell / outils  | Cas d'usage                                              |
 | ----------------------------------- | ------------------------ | --------------------------------------------------- | --------------- | -------------------------------------------------------- |
-| `golang:1.26` (complète)            | 800 Mo et plus           | toolchain Go, OS complet, gestionnaire de paquets   | oui (bash, apt) | **jamais en prod** — uniquement l'étape de build         |
+| `golang:1.27` (complète)            | 800 Mo et plus           | toolchain Go, OS complet, gestionnaire de paquets   | oui (bash, apt) | **jamais en prod** — uniquement l'étape de build         |
 | `debian:bookworm-slim` / `alpine`   | 80-120 Mo                | OS minimal + libc                                   | oui (sh)        | besoin ponctuel d'un shell/outils en production          |
 | `gcr.io/distroless/static-debian12` | ~20 Mo + binaire         | CA, fuseaux, utilisateur `nonroot`, **aucun shell** | non             | choix par défaut pour un binaire Go statique             |
 | `scratch`                           | 0 Mo + binaire           | rien du tout                                        | non             | surface d'attaque minimale ; CA/fuseaux à gérer soi-même |
@@ -389,6 +397,15 @@ En pratique, le choix se fait entre quatre familles d'images de base :
 - **1.24** — directive **`tool`** dans `go.mod` (🔁 [Ch. 12](12-packages-modules.md)) pour
   épingler les outils de build/CI ; directive **`ignore`** (1.25) pour exclure des assets des
   motifs `./...`.
+- **1.27** — **macOS 13+** requis, et **`linux/ppc64`** passe à l'ABI **ELFv2** (voir
+  l'avertissement en « Cross-compilation »). Côté édition de liens macOS, deux options nouvelles
+  permettent de fixer les versions déclarées dans `LC_BUILD_VERSION` : `-macos` (version d'OS
+  ciblée, défaut 13.0.0) et `-macsdk` (version du SDK).
+- **1.27** — la compression **`compress/flate`** est plus rapide, mais **les octets produits
+  diffèrent** de la 1.26. Cela remonte à `archive/zip`, `compress/gzip`, `compress/zlib` et
+  `image/png` : un artefact de build compressé n'a plus la même empreinte SHA-256, alors que son
+  contenu décompressé est identique. Si votre chaîne de build vérifie des sommes d'artefacts
+  **compressés**, régénérez les références (🔁 [Ch. 47](47-securite-supply-chain.md)).
 
 ---
 

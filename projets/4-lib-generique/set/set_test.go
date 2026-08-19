@@ -2,6 +2,7 @@ package set_test
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 
 	"example.com/gends/set"
@@ -99,5 +100,59 @@ func BenchmarkContains(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; b.Loop(); i++ {
 		_ = s.Contains(i & 0x3ff)
+	}
+}
+
+// --- Méthode générique (Go 1.27) ---
+
+// TestMap couvre Set.Map, une méthode qui déclare son PROPRE paramètre de type.
+func TestMap(t *testing.T) {
+	s := set.Of(1, 2, 3, 4)
+
+	// int -> string : le type de sortie change, d'où le besoin d'une méthode
+	// générique. U est inféré depuis la fonction passée.
+	noms := s.Map(strconv.Itoa)
+	if got, want := set.Sorted(noms), []string{"1", "2", "3", "4"}; !slices.Equal(got, want) {
+		t.Errorf("Map(strconv.Itoa) = %v ; attendu %v", got, want)
+	}
+
+	// U peut aussi être explicite.
+	doubles := s.Map[int](func(i int) int { return i * 2 })
+	if got, want := set.Sorted(doubles), []int{2, 4, 6, 8}; !slices.Equal(got, want) {
+		t.Errorf("Map[int](x2) = %v ; attendu %v", got, want)
+	}
+}
+
+// TestMapFusionne : Map peut RÉDUIRE la taille de l'ensemble, puisque deux
+// antécédents distincts peuvent avoir la même image.
+func TestMapFusionne(t *testing.T) {
+	s := set.Of(-2, -1, 0, 1, 2)
+
+	valeursAbsolues := s.Map(func(i int) int {
+		if i < 0 {
+			return -i
+		}
+		return i
+	})
+
+	if got, want := set.Sorted(valeursAbsolues), []int{0, 1, 2}; !slices.Equal(got, want) {
+		t.Errorf("Map(abs) = %v ; attendu %v (les opposés fusionnent)", got, want)
+	}
+	if valeursAbsolues.Len() >= s.Len() {
+		t.Errorf("Len = %d ; attendu strictement moins que %d", valeursAbsolues.Len(), s.Len())
+	}
+}
+
+// TestFilterEtChainage montre l'intérêt pratique de la méthode : le chaînage.
+// Avec des fonctions libres, il faudrait écrire Map(Filter(s, pair), itoa).
+func TestFilterEtChainage(t *testing.T) {
+	s := set.Of(1, 2, 3, 4, 5, 6)
+
+	got := s.
+		Filter(func(i int) bool { return i%2 == 0 }).
+		Map(strconv.Itoa)
+
+	if want := []string{"2", "4", "6"}; !slices.Equal(set.Sorted(got), want) {
+		t.Errorf("Filter puis Map = %v ; attendu %v", set.Sorted(got), want)
 	}
 }

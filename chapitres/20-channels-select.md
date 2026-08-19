@@ -157,8 +157,9 @@ func selectFairness(n int) (a, b int) {
 }
 ```
 
-Mesuré (go1.26.4) sur 10 000 tirages : `case A=5104, case B=4896` — répartition proche de 50/50,
-sans qu'aucune branche ne soit jamais privée d'exécution.
+Mesuré (go1.27.0) sur 10 000 tirages : `case A=4957, case B=5043` — répartition proche de 50/50,
+sans qu'aucune branche ne soit jamais privée d'exécution. Le tirage étant aléatoire, vos chiffres
+différeront à chaque exécution : c'est précisément ce qu'on veut vérifier.
 
 ### `default` : non bloquant
 
@@ -316,16 +317,16 @@ func fanIn(inputs ...<-chan int) <-chan int {
 ## ⚡ Performance
 
 Un canal **coordonne** des goroutines : il fait plus qu'un verrou, donc il **coûte** plus. Mesuré
-(go1.26.4, Apple M3) :
+(go1.27.0, Apple M3, `code/ch20-channels-select/channels_test.go`) :
 
 ```
-   BenchmarkChanUnbuffered   185.2 ns/op   0 allocs   (rendez-vous : handoff de goroutine)
-   BenchmarkChanBuffered      43.1 ns/op   0 allocs   (tampon 64 : pas de rendez-vous à chaque envoi)
+   BenchmarkChanUnbuffered   104.4 ns/op   0 allocs   (rendez-vous : handoff de goroutine)
+   BenchmarkChanBuffered      27.5 ns/op   0 allocs   (tampon 64 : pas de rendez-vous à chaque envoi)
 ```
 
-- Un canal **non bufferisé** implique un **rendez-vous** (réveil d'une goroutine) : ~185 ns, bien plus
-  qu'un `mutex` (~135 ns) ou un `atomic` (~40 ns, [Ch. 21](21-synchronisation.md)).
-- Un **tampon** amortit le rendez-vous (~4× ici) quand producteur et consommateur vont à des rythmes
+- Un canal **non bufferisé** implique un **rendez-vous** (réveil d'une goroutine) : ~104 ns, bien plus
+  qu'un `mutex` sous contention (~86 ns) ou un `atomic` (~18 ns, [Ch. 21](21-synchronisation.md)).
+- Un **tampon** amortit le rendez-vous (~3,8× ici) quand producteur et consommateur vont à des rythmes
   différents.
 - **Choisissez l'outil** : un canal pour **transférer la propriété** d'une donnée ou **signaler** ; un
   `mutex`/`atomic` pour **protéger** un état partagé en place. Un canal n'est pas un mutex plus lent.

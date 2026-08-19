@@ -157,7 +157,7 @@ func TestSumLocalArrayNoAlloc(t *testing.T) {
 }
 ```
 
-Résultats mesurés (go1.26.4) :
+Résultats mesurés (go1.27.0, Apple M3) :
 
 | Fonction           | alloc/op | Où ?                                         |
 | ------------------ | -------- | -------------------------------------------- |
@@ -243,6 +243,18 @@ le même rôle sans le recréer. Pour les objets **réutilisables** et de courte
   effort. 🔁 [Ch. 39](39-compilation-inlining-pgo.md).
 - **1.26** — l'**adresse de base du tas** est randomisée (durcissement, [Ch. 24](24-runtime-bootstrap.md)) ;
   ne supposez **jamais** la stabilité des adresses entre exécutions.
+- **1.27** — **allocation spécialisée par taille**. Jusqu'ici, toute allocation passait par le même
+  `mallocgc` générique, qui déterminait à l'exécution la classe de taille, la présence de pointeurs et
+  le besoin de mise à zéro. Le compilateur émet désormais, quand il connaît statiquement le type
+  alloué, un appel à une **routine spécialisée** pour cette classe : le travail de dispatch disparaît
+  du chemin chaud. Le gain va jusqu'à **~30 %** sur les petits objets (< 80 octets), et se traduit par
+  environ **1 %** sur un programme réellement gourmand en allocations. Coût : ~60 Kio de binaire en
+  plus (le code des variantes). Rien à changer dans votre code — et si la régression de taille pose
+  problème, `GOEXPERIMENT=nosizespecializedmalloc` la désactive au build (retrait prévu en 1.28).
+
+> 💡 Ce gain porte sur le **coût unitaire** d'une allocation, pas sur leur nombre. Supprimer une
+> allocation reste infiniment plus rentable que de l'accélérer de 30 % : la hiérarchie des leviers de
+> ce chapitre (rester sur la pile > réutiliser un buffer > préallouer > allouer vite) est inchangée.
 
 ## ⚠️ Pièges
 

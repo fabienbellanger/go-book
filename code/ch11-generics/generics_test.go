@@ -1,8 +1,10 @@
 package main
 
 import (
+	"math/rand/v2"
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestMax(t *testing.T) {
@@ -115,5 +117,45 @@ func BenchmarkGeneric(b *testing.B) {
 func BenchmarkIface(b *testing.B) {
 	for b.Loop() {
 		sink = sumIface(boxed)
+	}
+}
+
+// TestGenericMethod couvre la nouveauté Go 1.27 : une méthode peut déclarer ses
+// propres paramètres de type, en plus de ceux du récepteur.
+func TestGenericMethod(t *testing.T) {
+	l := List[int]{1, 2, 3}
+
+	// F inféré depuis la fonction : List[int] -> List[string].
+	got := l.Apply(itoa)
+	want := List[string]{"1", "2", "3"}
+	if !slices.Equal(got, want) {
+		t.Errorf("Apply(itoa) = %v ; attendu %v", got, want)
+	}
+
+	// Chaînage : c'est tout l'intérêt d'une méthode plutôt que d'une fonction.
+	chained := l.Filter(func(i int) bool { return i%2 == 1 }).Apply(itoa)
+	if !slices.Equal(chained, List[string]{"1", "3"}) {
+		t.Errorf("Filter puis Apply = %v ; attendu [1 3]", chained)
+	}
+
+	// Instanciation explicite du paramètre de méthode.
+	lens := got.Apply[int](func(s string) int { return len(s) })
+	if !slices.Equal(lens, List[int]{1, 1, 1}) {
+		t.Errorf("Apply[int](len) = %v ; attendu [1 1 1]", lens)
+	}
+}
+
+// TestGenericMethodOnRand vérifie la première méthode générique de la stdlib :
+// (*rand.Rand).N, jumelle de la fonction rand.N.
+func TestGenericMethodOnRand(t *testing.T) {
+	r := rand.New(rand.NewPCG(1, 2))
+
+	// N est générique : il s'adapte à n'importe quel type entier, y compris
+	// time.Duration (dont le type sous-jacent est int64).
+	if n := r.N(int32(10)); n < 0 || n >= 10 {
+		t.Errorf("r.N(int32(10)) = %d ; attendu dans [0,10)", n)
+	}
+	if d := r.N(500 * time.Millisecond); d < 0 || d >= 500*time.Millisecond {
+		t.Errorf("r.N(500ms) = %v ; attendu dans [0,500ms)", d)
 	}
 }

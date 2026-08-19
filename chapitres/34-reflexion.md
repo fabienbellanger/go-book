@@ -224,7 +224,7 @@ derrière une fonction appelée une fois, jamais en boucle chaude.
   de `v.Interface().(T)` ([Ch. 33](33-interfaces-profondeur.md)).
 - **1.26** — **itérateurs** : `Type.Fields()`, `Type.Methods()`, `Value.Fields()`, `Value.Methods()`,
   et `Type.Ins()`/`Outs()` pour les signatures. Fini les boucles `for i := 0; i < t.NumField(); i++` —
-  vérifié sur 1.26.4. 🔁 [Ch. 18](18-iterateurs.md).
+  vérifié sur 1.27.0. 🔁 [Ch. 18](18-iterateurs.md).
 
 ## ⚠️ Pièges
 

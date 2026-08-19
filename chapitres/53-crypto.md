@@ -258,6 +258,69 @@ présente alors lui aussi un certificat. L'aller-retour complet — serveur loop
 est dans `tlsEcho` ([`code/ch53-crypto/main.go`](../code/ch53-crypto/main.go)). La mécanique réseau
 sous-jacente (`net.Listen`, `net.Dial`) est le sujet du [Ch. 52 — Réseau bas niveau](52-reseau-net.md).
 
+## 🆕 Post-quantique : `crypto/mldsa` (1.27)
+
+Un ordinateur quantique suffisamment grand casserait RSA et les courbes elliptiques. Il n'en existe
+pas — mais la menace est déjà réelle pour deux raisons : le **« récolter maintenant, déchiffrer plus
+tard »** (un trafic capté aujourd'hui reste déchiffrable demain) et la **durée de vie des
+certificats** et des signatures de code, qui doivent rester valides des années.
+
+Go traite les deux moitiés du problème séparément :
+
+| Besoin                       | Package                | Norme    | Depuis |
+| ---------------------------- | ---------------------- | -------- | ------ |
+| **Échange de clés** (KEM)    | `crypto/mlkem`         | FIPS 203 | 1.24   |
+| **Signature**                | `crypto/mldsa` 🆕      | FIPS 204 | 1.27   |
+
+Pour l'échange de clés, il n'y a **rien à faire** : depuis 1.24, TLS négocie par défaut un mode
+**hybride** (X25519 + ML-KEM), qui n'est sûr que si l'attaquant casse *les deux*. C'est le
+compromis prudent tant que les schémas post-quantiques sont jeunes.
+
+Pour la signature, `crypto/mldsa` expose les trois tailles normalisées :
+
+```go
+// code/ch53-crypto/postquantum.go
+const contexteApp = "gobook/ch53 v1"
+
+func GenerateMLDSAKey() (*mldsa.PrivateKey, error) {
+	// MLDSA44 (plus léger) · MLDSA65 (recommandé) · MLDSA87 (marge maximale)
+	return mldsa.GenerateKey(mldsa.MLDSA65())
+}
+
+func SignPQ(priv *mldsa.PrivateKey, msg []byte) ([]byte, error) {
+	return priv.Sign(rand.Reader, msg, &mldsa.Options{Context: contexteApp})
+}
+
+func VerifyPQ(pub *mldsa.PublicKey, msg, sig []byte) error {
+	return mldsa.Verify(pub, msg, sig, &mldsa.Options{Context: contexteApp})
+}
+```
+
+```
+$ go run ./ch53-crypto
+ML-DSA-65        = signature 3309 o, clé publique 1952 o, graine privée 32 o
+ML-DSA vérifiée  = true (vs 64 o pour une signature Ed25519 : ~51x plus gros)
+```
+
+⚠️ **Le prix est dans les tailles**, comme le montre la sortie ci-dessus. Une signature Ed25519 fait
+64 octets ; une ML-DSA-65 en fait **3 309**, pour une clé publique de **1 952** octets. La clé
+privée, elle, tient en 32 octets — c'est une graine dont tout le reste se redérive. Multiplier par
+cinquante la taille des signatures change la donne pour une chaîne de certificats, un jeton porté
+dans un en-tête HTTP, ou un protocole à petits messages : mesurez avant de migrer.
+
+`Options.Context` est une **chaîne de domaine** : une signature produite avec un contexte donné ne
+se vérifie qu'avec le même. C'est une protection contre la réutilisation d'une signature d'un
+protocole dans un autre — donnez-lui une valeur propre à votre application et à sa version.
+
+`crypto/x509` reconnaît les clés et signatures ML-DSA (`x509.MLDSA65` comme `SignatureAlgorithm`),
+et `crypto/tls` les accepte comme `SignatureScheme` en TLS 1.3 — de quoi expérimenter une chaîne de
+certificats post-quantique de bout en bout.
+
+> 💡 **Faut-il migrer aujourd'hui ?** Pour l'échange de clés : c'est déjà fait, par défaut. Pour les
+> signatures : seulement si vos signatures doivent rester valables au-delà de la décennie
+> (certificats racines, signature de firmware, archives légales). Pour un jeton de session qui vit
+> une heure, Ed25519 reste le bon choix — et de loin, vu les tailles.
+
 ## Mots de passe : ni hachage nu, ni stdlib
 
 Cas particulier qui **ne relève pas des primitives ci-dessus** : un mot de passe ne se hache
@@ -288,6 +351,9 @@ l'équipe Go, hors stdlib).
 - **Chiffrer sans authentifier** (CBC nu) : altérations indétectables, _padding oracle_. Utiliser
   un mode AEAD.
 - **Hacher un mot de passe avec SHA-256** : trop rapide. `bcrypt`/`argon2`, salés et lents.
+- **Migrer en ML-DSA « par précaution »** (🆕 1.27) sans mesurer : une signature passe de 64 à
+  ~3 300 octets. Sur un protocole à petits messages ou une chaîne de certificats, l'impact réseau
+  est immédiat.
 
 ## ⚡ Performance
 
@@ -327,6 +393,9 @@ fixe et observez ce que l'on perd — puis revenez au nonce aléatoire.
 - **TLS** : `MinVersion: tls.VersionTLS12`, vérification de certificat **active** ; `mTLS` via
   `ClientAuth`.
 - **Mots de passe** : `bcrypt`/`argon2` (via `x/crypto`), salés et lents — jamais un hachage nu.
+- **Post-quantique** : l'**échange de clés** est déjà hybride par défaut en TLS (`crypto/mlkem`,
+  1.24) ; la **signature** arrive avec 🆕 **`crypto/mldsa`** (1.27), au prix de signatures ~50×
+  plus grosses qu'Ed25519 — à réserver aux signatures de longue durée de vie.
 
 ## 🔁 Pour aller plus loin
 

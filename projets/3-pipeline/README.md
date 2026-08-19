@@ -152,7 +152,24 @@ Les tests de concurrence sont d'ordinaire **lents** (vrais `sleep`) et
 - **Détection de fuite** — quand la fonction de bulle retourne, `synctest`
   **échoue si une goroutine reste bloquée**. Le test « première erreur » lance
   100 éléments : si le feeder ne respectait pas l'annulation, il fuirait sur
-  `in <- x` et `synctest` le signalerait. C'est notre filet `goroutineleak`.
+  `in <- x` et `synctest` le signalerait.
+
+> 🆕 **Go 1.27 — `synctest.Sleep(d)`.** C'est exactement `time.Sleep(d)` suivi de
+> `synctest.Wait()`. Dans un test, c'est presque toujours la bonne forme : sans le `Wait`, si
+> le test **et** le code testé dorment la même durée virtuelle, les deux goroutines
+> redeviennent exécutables au même instant et l'ordre de reprise n'est pas défini — le test
+> observe tantôt l'état d'avant, tantôt celui d'après. `synctest.Sleep` attend en plus que la
+> bulle se **stabilise**. Le motif `synctest.Wait()` seul (sans dormir), utilisé ici pour
+> laisser démarrer les workers avant d'annuler, reste évidemment valable.
+
+> 🆕 **Go 1.27 — le profil `goroutineleak`, filet complémentaire.** `synctest` ne détecte les
+> fuites que **dans sa bulle**, à la fin du test. Le profil `goroutineleak`
+> ([Ch. 23](../../chapitres/23-patterns-concurrence.md)), stable depuis 1.27, travaille
+> autrement : le **GC** établit qu'une primitive attendue n'est plus joignable, donc que le
+> réveil est impossible. Il s'utilise sur un **binaire en production**
+> (`/debug/pprof/goroutineleak`) là où `synctest` s'arrête aux tests. ⚠️ Sa réciproque est
+> fausse : une goroutine bloquée sur un canal encore référencé par une variable globale reste
+> « joignable » et n'y apparaît pas — d'où l'intérêt de garder les deux filets.
 
 Tous les tests tournent en plus sous **`-race`**.
 

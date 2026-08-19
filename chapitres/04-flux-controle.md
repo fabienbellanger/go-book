@@ -311,7 +311,7 @@ for _, f := range funcs {
 > ⚠️ Ce changement est piloté par la **version de langage déclarée dans `go.mod`**
 > (directive `go 1.22` ou supérieure), pas seulement par la version de la toolchain
 > installée. Un module qui déclare `go 1.20` conserve l'**ancien** comportement (variable
-> partagée) même compilé avec une toolchain 1.26 — mettre à jour `go.mod`, pas seulement
+> partagée) même compilé avec une toolchain 1.27 — mettre à jour `go.mod`, pas seulement
 > `go`, est donc nécessaire pour bénéficier du correctif.
 
 > 🔁 Ce piège historique et sa disparition sont détaillés au [Ch. 15 — Closures](15-closures.md),

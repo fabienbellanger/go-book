@@ -4,7 +4,7 @@ import "strings"
 
 // Slugify transforme un texte en « slug » : minuscules, lettres et chiffres ASCII
 // conservés, toute autre séquence remplacée par un unique '-', sans tiret en bordure.
-// Ex. "  Go 1.26 : Top!  " -> "go-1-26-top".
+// Ex. "  Go 1.27 : Top!  " -> "go-1-27-top".
 //
 // La fonction est idempotente : Slugify(Slugify(s)) == Slugify(s) — propriété
 // vérifiée par le fuzzing dans slugify_test.go.

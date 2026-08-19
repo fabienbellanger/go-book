@@ -195,21 +195,26 @@ Un `switch` n'est **pas** forcément une cascade de `if`. Selon le **nombre**, l
    en cascade            1 borne + 1 saut indirect       puis recherche BINAIRE
    (linéaire)            -> O(1)                          -> O(log n)
 
-   levelFromInt(n) compilé (arm64) :
-       CMP  $7, R0        ; n <= 7 ?            (une seule borne)
-       JMP  (R27)         ; saute droit au bon cas via une table
+   levelFromInt(n) compilé (arm64, go1.27.0) :
+       CMP   $7, R0                ; n <= 7 ?          (une seule borne)
+       BHI   defaut                ; hors plage -> default
+       MOVD  $main..stmp_0(SB), R1 ; adresse de la table
+       MOVD  (R1)(R0<<3), R0       ; lit DIRECTEMENT le résultat, indexé par n
+       RET
 ```
 
-Vérifié sur go1.26.4 : un `switch` entier dense ne fait **qu'une** comparaison (la borne) suivie
-d'un **saut indirect**, là où un `if/else if` ferait jusqu'à 8 comparaisons. Inutile donc de
-« déplier » un switch à la main pour la performance. Détails du backend au
+Vérifié sur go1.27.0 : un `switch` entier dense ne fait **qu'une** comparaison (la borne) suivie
+d'un accès indexé, là où un `if/else if` ferait jusqu'à 8 comparaisons. Ici, le compilateur va même
+plus loin que la jump table : comme chaque cas se contente de **renvoyer une constante**, il range
+les huit résultats dans une **table de valeurs** et les lit directement — plus aucun saut. Inutile,
+donc, de « déplier » un switch à la main pour la performance. Détails du backend au
 [Ch. 39](39-compilation-inlining-pgo.md).
 
 Le **type switch** échappe à cette optimisation : un type n'est pas un petit entier dense, donc
 **jamais** de jump table. Le compilateur génère une **cascade ordonnée** : un test de nil en
 premier (l'interface a-t-elle un type ?), puis pour chaque cas concret un test rapide sur le
 **hash** du type, confirmé par une comparaison de **pointeur** exacte en cas de correspondance —
-vérifié sur `describe` (go1.26.4) :
+vérifié sur `describe` (go1.27.0) :
 
 ```
    describe(v any) — structure générée :

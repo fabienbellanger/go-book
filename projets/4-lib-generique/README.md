@@ -32,6 +32,8 @@ Contraintes de **conception d'API** :
 - **Pas de surprise** : les opérations ensemblistes renvoient un **nouvel**
   ensemble sans modifier les opérandes ; `lru.Contains` ne touche pas la récence.
 - **Itération moderne** : `set.All()` renvoie une `iter.Seq[T]` (Go 1.23).
+- **Méthode générique** : `set.Map` déclare son propre paramètre de type
+  (🆕 Go 1.27) — voir §6 bis.
 - **Aucune dépendance externe** : 100 % bibliothèque standard.
 
 ```go
@@ -174,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.25", "1.26"]
+        go: ["1.27"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -184,8 +186,61 @@ jobs:
       - run: go test -race ./...
 ```
 
-> La **matrice** teste plusieurs versions de Go : c'est ainsi qu'on tient la
-> promesse « marche sur Go ≥ 1.25 » sans le découvrir chez un utilisateur.
+> La **matrice** teste plusieurs versions de Go : c'est ainsi qu'on tient la promesse
+> « marche sur Go ≥ X » sans le découvrir chez un utilisateur.
+
+> ⚠️ **Cette matrice s'est réduite à une seule version, et c'est instructif.** Elle listait
+> `["1.25", "1.26"]` ; depuis que `set.Map` est une **méthode générique** (§6 bis), la
+> bibliothèque exige **Go 1.27** — `go.mod` déclare `go 1.27`, et un build en 1.26 échoue
+> immédiatement. La matrice ne peut donc plus tester qu'une version. C'est le **coût réel**
+> d'avoir adopté une nouveauté de langage dans une bibliothèque publique, et la matrice est
+> précisément l'endroit où ce coût devient visible — avant la publication, pas après. Pour
+> continuer à couvrir 1.26, il faudrait sortir `Map` en fonction libre.
+
+---
+
+## 6 bis. Méthode générique : `set.Map` (🆕 Go 1.27)
+
+Jusqu'à Go 1.26, une méthode ne pouvait utiliser que les paramètres de type de son
+**récepteur**. Un `Map` était donc impossible en méthode : sa sortie change de type, et ce
+nouveau type n'avait nulle part où être déclaré. On se rabattait sur une fonction libre —
+`set.Map(s, f)` — qui se lit à l'envers et casse le chaînage.
+
+Depuis **Go 1.27**, la méthode déclare son propre paramètre :
+
+```go
+// set/set.go
+func (s *Set[T]) Map[U comparable](f func(T) U) *Set[U] {
+	out := &Set[U]{m: make(map[U]struct{}, s.Len())}
+	for k := range s.m {
+		out.m[f(k)] = struct{}{}
+	}
+	return out
+}
+```
+
+```go
+noms := set.Of(1, 2, 3).
+	Filter(func(i int) bool { return i%2 == 1 }).
+	Map(strconv.Itoa) // Set[string]{"1", "3"}
+```
+
+Trois observations de conception, qui sont l'intérêt du sujet dans une **bibliothèque** :
+
+1. **Le changement de type justifie le paramètre, pas la commodité.** `Filter` renvoie un
+   `*Set[T]` : elle n'a aucune raison d'être générique. Ajouter un paramètre de type « au cas
+   où » alourdit la signature sans rien apporter.
+2. **`Sorted` reste une fonction libre — pour une autre raison.** Elle exige `cmp.Ordered`,
+   une contrainte **plus forte** que le `comparable` du récepteur. Un paramètre de méthode ne
+   résout pas ce problème-là : une méthode ne peut pas durcir la contrainte de son récepteur.
+   Les deux motifs coexistent donc, et il faut savoir lequel s'applique.
+3. **`Map` peut réduire l'ensemble.** Deux éléments distincts dont `f` renvoie la même image
+   fusionnent : `Of(-1, 1).Map(abs)` a **un** élément. C'est à documenter, pas à corriger.
+
+⚠️ Une méthode générique ne peut ni figurer dans une **interface**, ni en satisfaire une. Si
+la bibliothèque doit un jour exposer un contrat `interface{ Map(...) }`, `Map` devra
+redevenir une fonction libre — un point à peser **avant** de publier, puisque le retirer
+serait une rupture d'API.
 
 ---
 
@@ -197,6 +252,10 @@ jobs:
 - **Ne pas retenir de mémoire** : `pqueue.Pop` et l'éviction LRU remettent la
   case à zéro (`var zero T`) pour ne pas garder en vie des objets pointés
   ([Ch. 27 GC](../../chapitres/27-garbage-collector.md)).
+- **Méthode générique = plancher de version.** `set.Map` (1.27) fait passer l'exigence
+  minimale de la bibliothèque à Go 1.27. Pour une bibliothèque publique, relever ce plancher
+  est un **choix éditorial** : il exclut les utilisateurs restés sur une version antérieure.
+  À arbitrer explicitement, pas à subir au détour d'un refactoring.
 - **`container/list` n'est pas générique** : d'où les assertions
   `el.Value.(*entry[K,V])` dans `lru`. C'est le prix d'un conteneur stdlib
   antérieur aux génériques ; l'API publique, elle, reste typée.
@@ -209,8 +268,11 @@ jobs:
 
 ## 8. Pour aller plus loin
 
-- Ajouter `set.Map` / `pqueue` avec mise à jour de priorité (`Fix`), un
-  `lru.Cache` à **TTL** ou avec rappel d'éviction (`OnEvict func(K, V)`).
+- `pqueue` avec mise à jour de priorité (`Fix`), un `lru.Cache` à **TTL** ou avec rappel
+  d'éviction (`OnEvict func(K, V)`).
+- Donner à `lru.Cache` une méthode générique `MapValues[U any](f func(V) U) *Cache[K, U]`,
+  sur le modèle de `set.Map` — et se demander, à chaque fois, si le changement de type
+  justifie vraiment le paramètre.
 - Variante **thread-safe** dans un sous-package `lru/sync` enveloppant le cache
   d'un `sync.Mutex` (ou `sync.RWMutex`).
 - Publier la godoc sur **pkg.go.dev** et viser un score complet (doc de chaque
@@ -223,8 +285,9 @@ jobs:
 
 - Une **bibliothèque** = une **API** pensée pour autrui : type zéro explicite,
   contraintes minimales, pas d'effet de bord surprenant.
-- **Génériques** : exiger le strict nécessaire ; ajouter une contrainte dans une
-  **fonction libre** quand une méthode ne le peut pas (`set.Sorted`).
+- **Génériques** : exiger le strict nécessaire. Deux motifs distincts de fonction libre —
+  une contrainte **plus forte** que celle du récepteur (`set.Sorted`, toujours d'actualité),
+  et un **type de sortie nouveau** (résolu par la méthode générique de 🆕 1.27, `set.Map`).
 - Les **`Example`** documentent **et** testent ; les **benchmarks** chiffrent ;
   le **fuzzing** + modèle de référence éprouvent les invariants.
 - **SemVer** : ajouter plutôt que modifier ; une v2 change le chemin d'import.

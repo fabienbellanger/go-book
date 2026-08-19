@@ -80,7 +80,8 @@ indiqué par 🔁 donne le détail.
   fichier juste après un évènement rare (ex. requête lente). 🔁 voir Ch. 38.
 - **Fuite de goroutine** — Goroutine qui ne se termine jamais (bloquée sur un
   canal, une lecture réseau…), retenant sa pile et ses captures. Cause fréquente de
-  fuite mémoire. 🔁 voir Ch. 19, Ch. 23.
+  fuite mémoire. Le profil **`goroutineleak`** (🆕 1.27, stable) les débusque.
+  🔁 voir Ch. 19, Ch. 23.
 - **Fuzzing** (`testing.F`) — Génération automatique d'entrées à partir d'un
   **corpus** de départ (`f.Add`) pour faire échouer une propriété censée toujours
   tenir (`f.Fuzz`). 🔁 voir Ch. 36.
@@ -91,7 +92,8 @@ indiqué par 🔁 donne le détail.
   candidat, gris = à explorer, noir = atteignable et exploré). Concurrent et à
   faible pause. 🔁 voir Ch. 27.
 - **Génériques** (types/fonctions paramétrés) — Code paramétré par des **types**
-  (`func Max[T cmp.Ordered](a, b T) T`), vérifié à la compilation. 🔁 voir Ch. 11.
+  (`func Max[T cmp.Ordered](a, b T) T`), vérifié à la compilation. Depuis 🆕 1.27,
+  une **méthode** peut aussi déclarer ses propres paramètres de type. 🔁 voir Ch. 11.
 - **GMP** — Modèle d'ordonnancement de Go : **G** (goroutine), **M** (thread OS,
   _machine_), **P** (processeur logique, _processor_, jeton d'exécution). Un M doit
   détenir un P pour exécuter une G. 🔁 voir Ch. 28.
@@ -107,6 +109,11 @@ indiqué par 🔁 donne le détail.
 - **Goroutine** — Fil d'exécution léger géré par le runtime (pile initiale de
   quelques kio, extensible). On en lance des centaines de milliers sans peine.
   🔁 voir Ch. 19.
+- **`goroutineleak`** (profil pprof, 🆕 1.27 stable) — Profil listant les
+  goroutines **définitivement** bloquées : le GC constate que la primitive
+  attendue (canal, mutex, `sync.Cond`) n'est plus joignable depuis une goroutine
+  exécutable, donc que le réveil est impossible. Expérimental en 1.26.
+  🔁 voir Ch. 23, Ch. 29.
 - **Green Tea** (GC, 🆕 1.26 par défaut) — Variante du marquage GC qui scanne la
   mémoire par **spans contigus** plutôt que pointeur par pointeur, pour une
   meilleure localité de cache (−10 à −40 % d'overhead GC selon la charge).
@@ -141,7 +148,16 @@ indiqué par 🔁 donne le détail.
 
 - **JSON** (`encoding/json`) — Format d'échange texte par défaut en Go ;
   `Marshal`/`Unmarshal` convertissent entre valeur Go et `[]byte` JSON, pilotés par
-  des tags de struct (`json:"name,omitempty"`). 🔁 voir Ch. 42.
+  des tags de struct (`json:"name,omitempty"`). Depuis 🆕 1.27, v1 s'appuie sur le
+  moteur de `encoding/json/v2`. 🔁 voir Ch. 42.
+- **`json/v2`** (`encoding/json/v2`, 🆕 1.27) — Refonte de l'API JSON : options
+  variadiques (`json.Marshal(v, jsontext.WithIndent("  "))`), variantes
+  flux (`MarshalWrite`/`UnmarshalRead`) et **défauts plus stricts** (refus des
+  noms d'objet dupliqués et de l'UTF-8 invalide). 🔁 voir Ch. 42.
+- **`jsontext`** (`encoding/json/jsontext`, 🆕 1.27) — Couche **syntaxique** de
+  JSON, sous `json/v2` : `Encoder`/`Decoder` de *tokens*, `Value` (texte JSON
+  brut), `Pointer` (JSON Pointer). Permet de lire ou transformer du JSON sans le
+  mapper sur des types Go. 🔁 voir Ch. 42.
 
 ### K
 
@@ -157,6 +173,11 @@ indiqué par 🔁 donne le détail.
 
 ### M
 
+- **ML-DSA** (`crypto/mldsa`, 🆕 1.27) — Schéma de **signature post-quantique**
+  normalisé par le FIPS 204, en trois tailles (`MLDSA44`, `MLDSA65`, `MLDSA87`).
+  Reconnu par `crypto/x509` et utilisable en TLS 1.3. 🔁 voir Ch. 53.
+- **ML-KEM** (`crypto/mlkem`) — Pendant **échange de clés** de ML-DSA (FIPS 203),
+  utilisé par TLS en mode **hybride** avec une courbe classique. 🔁 voir Ch. 53.
 - **Map** — Table de hachage intégrée (`map[K]V`). Depuis Go 1.24, implémentation
   fondée sur les **Swiss Tables**. Non sûre en accès concurrent. 🔁 voir Ch. 32.
 - **mark/sweep** — Les deux phases du GC : **marquage** des objets atteignables,
@@ -166,9 +187,15 @@ indiqué par 🔁 donne le détail.
   tas global (`mheap`). 🔁 voir Ch. 26.
 - **Modèle mémoire** — Spécification (`go.dev/ref/mem`) des garanties de
   visibilité des écritures entre goroutines. 🔁 voir Ch. 25.
+- **Méthode générique** (🆕 1.27) — Méthode déclarant ses **propres** paramètres
+  de type, en plus de ceux du récepteur :
+  `func (l List[E]) Apply[F any](f func(E) F) List[F]`. Une méthode générique ne
+  peut ni figurer dans une interface, ni satisfaire une méthode d'interface.
+  🔁 voir Ch. 11.
 - **Modernizer** (`go fix`, 🆕 1.26) — Réécriture automatique de code vers des
   formes plus modernes (ex. boucles `for range N`, `min`/`max`, `any` au lieu
-  d'`interface{}`), appliquée via `go fix ./...`. 🔁 voir Ch. 1.
+  d'`interface{}`), appliquée via `go fix ./...`. Élargi en 1.27
+  (`atomictypes`, `embedlit`, `slicesbackward`, `unsafefuncs`). 🔁 voir Ch. 1.
 - **Module** — Unité de versionnement et de dépendances, définie par `go.mod`
   (chemin du module + version de Go + dépendances). 🔁 voir Ch. 12.
 - **mspan / span** — Plage contiguë de pages mémoire gérée par le runtime,
@@ -245,6 +272,10 @@ indiqué par 🔁 donne le détail.
 
 ### U
 
+- **UUID** (`uuid`, 🆕 1.27) — Identifiant de 128 bits (RFC 9562) désormais dans
+  la bibliothèque standard : `uuid.New()` (usage courant), `NewV4` (aléatoire pur),
+  `NewV7` (**triable par date de création** — préférable comme clé de base de
+  données), `Parse`, `Nil`, `Max`. 🔁 voir Ch. 51.
 - **unsafe.Pointer** — Pointeur sans type permettant des conversions de bas
   niveau, hors des garanties habituelles. À manier avec une extrême prudence.
   🔁 voir Ch. 35.

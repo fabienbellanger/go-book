@@ -95,7 +95,7 @@ vers **×1.25** sur les gros slices. C'est un compromis : un facteur toujours à
 les réallocations mais gâcherait beaucoup de mémoire une fois le slice volumineux (la moitié
 de la capacité allouée resterait inutilisée en moyenne) ; un facteur trop petit dès le début
 multiplierait au contraire les réallocations sur les petits slices, où leur coût relatif est
-le plus pénalisant. Progression réellement observée (Go 1.26) :
+le plus pénalisant. Progression réellement observée (Go 1.27) :
 
 ```
    cap : 0 -> 4 -> 8 -> 16 -> 32 -> 64 -> 128 -> 256 -> 512 -> 848 -> ...

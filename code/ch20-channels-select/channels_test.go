@@ -68,3 +68,41 @@ func TestSelectFairnessIsBalanced(t *testing.T) {
 		t.Errorf("répartition trop déséquilibrée : a=%d b=%d (n=%d)", a, b, n)
 	}
 }
+
+// --- Benchmarks : ce que coûte réellement un canal ---
+
+// BenchmarkChanUnbuffered mesure un rendez-vous : chaque envoi attend un
+// récepteur, ce qui implique le RÉVEIL d'une goroutine par le runtime.
+func BenchmarkChanUnbuffered(b *testing.B) {
+	ch := make(chan int)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range ch {
+		}
+	}()
+
+	for b.Loop() {
+		ch <- 1
+	}
+	close(ch)
+	<-done
+}
+
+// BenchmarkChanBuffered mesure le même trafic avec un tampon : l'émetteur ne
+// bloque plus à chaque envoi, le rendez-vous est amorti.
+func BenchmarkChanBuffered(b *testing.B) {
+	ch := make(chan int, 64)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range ch {
+		}
+	}()
+
+	for b.Loop() {
+		ch <- 1
+	}
+	close(ch)
+	<-done
+}

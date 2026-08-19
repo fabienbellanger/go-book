@@ -156,6 +156,12 @@ recoverPanic → requestID → logging → CSRF → ServeMux → handler
   `Sec-Fetch-Site`, tout en laissant passer `GET`/`HEAD`/`OPTIONS`. On déclare
   les origines légitimes avec `-origins https://app.exemple.com`.
 
+- **En-têtes bornés en nombre** (`Server.MaxHeaderValueCount`, 🆕 **Go 1.27**). `MaxHeaderBytes`
+  plafonnait déjà la **taille** cumulée des en-têtes, mais pas leur **nombre** : des milliers
+  d'en-têtes courts restaient sous le plafond d'octets tout en coûtant cher à parser et à
+  stocker. Le défaut est `http.DefaultMaxHeaderValueCount` (500) ; `run.go` le resserre à **64**,
+  une API REST n'ayant aucune raison d'en recevoir davantage.
+
 > 🆕 **`slog.NewMultiHandler` (Go 1.25)** : `newLogger` diffuse chaque
 > enregistrement vers **deux** sorties — un handler **texte** lisible sur
 > `stderr` et, si `-audit fichier.log` est donné, un handler **JSON** d'audit.
@@ -297,6 +303,15 @@ go test -race ./...
 > partielle) avec un `*string` pour `title` afin de distinguer « absent » de
 > « vide », et son test `httptest`.
 
+> 🆕 **Go 1.27 — `httptest.NewTestServer`.** Là où ces tests montent le `*Server` en
+> isolation (`NewRequest` + `ResponseRecorder`), un test d'**intégration** a besoin d'un vrai
+> client HTTP. `httptest.NewServer` ouvre alors un socket sur `127.0.0.1:0` ;
+> `httptest.NewTestServer(t, srv)` s'en passe — le réseau est **en mémoire**. Plus de port à
+> réserver (donc plus de collision entre tests parallèles, ni de quota de descripteurs), plus
+> de `defer Close()`, et le tout fonctionne **dans une bulle `synctest`**, ce qu'un socket
+> réel interdisait. ⚠️ `srv.URL` vaut alors `http://example.com`, sans port : seul le client
+> renvoyé par `srv.Client()` sait joindre cet hôte fictif.
+
 ---
 
 ## 9. Build, lancement & cross-compilation
@@ -341,8 +356,23 @@ Options : `-addr` (écoute), `-origins` (origines CSRF de confiance),
 - Négocier `application/problem+json` (RFC 9457) pour les erreurs.
 - Exposer des **métriques** (compteur de requêtes par statut) et un endpoint
   `/metrics`.
-- Mentionner **`encoding/json/v2`** (expérimental, `GOEXPERIMENT=jsonv2`) :
-  décodage plus strict et plus rapide, API `MarshalWrite`/`UnmarshalRead`.
+- Passer les handlers à **`encoding/json/v2`** (🆕 **stable en Go 1.27**,
+  [Ch. 42](../../chapitres/42-encodages-serialisation.md)). Trois gains concrets pour cette API :
+  `jsonv2.RejectUnknownMembers(true)` remplace `Decoder.DisallowUnknownFields()` par une option
+  déclarative ; `MarshalWrite(w, v)` écrit directement dans la `ResponseWriter` sans `[]byte`
+  intermédiaire ; et un slice `nil` s'encode en `[]` au lieu de `null`, ce qui supprime le
+  `if tasks == nil { tasks = []Task{} }` défensif avant de renvoyer une liste vide.
+  ⚠️ v2 **ne trie plus** les clés de map : si un test compare du JSON à l'octet près, passez
+  `jsonv2.Deterministic(true)`.
+- Remplacer l'identifiant `int64` auto-incrémenté par un **`uuid.UUID`** (🆕 **Go 1.27**,
+  [Ch. 51](../../chapitres/51-database-sql.md)). Utiliser **`uuid.NewV7()`**, dont le préfixe
+  horodaté garde les insertions quasi séquentielles dans l'index — un `NewV4()` purement
+  aléatoire fragmente le B-tree. Bénéfice pour une API : l'identifiant peut être généré
+  **côté client** ou avant l'insertion, ce qui rend `POST` **idempotent** et n'expose plus le
+  volume de données par un compteur croissant.
+- Migrer les tests de bout en bout vers **`httptest.NewTestServer(t, srv)`** (🆕 **Go 1.27**) :
+  réseau **en mémoire**, aucun port réservé, fermeture automatique par le `testing.TB`, et
+  compatibilité avec `testing/synctest` pour tester les délais sans attente réelle.
 
 ---
 
@@ -353,7 +383,8 @@ Options : `-addr` (écoute), `-origins` (origines CSRF de confiance),
 - Un **middleware** = `http.Handler → http.Handler` ; on les **chaîne** comme des
   oignons (recover en tête, CSRF près du routeur).
 - **`slog`** donne un log structuré ; `NewMultiHandler` (1.25) diffuse vers
-  plusieurs sorties ; `CrossOriginProtection` (1.25) couvre le CSRF.
+  plusieurs sorties ; `CrossOriginProtection` (1.25) couvre le CSRF ;
+  `MaxHeaderValueCount` (🆕 1.27) borne le **nombre** d'en-têtes reçus.
 - Dépendre d'une **interface** (`Store`) découple le web de la persistance :
   mémoire en test, `database/sql` en production.
 - L'**arrêt propre** (`signal.NotifyContext` + `Server.Shutdown`) laisse finir

@@ -4,12 +4,17 @@
 // réseau externe. httptest.NewServer démarre un vrai serveur sur un port
 // éphémère (127.0.0.1:0) que l'on referme en fin de test ; httptest.NewRecorder
 // capture une réponse sans même passer par le réseau.
+//
+// 🆕 Go 1.27 ajoute httptest.NewTestServer(t, h) : même API de Server, mais sur
+// un réseau EN MÉMOIRE (ni socket, ni port), fermé automatiquement par le
+// testing.TB. Voir TestInMemoryServer plus bas.
 package main
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -129,5 +134,72 @@ func TestContextCancellation(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "context canceled") {
 		t.Errorf("erreur = %v, attendu une annulation de contexte", err)
+	}
+}
+
+// --- httptest.NewTestServer et url.Clone (🆕 Go 1.27) ---
+
+// TestInMemoryServer : la variante 1.27 de TestClientAgainstServer.
+//
+// Trois différences avec httptest.NewServer :
+//   - aucun socket n'est ouvert, donc aucun port à réserver — les tests
+//     parallèles ne peuvent plus entrer en collision ni buter sur un quota de
+//     descripteurs de fichiers ;
+//   - pas de defer Close() : le serveur est lié au testing.TB ;
+//   - le transport étant purement en mémoire, il vit DANS une bulle
+//     testing/synctest — ce qu'un vrai socket interdisait.
+//
+// ⚠️ srv.URL vaut "http://example.com", SANS port : il n'y a pas d'adresse
+// réelle. Seul le client renvoyé par srv.Client() sait joindre cet hôte fictif ;
+// un http.Client construit à la main échouera.
+func TestInMemoryServer(t *testing.T) {
+	srv := httptest.NewTestServer(t, newMux())
+
+	got, err := fetch(srv.Client(), srv.URL+"/items/99")
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if got != "item 99" {
+		t.Errorf("réponse = %q, voulu %q", got, "item 99")
+	}
+	if strings.Contains(srv.URL, "127.0.0.1") {
+		t.Errorf("URL = %q ; un serveur en mémoire n'a pas d'adresse de loopback", srv.URL)
+	}
+}
+
+// TestURLClone couvre url.URL.Clone() et url.Values.Clone() (🆕 1.27).
+//
+// Le besoin est réel dans un RoundTripper ou un middleware : muter l'URL de la
+// requête reçue est un effet de bord partagé avec l'appelant. Avant 1.27, une
+// « copie » par affectation restait superficielle — le champ User et la map de
+// Values continuaient d'être partagés.
+func TestURLClone(t *testing.T) {
+	u, err := url.Parse("https://api.example.com/v1/items?page=1&tri=nom")
+	if err != nil {
+		t.Fatalf("url.Parse: %v", err)
+	}
+
+	c := u.Clone()
+	c.Host = "staging.example.com"
+	c.Path = "/v2/items"
+
+	if u.Host != "api.example.com" || u.Path != "/v1/items" {
+		t.Errorf("l'original a été muté : %s", u)
+	}
+
+	// Values.Clone : la map sous-jacente est bien dupliquée.
+	q := u.Query()
+	q2 := q.Clone()
+	q2.Set("page", "2")
+	q2.Add("filtre", "actif")
+
+	if q.Get("page") != "1" {
+		t.Errorf("q[page] = %q ; l'original ne devait pas bouger", q.Get("page"))
+	}
+	if q.Has("filtre") {
+		t.Error("la clé ajoutée au clone est apparue dans l'original")
+	}
+	if q2.Get("page") != "2" || q2.Get("filtre") != "actif" {
+		t.Errorf("le clone n'a pas reçu les modifications : %v", q2)
 	}
 }

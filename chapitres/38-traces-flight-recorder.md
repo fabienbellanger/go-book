@@ -49,6 +49,11 @@ func CaptureTrace(w io.Writer, work func()) error {
 Le fichier produit est un format binaire propre (`"go 1.26 trace…"` en tête), lu **uniquement** par
 `go tool trace`.
 
+> 💡 Ce numéro est celui du **format de trace**, pas de votre toolchain : une trace capturée sous
+> Go 1.27 porte toujours l'en-tête `go 1.26 trace`, le format n'ayant pas changé depuis. Ne vous en
+> servez donc pas pour identifier la version du binaire tracé — `runtime/debug.ReadBuildInfo` est là
+> pour ça ([Ch. 46](46-embed-build-deploiement.md)).
+
 ## Lire la trace : `go tool trace`
 
 ```bash
@@ -162,7 +167,7 @@ décroché (GC ? préemption ? attente d'un verrou ?). `WriteTo` est quasi **ins
 simplement la fenêtre déjà en mémoire.
 
 > 💡 Un seul Flight Recorder peut être actif à la fois ; il peut **coexister** avec un `trace.Start`
-> classique. `Enabled()` indique s'il tourne (vérifié sur 1.26.4).
+> classique. `Enabled()` indique s'il tourne (vérifié sur 1.27.0).
 
 ---
 
@@ -175,6 +180,11 @@ simplement la fenêtre déjà en mémoire.
   découpables, base sur laquelle s'appuie le Flight Recorder.
 - **1.21+** — `go tool trace` regroupe les vues par **tâches/régions** utilisateur, rendant les
   annotations métier directement exploitables.
+- **1.27** — **`go tool trace -http` n'écoute plus que sur `localhost`** quand on ne lui donne qu'un
+  port. `-http=:6060` était jusqu'ici équivalent à `0.0.0.0:6060` : la trace d'un service de
+  production — qui expose noms de fonctions, chronologie et charge — se retrouvait accessible depuis
+  le réseau. C'est désormais aligné sur `go tool pprof`. Pour écouter sur toutes les interfaces, il
+  faut l'écrire : `-http=0.0.0.0:6060`.
 
 ## ⚠️ Pièges
 

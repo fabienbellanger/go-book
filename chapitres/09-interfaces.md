@@ -336,6 +336,22 @@ directement un `*T` dans l'interface contourne le problème : l'adresse existe d
   ([Ch. 11](11-genericite.md)).
 - **1.21** — `min`/`max`/`clear` et le package `cmp` réduisent le besoin d'interfaces pour des
   opérations simples de comparaison.
+- **1.27** — les **méthodes** peuvent déclarer leurs propres paramètres de type
+  ([Ch. 11](11-genericite.md))… mais **pas dans une interface**, et une méthode générique ne peut
+  pas **satisfaire** une méthode d'interface :
+
+```go
+type Mapper interface {
+	Apply[F any](f func(int) F) []F // interface method must have no type parameters
+}
+```
+
+  La raison tient à ce que ce chapitre décrit : une valeur d'interface est un couple
+  (type dynamique, valeur), et le lien vers les implémentations passe par une table de méthodes
+  construite à la compilation ([Ch. 33](33-interfaces-profondeur.md)). Cette table suppose un
+  ensemble de méthodes **fini et connu** ; une méthode générique en produirait une par
+  instanciation. L'interface reste donc le domaine du polymorphisme **dynamique**, la généricité
+  celui du polymorphisme **statique** — 1.27 rapproche les deux sans les fusionner.
 
 ## ⚠️ Pièges
 

@@ -35,7 +35,7 @@ func main() {
 		serve   = flag.Bool("serve", false, "sert le résultat en HTTP local après génération")
 		addr    = flag.String("addr", ":8080", "adresse du serveur de prévisualisation")
 		clean   = flag.Bool("clean", false, "vide le dossier de sortie avant génération")
-		title   = flag.String("title", "Comprendre et maîtriser Go 1.26", "titre du livre")
+		title   = flag.String("title", "Comprendre et maîtriser Go 1.27", "titre du livre")
 		version = flag.String("version", "v1.0.0", "version affichée dans le pied de page")
 		verbose = flag.Bool("v", false, "logs verbeux (niveau debug)")
 	)

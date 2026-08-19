@@ -308,6 +308,40 @@ var age sql.Null[int] // 🆕 Go 1.22 : version générique, pour n'importe quel
   scannable — une seule forme au lieu d'une par type.
 - Les drivers modernes **purs Go** (`modernc.org/sqlite`, `jackc/pgx`) suppriment le besoin de
   cgo : compilation croisée simple et binaire autonome (🔁 [Ch. 46](46-embed-build-deploiement.md)).
+- **🆕 1.27 — le package `uuid`**. Les UUID (RFC 9562) entrent dans la bibliothèque standard : plus
+  besoin de `github.com/google/uuid` pour générer une clé primaire.
+
+  ```go
+  import "uuid"
+
+  id := uuid.NewV7()          // horodaté : TRIABLE par date de création
+  s := id.String()            // "01a01b5b-6258-7c04-…" — 36 caractères
+  back, err := uuid.Parse(s)  // et retour
+  ```
+
+  | Fonction      | Ce qu'elle produit                                                     |
+  | ------------- | ---------------------------------------------------------------------- |
+  | `uuid.New()`  | l'algorithme recommandé par défaut, pour l'usage courant               |
+  | `uuid.NewV4()`| 122 bits aléatoires — aucune corrélation entre deux identifiants        |
+  | `uuid.NewV7()`| horodatage en préfixe, puis de l'aléa — **ordonnable chronologiquement** |
+  | `uuid.Nil()` / `uuid.Max()` | les bornes (tout à zéro / tout à un), utiles en test      |
+
+  > 💡 **En base de données, préférez `NewV7`.** Un V4 est aléatoire sur toute sa longueur : inséré
+  > comme clé primaire d'un index B-tree, chaque nouvelle ligne tombe à un endroit imprévisible,
+  > ce qui fragmente l'index et fait chuter le taux de succès du cache de pages. Un V7 commence par
+  > un horodatage : les insertions successives sont **quasi séquentielles**, comme un auto-increment,
+  > tout en restant globalement uniques et non devinables à l'échelle.
+
+  `UUID` est un `[16]byte` : c'est un tableau **comparable** (`==`, clé de map) qui implémente
+  `encoding.TextMarshaler`/`TextUnmarshaler` — il se sérialise donc naturellement en JSON
+  (🔁 [Ch. 42](42-encodages-serialisation.md)) et se stocke soit en `TEXT` (36 octets), soit en
+  `BLOB`/`BYTEA` de 16 octets si l'espace compte.
+
+- **🆕 1.27 — côté écriture de driver.** Deux ajouts qui ne concernent que les auteurs de drivers,
+  mais qu'il est utile de reconnaître dans une pile d'appels : `driver.RowsColumnScanner` permet à
+  un driver de scanner **directement** dans la destination fournie par l'appelant (sans passer par
+  une `driver.Value` intermédiaire), et `sql.ConvertAssign(scanCtx, dest, src)` lui donne accès aux
+  conversions de type que `Rows.Scan` applique d'habitude.
 
 ## ⚠️ Pièges
 
@@ -369,6 +403,9 @@ retourner aucun.
 - **Transactions** : `BeginTx` + `defer tx.Rollback()` + `Commit`. Passer un `context` partout
   rend le service annulable.
 - **`NULL`** : `sql.NullString` / `sql.Null[T]` (🆕 1.22) / pointeur.
+- 🆕 **1.27** : le package **`uuid`** est dans la stdlib. `uuid.NewV7()` pour une clé primaire
+  (préfixe horodaté ⇒ insertions quasi séquentielles), `uuid.NewV4()` quand l'imprévisibilité
+  totale prime.
 
 ## 🔁 Pour aller plus loin
 

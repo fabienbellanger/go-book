@@ -123,11 +123,11 @@ en espace utilisateur : sa pile peut être **copiée** vers un nouvel emplacemen
 elle déborde, car le compilateur connaît précisément chaque pointeur qui y pointe et peut tous les
 réajuster ([Ch. 26](26-allocation-escape.md)) — d'où une pile de départ minuscule, sans gaspillage.
 
-Mesuré sur go1.26.4 (arm64), lancer **100 000** goroutines bloquées :
+Mesuré sur go1.27.0 (arm64), lancer **100 000** goroutines bloquées :
 
 ```
    runtime.NumGoroutine() : 1  ->  100001
-   StackInuse             : +205 Mo   (~2049 octets / goroutine)
+   StackInuse             : +205 Mo   (~2050 octets / goroutine)
 ```
 
 Une goroutine démarre donc avec **2 Ko de pile**, que le runtime **agrandit et rétrécit**
@@ -229,18 +229,19 @@ voient. On verra la mécanique de `select` et des canaux au [Ch. 20](20-channels
 
 ## 🆕 Go 1.2x
 
-- **1.26** — profil **`goroutineleak`** (expérimental, `GOEXPERIMENT=goroutineleakprofile`) :
+- **1.26 / 1.27** — profil **`goroutineleak`** : expérimental en 1.26, **stable en 1.27**.
   `pprof.Lookup("goroutineleak")` (ou `/debug/pprof/goroutineleak`) liste les goroutines **bloquées à
-  jamais et inaccessibles**. Vérifié sur go1.26.4 sur le `leak()` ci-dessus :
+  jamais et inaccessibles**. Vérifié sur go1.27.0 sur le `leak()` ci-dessus :
 
 ```
-$ GOEXPERIMENT=goroutineleakprofile go run .
+$ go run .
 goroutineleak profile: total 1
-1 @ ...
-#  main.leak.func1+0x23  .../main.go:14   (<-ch)
+1 @ 0x10433ff18 0x1042db0b0 0x1042dac34 0x104393524 0x104346024
+#	0x104393523	main.leak.func1+0x23	.../main.go:14
 ```
 
-Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29](29-observabilite-runtime.md).
+Plus de `GOEXPERIMENT` : le profil est présent d'office, et le `GOEXPERIMENT=goroutineleakprofile`
+de 1.26 a été **supprimé**. 🔁 [Ch. 29](29-observabilite-runtime.md).
 
 - **1.26** — nouvelles métriques d'ordonnanceur dans `runtime/metrics` :
   `/sched/goroutines-created`, et la ventilation `/sched/goroutines/{running,runnable,waiting}`,
@@ -258,7 +259,7 @@ Sans l'expérience, `pprof.Lookup("goroutineleak")` renvoie `nil`. 🔁 [Ch. 29]
 - **Capturer une variable de boucle** (avant Go 1.22) : toutes les goroutines lisaient la **même**
   variable, souvent sa valeur finale. Réglé en 1.22 (chaque itération a sa propre variable,
   [Ch. 15](15-closures.md)), mais vérifiez la ligne `go` du `go.mod` — un module resté en `go 1.21`
-  garde l'ancien comportement même compilé avec Go 1.26. La parade pré-1.22, toujours valable :
+  garde l'ancien comportement même compilé avec Go 1.27. La parade pré-1.22, toujours valable :
   passer la variable en **paramètre** plutôt que la capturer (voir le 💡 plus haut).
 - **Panique non rattrapée dans une goroutine** : elle fait planter **tout le programme**, même si
   `main` a son propre `recover`. `recover` ne fonctionne que dans la **même** chaîne d'appel ; un

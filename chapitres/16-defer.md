@@ -271,12 +271,12 @@ textuellement**, et **aucun d'entre eux ne doit être à l'intérieur d'une bouc
 condition **syntaxique**, pas dynamique : un seul `defer` écrit dans un `for` désactive l'open-coding
 pour cette fonction, **même si la boucle ne tourne qu'une fois** — c'est exactement le cas de
 `deferLoop` ci-dessous, qui retombe donc sur le mécanisme runtime malgré ses 8 appels. Mesuré
-(go1.26.4, `b.Loop`) :
+(go1.27.0, Apple M3, `b.Loop`) :
 
 ```
-   BenchmarkWithDefer       3.24 ns/op   0 allocs   (open-coded : ~ appel direct)
-   BenchmarkWithoutDefer    3.24 ns/op   0 allocs
-   BenchmarkDeferInLoop   132.9  ns/op   0 allocs   (8 defers : ~16,6 ns / defer)
+   BenchmarkWithDefer       1.85 ns/op   0 allocs   (open-coded : ~ appel direct)
+   BenchmarkWithoutDefer    1.75 ns/op   0 allocs
+   BenchmarkDeferInLoop    76.8  ns/op   0 allocs   (8 defers : ~9,6 ns / defer)
 ```
 
 - Un `defer` **à position fixe** est gratuit : ne l'évitez **jamais** pour « gagner » des

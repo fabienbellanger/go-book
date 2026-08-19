@@ -64,6 +64,13 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		// 🆕 Go 1.27 : borne le NOMBRE de valeurs d'en-tête d'une requête.
+		// MaxHeaderBytes bornait déjà leur TAILLE cumulée, mais pas leur
+		// nombre : des milliers d'en-têtes courts passaient sous le plafond
+		// d'octets tout en coûtant cher à parser et à stocker. Le défaut est
+		// http.DefaultMaxHeaderValueCount (500) ; on le resserre ici, une API
+		// REST n'ayant aucune raison d'en recevoir autant.
+		MaxHeaderValueCount: 64,
 	}
 
 	// Le serveur écoute dans sa propre goroutine ; une erreur de démarrage

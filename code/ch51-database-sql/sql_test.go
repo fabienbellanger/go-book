@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"slices"
 	"testing"
+	"uuid"
 )
 
 // mustOpen ouvre un pool isolé (un DSN distinct par test) pour que les tests
@@ -124,5 +127,73 @@ func TestContextCanceled(t *testing.T) {
 		"insert into users(name, email) values (?, ?)", "X", "x@x")
 	if err == nil {
 		t.Fatal("attendu une erreur de contexte annulé")
+	}
+}
+
+// --- package uuid (🆕 Go 1.27) ---
+
+// TestNewDocumentID vérifie la forme canonique et l'aller-retour texte.
+func TestNewDocumentID(t *testing.T) {
+	d := NewDocument("rapport")
+
+	s := d.ID.String()
+	if len(s) != 36 {
+		t.Errorf("String() = %q (%d caractères) ; attendu 36", s, len(s))
+	}
+	back, err := ParseDocumentID(s)
+	if err != nil {
+		t.Fatalf("ParseDocumentID(%q) : %v", s, err)
+	}
+	if back != d.ID { // UUID est un [16]byte : comparable avec ==
+		t.Errorf("aller-retour texte : %v != %v", back, d.ID)
+	}
+	if d.ID == uuid.Nil() {
+		t.Error("NewV7 ne doit pas produire l'UUID nul")
+	}
+}
+
+// TestParseDocumentIDInvalide : une entrée qui n'est pas un UUID doit être
+// rejetée, pas silencieusement transformée en UUID nul.
+func TestParseDocumentIDInvalide(t *testing.T) {
+	for _, s := range []string{"", "pas-un-uuid", "01a01b5b-6258-7c04-b8e8"} {
+		if _, err := ParseDocumentID(s); err == nil {
+			t.Errorf("ParseDocumentID(%q) aurait dû échouer", s)
+		}
+	}
+}
+
+// TestV7EstOrdonnable est LA raison de préférer V7 à V4 comme clé primaire :
+// des identifiants créés dans l'ordre se trient dans cet ordre.
+func TestV7EstOrdonnable(t *testing.T) {
+	docs := make([]Document, 0, 20)
+	for i := range 20 {
+		// Le préfixe horodaté a une résolution milliseconde ; l'aléa qui suit
+		// départage les créations d'une même milliseconde, en restant croissant.
+		docs = append(docs, NewDocument(fmt.Sprintf("doc-%02d", i)))
+	}
+
+	attendu := slices.Clone(docs)
+	SortByID(docs)
+
+	for i := range docs {
+		if docs[i].Titre != attendu[i].Titre {
+			t.Fatalf("trier par UUID v7 devrait rendre l'ordre de création ; "+
+				"position %d : %q au lieu de %q", i, docs[i].Titre, attendu[i].Titre)
+		}
+	}
+}
+
+// TestV4NEstPasOrdonnable montre le contre-exemple : un V4 est aléatoire, son
+// tri n'a aucun rapport avec l'ordre de création.
+func TestV4NEstPasOrdonnable(t *testing.T) {
+	ids := make([]uuid.UUID, 0, 50)
+	for range 50 {
+		ids = append(ids, uuid.NewV4())
+	}
+	trié := slices.Clone(ids)
+	slices.SortFunc(trié, func(a, b uuid.UUID) int { return a.Compare(b) })
+
+	if slices.Equal(ids, trié) {
+		t.Error("50 UUID v4 dans l'ordre de tri : improbable au point d'être suspect")
 	}
 }

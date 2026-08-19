@@ -153,4 +153,14 @@ func main() {
 	if _, err := getUser(ctx, db, 999); err != nil {
 		fmt.Println("attendu :", err)
 	}
+
+	// 🆕 Go 1.27 : le package `uuid` entre dans la stdlib (voir uuidkeys.go).
+	// V7 = préfixe horodaté : trier par identifiant revient à trier par date
+	// de création, et les insertions restent quasi séquentielles dans l'index.
+	docs := []Document{NewDocument("plan"), NewDocument("devis"), NewDocument("facture")}
+	SortByID(docs)
+	fmt.Println("documents triés par UUID v7 (= ordre de création) :")
+	for _, d := range docs {
+		fmt.Printf("  %s  %s\n", d.ID, d.Titre)
+	}
 }

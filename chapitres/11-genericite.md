@@ -177,9 +177,66 @@ s.Push(2)
 top, ok := s.Pop() // top == 2, ok == true
 ```
 
-> ⚠️ Une **méthode** ne peut **pas** introduire ses **propres** paramètres de type : seuls ceux du
-> **type** (ou de la fonction) sont disponibles. `func (s *Stack[T]) MapTo[R any](...)` est
-> **interdit**. Quand il faut un nouveau type, écrivez une **fonction** générique libre.
+## 🆕 Méthodes génériques (1.27)
+
+Jusqu'à Go 1.26, une méthode ne pouvait utiliser que les paramètres de type de son
+**récepteur**. Écrire un `Map` en méthode était impossible : la valeur de retour change de
+type, et ce nouveau type n'avait nulle part où être déclaré. On se rabattait sur une
+fonction libre, au prix d'un appel qui se lit à l'envers (`Map(s, f)` plutôt que
+`s.Map(f)`) et qui casse le chaînage.
+
+Depuis **Go 1.27**, une méthode déclare ses **propres** paramètres de type, en plus de ceux
+du récepteur :
+
+```go
+// code/ch11-generics/genericmethod.go
+type List[E any] []E
+
+// E vient du récepteur ; F est propre à la méthode.
+func (l List[E]) Apply[F any](f func(E) F) List[F] {
+	r := make(List[F], len(l))
+	for i, v := range l {
+		r[i] = f(v)
+	}
+	return r
+}
+```
+
+```go
+l := List[int]{1, 2, 3}
+noms := l.Apply(func(i int) string { return strconv.Itoa(i) }) // List[string]{"1","2","3"}
+```
+
+Le paramètre `F` est **inféré** depuis `f`, comme pour une fonction générique. On peut aussi
+l'expliciter : `l.Apply[string](conv)`.
+
+La bibliothèque standard en donne le premier exemple : `math/rand/v2` expose désormais la
+méthode générique `(*Rand).N`, jumelle de la fonction `rand.N` :
+
+```go
+r := rand.New(rand.NewPCG(1, 2))
+d := r.N(500 * time.Millisecond) // un time.Duration dans [0, 500ms)
+```
+
+> ⚠️ **Deux limites, et elles sont structurantes.** Une **interface** ne peut pas déclarer de
+> méthode avec paramètres de type, et une méthode générique ne peut pas **satisfaire** une
+> méthode d'interface. La raison est la même que pour l'interdiction historique : le
+> compilateur doit pouvoir construire l'`itab` ([Ch. 33](33-interfaces-profondeur.md)) d'un
+> type, donc connaître à l'avance l'ensemble **fini** de ses méthodes — or une méthode
+> générique en engendre une par instanciation. Les méthodes génériques servent à écrire des
+> API **concrètes** fluides, pas à généraliser le polymorphisme d'interface.
+
+```go
+type Mapper interface {
+	Apply[F any](f func(int) F) []F // illegal : interface method must have no type parameters
+}
+```
+
+> 💡 Le choix reste donc ouvert entre méthode et fonction libre. Méthode générique si l'appel
+> se chaîne naturellement sur une valeur (`l.Filter(pair).Apply(itoa)`) ; **fonction** libre si le
+> résultat doit transiter par une interface, ou si l'opération n'« appartient » pas au type. Et
+> une méthode dont le type de retour **ne change pas** (`Filter`) n'a aucune raison d'être
+> générique : c'est le changement de type qui justifie le paramètre.
 
 ## La boîte à outils : `slices`, `maps`, `cmp` (🆕 1.21)
 
@@ -285,10 +342,30 @@ func SumAll[A Adder[A]](xs []A) A {
 }
 ```
 
+- **1.27** — **méthodes génériques** (voir la section dédiée plus haut) et **inférence de type
+  généralisée** : l'inférence s'applique désormais dans **tous** les contextes où une fonction
+  générique est affectée à une variable ou convertie vers un type de fonction, pas seulement
+  lors d'un appel ou d'un passage en argument.
+
+```go
+func Map[S, D any](s []S, f func(S) D) []D { /* … */ }
+
+// Avant 1.27 : il fallait instancier à la main.
+var g1 func([]int, func(int) string) []string = Map[int, string]
+
+// 1.27 : S et D sont inférés depuis le type de la variable.
+var g2 func([]int, func(int) string) []string = Map
+
+// Vrai aussi pour une conversion, un champ de struct, un élément de map…
+type Transform func([]int, func(int) string) []string
+h := Transform(Map)
+```
+
 ## ⚠️ Pièges
 
-- **Méthode avec ses propres paramètres de type** → interdit. Seuls les paramètres du type/de la
-  fonction sont disponibles ; sinon, une **fonction** libre.
+- **Méthode générique dans une interface** → interdit, même en 1.27. Une méthode peut déclarer
+  ses propres paramètres de type, mais elle ne peut alors ni figurer dans une interface, ni en
+  satisfaire une. Si le résultat doit passer par une interface, écrivez une **fonction** libre.
 - **`any` quand on a besoin d'opérateurs** : `+`, `<`, `==` exigent une contrainte (`Number`,
   `cmp.Ordered`, `comparable`). `any` n'autorise rien de tout cela.
 - **Oublier le `~`** : `int | float64` rejette `type Celsius int`. Utilisez `~int | ~float64` pour

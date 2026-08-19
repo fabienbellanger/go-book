@@ -189,6 +189,13 @@ func AsCircle(s Shape) (Circle, bool) {
 
 - **1.25** — **`reflect.TypeAssert[T](v)`** : assertion typée depuis une `reflect.Value`, **sans
   l'allocation** de `Value.Interface().(T)`. Utile dans les décodeurs réflexifs ([Ch. 34](34-reflexion.md)).
+- **1.27** — les **méthodes génériques** arrivent ([Ch. 11](11-genericite.md)), mais **restent hors
+  des interfaces** : une interface ne peut pas déclarer de méthode paramétrée, et une méthode
+  générique ne peut pas en satisfaire une. C'est une conséquence directe de la structure décrite
+  dans ce chapitre — l'`itab` est un tableau de pointeurs de fonctions **construit à la
+  compilation** pour un couple (type, interface) donné. Une méthode générique n'est pas *une*
+  fonction mais une **famille**, instanciée à la demande : il n'existe pas d'adresse unique à
+  ranger dans la table.
 - **continuité** — l'`itab` est **mis en cache** par le runtime : la première conversion (type, interface)
   le construit, les suivantes sont quasi gratuites.
 

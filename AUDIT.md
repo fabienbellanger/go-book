@@ -2,6 +2,12 @@
 
 > Audit de complétude, cohérence et exactitude des chapitres, annexes et code d'appui.
 > Date : 2026-07-21. Cible : Go 1.26 (toolchain `go1.26.5` vérifiée).
+>
+> ⏱️ **Instantané daté.** Ce rapport décrit l'état du dépôt au 21 juillet 2026, sous Go 1.26.
+> Le livre cible depuis **Go 1.27** ; ses constats et correctifs restent valables tels qu'ils
+> ont été établis, mais ils ne rendent pas compte du contenu ajouté depuis. L'annexe C a été
+> renommée `C-nouveautes-1.21-1.27.md` : les chemins ci-dessous ont été mis à jour pour rester
+> cliquables.
 
 ## Méthodologie
 
@@ -79,10 +85,10 @@ version, deux exercices manquants, et deux exemples d'outillage (`benchstat`) no
 | 10 | `annexes/I-formatage-fmt.md` (tableau) | `%6.2f` sur `3.14` affiché `[····3.14]` (largeur 8) | `[··3.14]` (largeur 6) |
 | 11 | `annexes/L-solutions-exercices.md` | Exercices ch5 ex2 et ch9 ex1 non couverts | Énoncés + solutions + explications ajoutés (miroir des #6/#7) |
 | 12 | `chapitres/10-erreurs.md` (×3 : intro, 🆕, ⚡) | Nouveauté 1.26 `fmt.Errorf` généralisée à tort aux erreurs **formatées** (l'exemple `%d` fait toujours 2 allocs) | Restreint aux chaînes **sans verbe de formatage** ; formaté/`%w` = 2 allocs |
-| 13 | `annexes/C-nouveautes-1.21-1.26.md` | `cmp.Or` daté 1.21 | Déplacé en **1.22** (1.21 = `cmp.Compare`/`cmp.Less`) |
-| 14 | `annexes/C-nouveautes-1.21-1.26.md` | Timers 1.23 « non **démarrés** » | « non **référencés** » (GC sans `Stop()`) |
-| 15 | `annexes/C-nouveautes-1.21-1.26.md` | Exemple de contrainte auto-réf. imprécis | Précisé : `type Adder[A Adder[A]] interface{ Add(A) A }` |
-| 16 | `annexes/C-nouveautes-1.21-1.26.md` | Renvoi modernizers `go fix` → Ch. 13 (documentés en Ch. 1) | → **Ch. 1** (aligné sur le glossaire) |
+| 13 | `annexes/C-nouveautes-1.21-1.27.md` | `cmp.Or` daté 1.21 | Déplacé en **1.22** (1.21 = `cmp.Compare`/`cmp.Less`) |
+| 14 | `annexes/C-nouveautes-1.21-1.27.md` | Timers 1.23 « non **démarrés** » | « non **référencés** » (GC sans `Stop()`) |
+| 15 | `annexes/C-nouveautes-1.21-1.27.md` | Exemple de contrainte auto-réf. imprécis | Précisé : `type Adder[A Adder[A]] interface{ Add(A) A }` |
+| 16 | `annexes/C-nouveautes-1.21-1.27.md` | Renvoi modernizers `go fix` → Ch. 13 (documentés en Ch. 1) | → **Ch. 1** (aligné sur le glossaire) |
 | 17 | `chapitres/39-compilation-inlining-pgo.md` | « La PGO continue de s'affiner » sous « 🆕 1.26 » (absent des notes) | Remplacé par l'item réel `b.Loop` n'empêche plus l'inlining |
 | 18 | `chapitres/40-methodologie-performance.md` | Idem : « PGO affine les chemins chauds » (1.26) | Remplacé par « davantage de slices sur la pile » |
 | 19 | `chapitres/36-tests-benchmarks-fuzzing.md` | Commandes `benchstat` : benchmarks de noms différents (`Naive`/`Builder`) → pas de comparaison appariée malgré une sortie `Format-8` avec delta | `benchstat` apparie par nom → renommage commun (`sed`) documenté ; vérifié |

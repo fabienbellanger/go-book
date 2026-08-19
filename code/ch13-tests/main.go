@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	titles := []string{"Hello, World!", "  Go 1.26 : Top!  ", "Room 101"}
+	titles := []string{"Hello, World!", "  Go 1.27 : Top!  ", "Room 101"}
 
 	slugs := make([]string, len(titles))
 	for i, title := range titles {

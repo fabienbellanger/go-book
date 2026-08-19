@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"runtime/pprof"
 	"testing"
 )
 
@@ -25,9 +26,14 @@ func TestWordFrequencies(t *testing.T) {
 }
 
 func TestCountProfiles(t *testing.T) {
-	// Profils prédéfinis par défaut : allocs, block, goroutine, heap, mutex, threadcreate.
-	if n := CountProfiles(); n != 6 {
-		t.Errorf("CountProfiles = %d ; attendu 6", n)
+	// Profils prédéfinis par défaut (Go 1.27) : allocs, block, goroutine,
+	// goroutineleak, heap, mutex, threadcreate.
+	if n := CountProfiles(); n != 7 {
+		t.Errorf("CountProfiles = %d ; attendu 7", n)
+	}
+	// goroutineleak est stable depuis 1.27 : Lookup ne renvoie plus nil.
+	if p := pprof.Lookup("goroutineleak"); p == nil {
+		t.Error(`pprof.Lookup("goroutineleak") = nil ; le profil est stable depuis Go 1.27`)
 	}
 }
 
