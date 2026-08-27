@@ -148,6 +148,23 @@ func Index[T comparable](s []T, target T) int {
 > `comparable`, mais comparer deux interfaces de type dynamique non comparable **panique** à
 > l'exécution.
 
+> 📌 **Prédéclarée, stdlib ou externe ?** Seules **deux** contraintes sont **prédéclarées**, donc
+> utilisables sans aucun import :
+>
+> | Contrainte            | Origine                                  | Type set                                  | Opérations           |
+> | --------------------- | ---------------------------------------- | ----------------------------------------- | -------------------- |
+> | `any`                 | **prédéclarée** — alias de `interface{}` | tous les types                            | aucune               |
+> | `comparable`          | **prédéclarée**                          | types valides avec `==` (règle récursive) | `==`, `!=`           |
+> | `cmp.Ordered`         | stdlib `cmp` (1.21)                      | entiers, flottants, `string`              | `<`, `<=`, `>`, `>=` |
+> | `constraints.Ordered` | externe `golang.org/x/exp/constraints`   | idem — historique, à remplacer            | idem                 |
+>
+> `any` pourrait s'écrire à la main (c'est littéralement `interface{}`) ; `comparable`, non — son
+> type set n'est pas une liste fermée qu'on peut énumérer avec `|`/`~`. Les deux dernières lignes ne
+> sont que des **interfaces ordinaires** exportées par un package : rien ne les distingue de vos
+> propres contraintes comme `Number` ci-dessus. Ne pas confondre non plus avec les **builtins**
+> génériques `min`/`max`/`clear` (🆕 1.21, [Ch. 3](03-variables-constantes-types.md)) : ce sont des
+> **fonctions**, pas des contraintes.
+
 ## Types génériques
 
 Un **type** peut aussi être paramétré. Les paramètres se reportent sur ses **méthodes** :
