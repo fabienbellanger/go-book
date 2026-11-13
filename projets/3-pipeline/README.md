@@ -48,15 +48,15 @@ $ find . -name '*.go' | pipe -rate 50
 
 ```
    items (iter.Seq[I])                          out (<-chan O, borné)
-        │                                              ▲
-        ▼                                              │
-   ┌─────────┐   in (chan I)    ┌──────────────────┐   │
-   │ feeder  │ ───────────────► │  worker ×N       │ ──┘   fan-in
-   │ (1 gor.)│   fan-out        │  fn(ctx, item)   │
-   └─────────┘                  └──────────────────┘
-        │                              │
-        └────────── errgroup.WithContext(ctx) ──────────┘
-               première erreur ⇒ annule gctx ⇒
+        |                                              ^
+        v                                              |
+   +---------+   in (chan I)    +------------------+   |
+   | feeder  | ---------------> |  worker xN       | --+   fan-in
+   | (1 gor.)|   fan-out        |  fn(ctx, item)   |
+   +---------+                  +------------------+
+        |                              |
+        +---------- errgroup.WithContext(ctx) ----------+
+               première erreur => annule gctx =>
                feeder et workers s'arrêtent (zéro fuite)
 ```
 

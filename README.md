@@ -44,14 +44,14 @@ Le livre est organisé en 9 parties (55 chapitres, 7 projets, 13 annexes) :
 
 ```
 go-book/
-├─ README.md          présentation + parcours de lecture
-├─ SOMMAIRE.md        table des matières cliquable (pilote la navigation du site)
-├─ Makefile           cibles du générateur de site (build, serve, check…)
-├─ chapitres/         un fichier Markdown par chapitre (+ _gabarit.md)
-├─ code/              exemples compilables — module unique example.com/gobook
-├─ projets/           7 projets pratiques
-├─ annexes/           glossaire, antisèche, ressources…
-└─ tools/site/        générateur de site statique (module example.com/gobook-site)
++- README.md          présentation + parcours de lecture
++- SOMMAIRE.md        table des matières cliquable (pilote la navigation du site)
++- Makefile           cibles du générateur de site (build, serve, check…)
++- chapitres/         un fichier Markdown par chapitre (+ _gabarit.md)
++- code/              exemples compilables — module unique example.com/gobook
++- projets/           7 projets pratiques
++- annexes/           glossaire, antisèche, ressources…
++- tools/site/        générateur de site statique (module example.com/gobook-site)
 ```
 
 ## ✅ Exécuter et valider les exemples

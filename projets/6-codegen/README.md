@@ -55,13 +55,13 @@ Contraintes :
 
 ```
   color.go                                              example_enum.go
-     │                                                        ▲
-     │ go/parser.ParseFile (avec ParseComments)               │ go/format.Source
-     ▼                                                        │
-   *ast.File ──┐                                       []byte (gofmt'é)
-               │ parcours des Decls                           ▲
-               ▼                                               │
-   types annotés //enumgen:stringer  ───▶  modèle  ───▶  text/template.Execute
+     |                                                        ^
+     | go/parser.ParseFile (avec ParseComments)               | go/format.Source
+     v                                                        |
+   *ast.File --+                                       []byte (gofmt'é)
+               | parcours des Decls                           ^
+               v                                               |
+   types annotés //enumgen:stringer  --->  modèle  --->  text/template.Execute
    + constantes évaluées (iota…)         (File{Enums})
 ```
 
